@@ -12,7 +12,9 @@ SDL=-I/usr/local/include/SDL -L/usr/local/lib -lSDL
 midiplay: midiplay.o dbopl.o
 	$(CXX) -ansi $^ -Wall -W $(DEBUG) $(SDL) -o $@ 
 
-midiplay.o: midiplay.cc dbopl.h
+midiplay.o: midiplay.cc \
+		dbopl.h opl3.hh adldata.hh \
+		ui.hh midiplay.hh reverb.hh
 	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
 
 dbopl.o: dbopl.cpp dbopl.h
