@@ -1,7 +1,6 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
@@ -10,7 +9,10 @@
 
 #include <SDL.h>
 #include <deque>
-#include <pthread.h>
+
+#ifndef __MINGW32__
+# include <pthread.h>
+#endif
 
 #include "dbopl.h"
 
@@ -215,8 +217,9 @@ static void AddStereoAudio(unsigned long count, int* samples);
 
 static class UI
 {
+public:
     int x, y, color, txtline;
-    char slots[80][18], background[80][18+1];
+    char slots[80][19], background[80][19];
     bool cursor_visible;
 public:
     UI(): x(0), y(0), color(-1), txtline(1),
@@ -244,7 +247,11 @@ public:
         va_list ap;
         va_start(ap, fmt);
         char Line[512];
-        int nchars = std::vsnprintf(Line, sizeof(Line), fmt, ap);
+      #ifndef __CYGWIN__
+        int nchars = vsnprintf(Line, sizeof(Line), fmt, ap);
+      #else
+        int nchars = vsprintf(Line, fmt, ap); /* SECURITY: POSSIBLE BUFFER OVERFLOW */
+      #endif
         va_end(ap);
 
         HideCursor();
@@ -264,18 +271,22 @@ public:
     void IllustrateNote(int adlchn, int note, int ins, int pressure, double bend)
     {
         HideCursor();
-        int notex = (note+55)%79;
+        int notex = 2 + (note+55)%77;
         int notey = adlchn;
         char illustrate_char = background[notex][notey+1];
-        if(pressure)
+        if(pressure > 0)
         {
             illustrate_char = adl[ins][12];
             if(bend < 0) illustrate_char = '<';
             if(bend > 0) illustrate_char = '>';
         }
-        if(slots[notex][notey] != illustrate_char)
+        else if(pressure < 0)
         {
-            slots[notex][notey] = illustrate_char;
+            illustrate_char = '%';
+        }
+        if(slots[notex][notey+1] != illustrate_char)
+        {
+            slots[notex][notey+1] = illustrate_char;
             GotoXY(notex, notey+1);
             if(!pressure)
                 Color(illustrate_char=='.' ? 1 : 8);
@@ -457,37 +468,39 @@ class MIDIplay
     // Persistent settings for each MIDI channel
     struct MIDIchannel
     {
-        unsigned char patch, bank;
+        unsigned short bank;
+        unsigned char patch;
+        unsigned char volume, expression;
+        unsigned char panning, vibrato, sustain;
         double        bend;
-        int           volume;
-        int           expression;
-        int           panning;
-        int           vibrato;
+        unsigned char lastlrpn,lastmrpn; bool nrpn;
         struct NoteInfo
         {
-            int adlchn; // adlib channel
-            int vol;    // pressure
-            int ins;    // instrument selected on noteon
+            signed char adlchn; // adlib channel
+            unsigned char  vol; // pressure
+            unsigned short ins; // instrument selected on noteon
         };
-        std::map<int/*note number*/, NoteInfo> activenotes;
-        int lastlrpn,lastmrpn; bool nrpn;
+        typedef std::map<unsigned char,NoteInfo> activenotemap_t;
+        typedef activenotemap_t::iterator activenoteiterator;
+        activenotemap_t activenotes;
 
         MIDIchannel()
-            : patch(0), bank(0), bend(0), volume(127),expression(127), panning(0),
-              vibrato(0), activenotes(),
-              lastlrpn(0),lastmrpn(0),nrpn(false) { }
+            : bank(0), patch(0),
+              volume(100),expression(100),
+              panning(0), vibrato(0), sustain(0),
+              bend(0.0),
+              lastlrpn(0),lastmrpn(0),nrpn(false),
+              activenotes() { }
     } Ch[16];
     // Additional information about AdLib channels
     struct AdlChannel
     {
-        // For channel allocation:
-        bool   on;
-        double age;
         // For collisions
-        int    midichn;
-        int    note;
-
-        AdlChannel(): on(false),age(0), midichn(0),note(0) { }
+        unsigned char midichn, note;
+        // For channel allocation:
+        enum { off, on, sustained } state;
+        long   age;
+        AdlChannel(): midichn(0),note(0), state(off),age(0) { }
     } ch[18];
 
     std::vector< std::vector<unsigned char> > TrackData;
@@ -598,7 +611,7 @@ private:
 
     void NoteUpdate
         (unsigned MidCh,
-         std::map<int, MIDIchannel::NoteInfo>::iterator i,
+         MIDIchannel::activenoteiterator i,
          unsigned props_mask)
     {
         // Determine the instrument and the note value (tone)
@@ -606,29 +619,44 @@ private:
         if(MidCh == 9) tone = adl[ins][11]; // Percussion always uses constant tone
         // (MIDI channel 9 always plays percussion and ignores the patch number)
 
+        ch[c].age = 0;
         if(props_mask & Upd_Off) // note off
         {
-            ch[c].on  = false;
-            ch[c].age = 0.0;
-            opl.NoteOff(c);
+            if(Ch[MidCh].sustain == 0)
+            {
+                opl.NoteOff(c);
+                ch[c].state = AdlChannel::off;
+                UI.IllustrateNote(c, tone, ins, 0, 0.0);
+            }
+            else
+            {
+                // Sustain: Forget about the note, but don't key it off.
+                //          Also will avoid overwriting it very soon.
+                ch[c].state = AdlChannel::sustained;
+                UI.IllustrateNote(c, tone, ins, -1, 0.0);
+            }
             Ch[MidCh].activenotes.erase(i);
-            UI.IllustrateNote(c, tone, ins, 0, 0.0);
         }
-        else
+        if(props_mask & Upd_Patch)
         {
-            ch[c].on  = true;
-            ch[c].age = 0.0;
-            UI.IllustrateNote(c, tone, ins, i->second.vol, Ch[MidCh].bend);
+            opl.Patch(c, ins);
         }
-        if(props_mask & Upd_Patch ) opl.Patch(c, ins);
-        if(props_mask & Upd_Pan   ) opl.Pan(c,   Ch[MidCh].panning);
-        if(props_mask & Upd_Volume) opl.Touch(c, i->second.vol * Ch[MidCh].volume * Ch[MidCh].expression);
-        if(props_mask & Upd_Pitch )
+        if(props_mask & Upd_Pan)
+        {
+            opl.Pan(c, Ch[MidCh].panning);
+        }
+        if(props_mask & Upd_Volume)
+        {
+            opl.Touch(c, i->second.vol * Ch[MidCh].volume * Ch[MidCh].expression);
+        }
+        if(props_mask & Upd_Pitch)
         {
             double bend = Ch[MidCh].bend;
             if(Ch[MidCh].vibrato)
                 bend += (Ch[MidCh].vibrato * (0.5/127)) * std::sin(VibPos);
             opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
+            ch[c].state = AdlChannel::on;
+            UI.IllustrateNote(c, tone, ins, i->second.vol, Ch[MidCh].bend);
         }
     }
 
@@ -666,7 +694,7 @@ private:
         //fprintf(stderr, "Shortest: %ld --> %g [tempo=%g]\n", shortest, shortest*Tempo, Tempo);
         double t = shortest * Tempo;
         if(CurrentPosition.began) CurrentPosition.wait += t;
-        for(unsigned a=0; a<18; ++a) ch[a].age += t;
+        for(unsigned a=0; a<18; ++a) ch[a].age += t*1000;
 
         if(loopStart)
         {
@@ -737,22 +765,41 @@ private:
                     break;
                 }
                 // Allocate AdLib channel (the physical sound channel for the note)
-                double bs = -9;
-                unsigned c = 0, i = Ch[MidCh].patch;
-                if(MidCh==9)
+                long bs = -9;
+                unsigned c = ~0u, i = Ch[MidCh].patch;
+                if(MidCh == 9)
                     i = 128 + note - 35;
                 for(unsigned a=0; a<18; ++a)
                 {
-                    double s = ch[a].age;         // Age in seconds
-                    if(!ch[a].on) s += 3000.0;    // Empty channel = privileged
-                    if(i == opl.ins[a]) s += 0.02; // Same instrument = good
-                    if(a == MidCh) s += 0.02;
-                    if(i<128 && opl.ins[a]>127) s=s*2+9; // Percussion is inferior to melody
+                    long s = ch[a].age;   // Age in seconds = better score
+                    switch(ch[a].state)
+                    {
+                        case AdlChannel::off:
+                            s += 3000000; // Empty channel = privileged
+                            break;
+                        case AdlChannel::sustained:
+                            s += 100000;  // Sustained = free but deferred
+                            break;
+                        default: break;
+                    }
+                    if(i == opl.ins[a]) s += 20;  // Same instrument = good
+                    if(a == MidCh) s += 20;
+                    if(i<128 && opl.ins[a]>127)
+                        s=s*2+9000; // Percussion is inferior to melody
                     if(s > bs) { bs=s; c = a; } // Best candidate wins
                 }
-                if(ch[c].on) NoteOff(ch[c].midichn, ch[c].note); // Collision: Kill old note
+                if(c == ~0u) break; // Could not play this note. Ignore it.
+                if(ch[c].state == AdlChannel::on)
+                    NoteOff(ch[c].midichn, ch[c].note); // Collision: Kill old note
+                if(ch[c].state == AdlChannel::sustained)
+                {
+                    UI.IllustrateNote(c, ch[c].note, opl.ins[c], 0, 0.0);
+                    opl.NoteOff(c);
+                    // A sustained note needs to be keyoff'd
+                    // first so that it can be retriggered.
+                }
                 // Allocate active note for MIDI channel
-                std::pair<std::map<int,MIDIchannel::NoteInfo>::iterator,bool>
+                std::pair<MIDIchannel::activenoteiterator,bool>
                     ir = Ch[MidCh].activenotes.insert(
                         std::make_pair(note, MIDIchannel::NoteInfo()));
                 ir.first->second.adlchn = c;
@@ -768,7 +815,7 @@ private:
             {
                 int note = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
-                std::map<int,MIDIchannel::NoteInfo>::iterator
+                MIDIchannel::activenoteiterator
                     i = Ch[MidCh].activenotes.find(note);
                 if(i == Ch[MidCh].activenotes.end())
                 {
@@ -796,19 +843,24 @@ private:
                         Ch[MidCh].volume = value;
                         NoteUpdate_All(MidCh, Upd_Volume);
                         break;
+                    case 64: // Change sustain
+                        Ch[MidCh].sustain = value;
+                        break;
                     case 11: // Change expression (another volume factor)
                         Ch[MidCh].expression = value;
                         NoteUpdate_All(MidCh, Upd_Volume);
                         break;
                     case 10: // Change panning
-                        Ch[MidCh].panning = (value<48)?32:((value>79)?16:0);
+                        Ch[MidCh].panning = (value<64-32)?32:((value>=64+32)?16:0);
                         NoteUpdate_All(MidCh, Upd_Pan);
                         break;
                     case 121: // Reset all controllers
-                        Ch[MidCh].bend    = 0;
-                        Ch[MidCh].volume  = 127;
-                        Ch[MidCh].vibrato = 0;
-                        Ch[MidCh].panning = 0;
+                        Ch[MidCh].bend       = 0;
+                        Ch[MidCh].volume     = 100;
+                        Ch[MidCh].expression = 100;
+                        Ch[MidCh].sustain    = 0;
+                        Ch[MidCh].vibrato    = 0;
+                        Ch[MidCh].panning    = 0;
                         NoteUpdate_All(MidCh, Upd_Pan+Upd_Volume+Upd_Pitch);
                         break;
                     case 123: // All notes off
@@ -818,10 +870,8 @@ private:
                     case 99: Ch[MidCh].lastmrpn=value; Ch[MidCh].nrpn=true; break;
                     case 100:Ch[MidCh].lastlrpn=value; Ch[MidCh].nrpn=false; break;
                     case 101:Ch[MidCh].lastmrpn=value; Ch[MidCh].nrpn=false; break;
-                    case 6: SetRPN(MidCh, value, true); break;
+                    case  6: SetRPN(MidCh, value, true); break;
                     case 38: SetRPN(MidCh, value, false); break;
-                    // Other ctrls worth considering:
-                    //  64 = sustain pedal (how does it even work?)
                     default:
                         UI.PrintLn("Ctrl %d <- %d", ctrlno, value);
                 }
@@ -831,14 +881,14 @@ private:
                 Ch[MidCh].patch = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 if(Ch[MidCh].bank)
                 {
-                    UI.PrintLn("Bank %u ignored", Ch[MidCh].bank);
+                    UI.PrintLn("Bank %Xh ignored", Ch[MidCh].bank);
                 }
                 break;
             case 0xD: // Channel after-touch
             {
                 // TODO: Verify, is this correct action?
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
-                for(std::map<int,MIDIchannel::NoteInfo>::iterator
+                for(MIDIchannel::activenoteiterator
                     i = Ch[MidCh].activenotes.begin();
                     i != Ch[MidCh].activenotes.end();
                     ++i)
@@ -874,19 +924,19 @@ private:
 
     void NoteOff(unsigned MidCh, int note)
     {
-        std::map<int,MIDIchannel::NoteInfo>::iterator
+        MIDIchannel::activenoteiterator
             i = Ch[MidCh].activenotes.find(note);
         if(i != Ch[MidCh].activenotes.end())
             NoteUpdate(MidCh, i, Upd_Off);
     }
     void NoteUpdate_All(unsigned MidCh, unsigned props_mask)
     {
-        for(std::map<int,MIDIchannel::NoteInfo>::iterator
+        for(MIDIchannel::activenoteiterator
             i = Ch[MidCh].activenotes.begin();
             i != Ch[MidCh].activenotes.end();
             )
         {
-            std::map<int,MIDIchannel::NoteInfo>::iterator j(i++);
+            MIDIchannel::activenoteiterator j(i++);
             NoteUpdate(MidCh, j, props_mask);
         }
     }
@@ -986,25 +1036,29 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(OPL3::PCM_RATE,
-                4.0,  // wet_gain_dB  (-10..10)
+                5.0,  // wet_gain_dB  (-10..10)
                 .7,   // room_scale   (0..1)
                 .6,   // reverberance (0..1)
                 .5,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
-                1.0,  // stereo_depth (0..1)
+                .6,   // stereo_depth (0..1)
                 MaxSamplesAtTime);
     }
 } reverb_data;
 /* REVERB CODE END */
 
 static std::deque<short> AudioBuffer;
+#ifndef __MINGW32__
 static pthread_mutex_t AudioBuffer_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 static void SDL_AudioCallback(void*, Uint8* stream, int len)
 {
     SDL_LockAudio();
     short* target = (short*) stream;
+    #ifndef __MINGW32__
     pthread_mutex_lock(&AudioBuffer_lock);
+    #endif
     /*if(len != AudioBuffer.size())
         fprintf(stderr, "len=%d stereo samples, AudioBuffer has %u stereo samples",
             len/4, (unsigned) AudioBuffer.size()/2);*/
@@ -1014,7 +1068,9 @@ static void SDL_AudioCallback(void*, Uint8* stream, int len)
         target[a] = AudioBuffer[a];
     AudioBuffer.erase(AudioBuffer.begin(), AudioBuffer.begin() + ate);
     //fprintf(stderr, " - remain %u\n", (unsigned) AudioBuffer.size()/2);
+    #ifndef __MINGW32__
     pthread_mutex_unlock(&AudioBuffer_lock);
+    #endif
     SDL_UnlockAudio();
 }
 static void AddMonoAudio(unsigned long /*count*/, int* /*samples*/)
@@ -1037,13 +1093,42 @@ static void AddStereoAudio(unsigned long count, int* samples)
         prev_avg_flt[0] = (prev_avg_flt[0] + average[0]*0.04/double(count)) / 1.04,
         prev_avg_flt[1] = (prev_avg_flt[1] + average[1]*0.04/double(count)) / 1.04
     };
+    // Figure out the amplitude of both channels
+    static unsigned amplitude_display_counter = 0;
+    if(!amplitude_display_counter--)
+    {
+        amplitude_display_counter = (OPL3::PCM_RATE / count) / 10;
+        double amp[2]={0,0};
+        for(unsigned w=0; w<2; ++w)
+        {
+            average[w] /= double(count);
+            for(unsigned long p = 0; p < count; ++p)
+                amp[w] += std::fabs(samples[p*2+w] - average[w]);
+            amp[w] /= double(count);
+            // Turn into logarithmic scale
+            amp[w] = std::log(amp[w]) * (18 / std::log(65535.0));
+        }
+        for(unsigned y=0; y<18; ++y)
+            for(unsigned w=0; w<2; ++w)
+            {
+                char c = amp[w] > 17-y ? '|' : UI.background[w][y+1];
+                if(UI.slots[w][y+1] != c)
+                {
+                    UI.HideCursor();
+                    UI.GotoXY(w,y+1);
+                    UI.Color(c=='|' ? (y?(y<4?12:(y<8?14:10)):15) :
+                            (c=='.' ? 1 : 8));
+                    std::fputc(UI.slots[w][y+1] = c, stderr);
+                    UI.x += 1;
+    }       }   }
+
     // Convert input to float format
     std::vector<float> dry[2];
     for(unsigned w=0; w<2; ++w)
     {
         dry[w].resize(count);
         for(unsigned long p = 0; p < count; ++p)
-            dry[w][p] = (samples[p*2+w] - average_flt[w]) * double(0.4/32768.0);
+            dry[w][p] = (samples[p*2+w] - average_flt[w]) * double(0.6/32768.0);
         reverb_data.chan[w].input_fifo.insert(
         reverb_data.chan[w].input_fifo.end(),
             dry[w].begin(), dry[w].end());
@@ -1053,7 +1138,9 @@ static void AddStereoAudio(unsigned long count, int* samples)
         reverb_data.chan[w].Process(count);
 
     // Convert to signed 16-bit int format and put to playback queue
+    #ifndef __MINGW32__
     pthread_mutex_lock(&AudioBuffer_lock);
+    #endif
     size_t pos = AudioBuffer.size();
     AudioBuffer.resize(pos + count*2);
     for(unsigned long p = 0; p < count; ++p)
@@ -1067,7 +1154,9 @@ static void AddStereoAudio(unsigned long count, int* samples)
                 out<-32768.f ? -32768 :
                 out>32767.f ?  32767 : out;
         }
+    #ifndef __MINGW32__
     pthread_mutex_unlock(&AudioBuffer_lock);
+    #endif
 }
 
 int main(int argc, char** argv)
