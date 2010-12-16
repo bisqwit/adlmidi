@@ -989,7 +989,7 @@ static struct MyReverbData
                 4.0,  // wet_gain_dB  (-10..10)
                 .7,   // room_scale   (0..1)
                 .6,   // reverberance (0..1)
-                .3,   // hf_damping   (0..1)
+                .5,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
                 1.0,  // stereo_depth (0..1)
                 MaxSamplesAtTime);
