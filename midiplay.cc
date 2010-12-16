@@ -470,10 +470,12 @@ class MIDIplay
             int ins;    // instrument selected on noteon
         };
         std::map<int/*note number*/, NoteInfo> activenotes;
+        int lastlrpn,lastmrpn; bool nrpn;
 
         MIDIchannel()
             : patch(0), bank(0), bend(0), volume(127),expression(127), panning(0),
-              vibrato(0), activenotes() { }
+              vibrato(0), activenotes(),
+              lastlrpn(0),lastmrpn(0),nrpn(false) { }
     } Ch[16];
     // Additional information about AdLib channels
     struct AdlChannel
@@ -688,9 +690,9 @@ private:
             // Special Fx events
             if(byte == 0xF7 || byte == 0xF0)
                 { unsigned length = ReadVarLen(tk);
-                  std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
+                  //std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
                   CurrentPosition.track[tk].ptr += length;
-                  UI.PrintLn("SysEx %02X: %u,%s", byte, length, data.c_str());
+                  UI.PrintLn("SysEx %02X: %u bytes", byte, length/*, data.c_str()*/);
                   return; } // Ignore SysEx
             if(byte == 0xF3) { CurrentPosition.track[tk].ptr += 1; return; }
             if(byte == 0xF2) { CurrentPosition.track[tk].ptr += 2; return; }
@@ -739,10 +741,6 @@ private:
                 unsigned c = 0, i = Ch[MidCh].patch;
                 if(MidCh==9)
                     i = 128 + note - 35;
-                if(Ch[MidCh].bank)
-                {
-                    // ignore bank.
-                }
                 for(unsigned a=0; a<18; ++a)
                 {
                     double s = ch[a].age;         // Age in seconds
@@ -790,10 +788,10 @@ private:
                     case 1: // Adjust vibrato
                         //UI.PrintLn("%u:vibrato %d", MidCh,value);
                         Ch[MidCh].vibrato = value; break;
-                    case 0: case 32: // Set bank
-                        Ch[MidCh].bank = value; break;
-                    case 6: // Adjust pitch-bender sensitivity
-                        BendSense = value / 8192.0; break;
+                    case 0: // Set bank msb
+                        Ch[MidCh].bank = (Ch[MidCh].bank & 0xFF) | (value<<8); break;
+                    case 32: // Set bank lsb
+                        Ch[MidCh].bank = (Ch[MidCh].bank & 0xFF00) | (value); break;
                     case 7: // Change volume
                         Ch[MidCh].volume = value;
                         NoteUpdate_All(MidCh, Upd_Volume);
@@ -816,6 +814,12 @@ private:
                     case 123: // All notes off
                         NoteUpdate_All(MidCh, Upd_Off);
                         break;
+                    case 98: Ch[MidCh].lastlrpn=value; Ch[MidCh].nrpn=true; break;
+                    case 99: Ch[MidCh].lastmrpn=value; Ch[MidCh].nrpn=true; break;
+                    case 100:Ch[MidCh].lastlrpn=value; Ch[MidCh].nrpn=false; break;
+                    case 101:Ch[MidCh].lastmrpn=value; Ch[MidCh].nrpn=false; break;
+                    case 6: SetRPN(MidCh, value, true); break;
+                    case 38: SetRPN(MidCh, value, false); break;
                     // Other ctrls worth considering:
                     //  64 = sustain pedal (how does it even work?)
                     default:
@@ -825,6 +829,10 @@ private:
             }
             case 0xC: // Patch change
                 Ch[MidCh].patch = TrackData[tk][CurrentPosition.track[tk].ptr++];
+                if(Ch[MidCh].bank)
+                {
+                    UI.PrintLn("Bank %u ignored", Ch[MidCh].bank);
+                }
                 break;
             case 0xD: // Channel after-touch
             {
@@ -849,6 +857,18 @@ private:
                 NoteUpdate_All(MidCh, Upd_Pitch);
                 break;
             }
+        }
+    }
+
+    void SetRPN(unsigned MidCh, unsigned value, bool MSB)
+    {
+        bool nrpn = Ch[MidCh].nrpn;
+        unsigned addr = Ch[MidCh].lastmrpn*0x100 + Ch[MidCh].lastlrpn;
+        switch(addr + nrpn*0x10000 + MSB*0x20000)
+        {
+            case 0x20000: BendSense = value/8192.0; break;
+            default: UI.PrintLn("%s %04X <- %d (%cSB)",
+                "NRPN"+!nrpn, addr, value, "LM"[MSB]);
         }
     }
 
