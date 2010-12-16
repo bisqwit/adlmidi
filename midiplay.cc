@@ -395,10 +395,10 @@ struct OPL3
         {unsigned x = adl[i][3];
         Poke(p.port, 0x43 + p.oper, (x | 63) - volume + ((x & 63) * volume) / 63);}
     }
-    void Touch(unsigned c, unsigned volume)
+    void Touch(unsigned c, unsigned volume) // Volume maxes at 127*127*127
     {
-        // The formula below: SOLVE(V=127*127 * 2^( (A-63) / 8), A)
-        Touch_Real(c, volume<72 ? 0 : std::log(volume)*11.541561 - 48.818955);
+        // The formula below: SOLVE(V=127^3 * 2^( (A-63) / 8), A)
+        Touch_Real(c, volume<=9112 ? 0 : std::log(volume)*11.541561 + (0.5 - 104.72843));
     }
     void Patch(unsigned c, unsigned i)
     {
@@ -460,25 +460,9 @@ class MIDIplay
         unsigned char patch, bank;
         double        bend;
         int           volume;
+        int           expression;
         int           panning;
         int           vibrato;
-        // Active notes:
-        //   For each active note, we need the following:
-        //       Original note number (ORIGINAL, not simulated)
-        //          Keyoff      (Search Key)
-        //          Aftertouch  (Search Key)
-        //       Simulated note number
-        //          Keyon -> OPL_NoteOn
-        //          Bend  -> OPL_NoteOn
-        //          Can be derived from patch at noteon-time
-        //       Keyon/touch pressure
-        //          Ctrl:Volume
-        //       Adlib channel number
-        //          All of above
-        //       MIDI channel (multi search key)
-        //          Bend
-        //          Ctrl:Volume
-        //          Ctrl:Pan
         struct NoteInfo
         {
             int adlchn; // adlib channel
@@ -488,7 +472,7 @@ class MIDIplay
         std::map<int/*note number*/, NoteInfo> activenotes;
 
         MIDIchannel()
-            : patch(0), bank(0), bend(0), volume(127),panning(0),
+            : patch(0), bank(0), bend(0), volume(127),expression(127), panning(0),
               vibrato(0), activenotes() { }
     } Ch[16];
     // Additional information about AdLib channels
@@ -636,7 +620,7 @@ private:
         }
         if(props_mask & Upd_Patch ) opl.Patch(c, ins);
         if(props_mask & Upd_Pan   ) opl.Pan(c,   Ch[MidCh].panning);
-        if(props_mask & Upd_Volume) opl.Touch(c, i->second.vol * Ch[MidCh].volume);
+        if(props_mask & Upd_Volume) opl.Touch(c, i->second.vol * Ch[MidCh].volume * Ch[MidCh].expression);
         if(props_mask & Upd_Pitch )
         {
             double bend = Ch[MidCh].bend;
@@ -703,8 +687,10 @@ private:
             //std::fprintf(stderr, "@%X Track %u: %02X\n", CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte);
             // Special Fx events
             if(byte == 0xF7 || byte == 0xF0)
-                { unsigned v = ReadVarLen(tk);
-                  fprintf(stderr, "SysEx %02X: %u\n", byte, v);
+                { unsigned length = ReadVarLen(tk);
+                  std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
+                  CurrentPosition.track[tk].ptr += length;
+                  UI.PrintLn("SysEx %02X: %u,%s", byte, length, data.c_str());
                   return; } // Ignore SysEx
             if(byte == 0xF3) { CurrentPosition.track[tk].ptr += 1; return; }
             if(byte == 0xF2) { CurrentPosition.track[tk].ptr += 2; return; }
@@ -810,6 +796,10 @@ private:
                         BendSense = value / 8192.0; break;
                     case 7: // Change volume
                         Ch[MidCh].volume = value;
+                        NoteUpdate_All(MidCh, Upd_Volume);
+                        break;
+                    case 11: // Change expression (another volume factor)
+                        Ch[MidCh].expression = value;
                         NoteUpdate_All(MidCh, Upd_Volume);
                         break;
                     case 10: // Change panning
