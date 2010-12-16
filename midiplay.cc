@@ -747,7 +747,7 @@ private:
                 {
                     double s = ch[a].age;         // Age in seconds
                     if(!ch[a].on) s += 3000.0;    // Empty channel = privileged
-                    if(i == opl.ins[a]) s += 1.2; // Same instrument = good
+                    if(i == opl.ins[a]) s += 0.02; // Same instrument = good
                     if(a == MidCh) s += 0.02;
                     if(i<128 && opl.ins[a]>127) s=s*2+9; // Percussion is inferior to melody
                     if(s > bs) { bs=s; c = a; } // Best candidate wins
@@ -817,7 +817,6 @@ private:
                         NoteUpdate_All(MidCh, Upd_Off);
                         break;
                     // Other ctrls worth considering:
-                    //  0 = 32 = choose bank (bank+patch identifies the instrument)
                     //  64 = sustain pedal (how does it even work?)
                     default:
                         UI.PrintLn("Ctrl %d <- %d", ctrlno, value);
@@ -874,7 +873,7 @@ private:
 };
 
 /* REVERB CODE BEGIN */
-struct Reverb
+struct Reverb /* This reverb implementation is based on Freeverb impl. in Sox */
 {
     float feedback, hf_damping, gain;
     struct FilterArray
@@ -931,8 +930,7 @@ struct Reverb
         double wet_gain_dB,
         double room_scale, double reverberance, double fhf_damping, /* 0..1 */
         double pre_delay_s, double stereo_depth,
-        size_t buffer_size,
-        float*(& fout)[2])
+        size_t buffer_size)
     {
         size_t delay = pre_delay_s  * sample_rate_Hz + .5;
         double scale = room_scale * .9 + .1;
@@ -941,13 +939,12 @@ struct Reverb
         double b = 100 / (std::log(1 - /**/.98/**/) * a + 1); // Set maximum feedback
         feedback = 1 - std::exp((reverberance*100.0 - b) / (a * b));
         hf_damping = fhf_damping * .3 + .2;
-        gain = std::exp(wet_gain_dB * std::log(10.0) * 0.05) * .015;
+        gain = std::exp(wet_gain_dB * (std::log(10.0) * 0.05)) * .015;
         input_fifo.insert(input_fifo.end(), delay, 0.f);
         for(size_t i = 0; i <= std::ceil(depth); ++i)
         {
             chan[i].Create(sample_rate_Hz, scale, i * depth);
             out[i].resize(buffer_size);
-            fout[i] = &out[i][0];
         }
     }
     void Process(size_t length)
@@ -963,19 +960,19 @@ struct Reverb
 static struct MyReverbData
 {
     bool wetonly;
-    struct { Reverb reverb; float* wet[2]; } chan[2];
+    Reverb chan[2];
 
     MyReverbData() : wetonly(false)
     {
         for(size_t i=0; i<2; ++i)
-            chan[i].reverb.Create(OPL3::PCM_RATE,
+            chan[i].Create(OPL3::PCM_RATE,
                 4.0,  // wet_gain_dB  (-10..10)
                 .7,   // room_scale   (0..1)
-                .5,   // reverberance (0..1)
+                .6,   // reverberance (0..1)
                 .3,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
                 1.0,  // stereo_depth (0..1)
-                MaxSamplesAtTime, chan[i].wet);
+                MaxSamplesAtTime);
     }
 } reverb_data;
 /* REVERB CODE END */
@@ -983,7 +980,7 @@ static struct MyReverbData
 static std::deque<short> AudioBuffer;
 static pthread_mutex_t AudioBuffer_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static void AudioCallback(void*, Uint8* stream, int len)
+static void SDL_AudioCallback(void*, Uint8* stream, int len)
 {
     SDL_LockAudio();
     short* target = (short*) stream;
@@ -1008,33 +1005,34 @@ static void AddMonoAudio(unsigned long /*count*/, int* /*samples*/)
 static void AddStereoAudio(unsigned long count, int* samples)
 {
     if(!count) return;
-    std::vector<float> dry[2];
+    // Attempt to filter out the DC component. However, avoid doing
+    // sudden changes to the offset, for it can be audible.
     double average[2]={0,0};
     for(unsigned w=0; w<2; ++w)
         for(unsigned long p = 0; p < count; ++p)
             average[w] += samples[p*2+w];
-    // Attempt to filter out the DC component. However, avoid doing
-    // sudden changes to the offset, for it can be audible.
     static float prev_avg_flt[2] = {0,0};
     float average_flt[2] =
     {
-        prev_avg_flt[0] = (prev_avg_flt[0] + average[0]*0.01/double(count)) / 1.01,
-        prev_avg_flt[1] = (prev_avg_flt[1] + average[1]*0.01/double(count)) / 1.01
+        prev_avg_flt[0] = (prev_avg_flt[0] + average[0]*0.04/double(count)) / 1.04,
+        prev_avg_flt[1] = (prev_avg_flt[1] + average[1]*0.04/double(count)) / 1.04
     };
+    // Convert input to float format
+    std::vector<float> dry[2];
     for(unsigned w=0; w<2; ++w)
     {
         dry[w].resize(count);
         for(unsigned long p = 0; p < count; ++p)
             dry[w][p] = (samples[p*2+w] - average_flt[w]) * double(0.4/32768.0);
-        reverb_data.chan[w].reverb.input_fifo.insert(
-        reverb_data.chan[w].reverb.input_fifo.end(),
+        reverb_data.chan[w].input_fifo.insert(
+        reverb_data.chan[w].input_fifo.end(),
             dry[w].begin(), dry[w].end());
     }
+    // Reverbify it
     for(unsigned w=0; w<2; ++w)
-    {
-        reverb_data.chan[w].reverb.Process(count);
-    }
+        reverb_data.chan[w].Process(count);
 
+    // Convert to signed 16-bit int format and put to playback queue
     pthread_mutex_lock(&AudioBuffer_lock);
     size_t pos = AudioBuffer.size();
     AudioBuffer.resize(pos + count*2);
@@ -1042,8 +1040,8 @@ static void AddStereoAudio(unsigned long count, int* samples)
         for(unsigned w=0; w<2; ++w)
         {
             float out = ((1 - reverb_data.wetonly) * dry[w][p] +
-                .5 * (reverb_data.chan[0].wet[w][p]
-                    + reverb_data.chan[1].wet[w][p])) * 32768.0f
+                .5 * (reverb_data.chan[0].out[w][p]
+                    + reverb_data.chan[1].out[w][p])) * 32768.0f
                  + average_flt[w];
             AudioBuffer[pos+p*2+w] =
                 out<-32768.f ? -32768 :
@@ -1060,7 +1058,7 @@ int main(int argc, char** argv)
     spec.format   = AUDIO_S16SYS;
     spec.channels = 2;
     spec.samples  = spec.freq / Interval;
-    spec.callback = AudioCallback;
+    spec.callback = SDL_AudioCallback;
     if(SDL_OpenAudio(&spec, 0) < 0)
     {
         std::fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
