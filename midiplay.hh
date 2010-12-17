@@ -40,7 +40,7 @@ class MIDIplay
         MIDIchannel()
             : bank(0), portamento(0), patch(0),
               volume(100),expression(100),
-              panning(0), vibrato(0), sustain(0),
+              panning(0x30), vibrato(0), sustain(0),
               bend(0.0), bendsense(2 / 8192.0),
               lastlrpn(0),lastmrpn(0),nrpn(false),
               activenotes() { }
@@ -420,7 +420,9 @@ private:
                         NoteUpdate_All(MidCh, Upd_Volume);
                         break;
                     case 10: // Change panning
-                        Ch[MidCh].panning = (value<64-32)?32:((value>=64+32)?16:0);
+                        Ch[MidCh].panning = 0x00;
+                        if(value  < 64+32) Ch[MidCh].panning |= 0x10;
+                        if(value >= 64-32) Ch[MidCh].panning |= 0x20;
                         NoteUpdate_All(MidCh, Upd_Pan);
                         break;
                     case 121: // Reset all controllers
@@ -429,7 +431,7 @@ private:
                         Ch[MidCh].expression = 100;
                         Ch[MidCh].sustain    = 0;
                         Ch[MidCh].vibrato    = 0;
-                        Ch[MidCh].panning    = 0;
+                        Ch[MidCh].panning    = 0x30;
                         Ch[MidCh].portamento = 0;
                         UpdatePortamento(MidCh);
                         NoteUpdate_All(MidCh, Upd_Pan+Upd_Volume+Upd_Pitch);

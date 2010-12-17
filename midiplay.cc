@@ -6,6 +6,7 @@
 #include <cmath>
 #include <unistd.h>
 #include <stdarg.h>
+#include <cstdio>
 
 #include <SDL.h>
 #include <deque>
@@ -73,7 +74,7 @@ static void AddStereoAudio(unsigned long count, int* samples)
     static unsigned amplitude_display_counter = 0;
     if(!amplitude_display_counter--)
     {
-        amplitude_display_counter = (OPL3::PCM_RATE / count) / 10;
+        amplitude_display_counter = (OPL3::PCM_RATE / count) / 24;
         double amp[2]={0,0};
         for(unsigned w=0; w<2; ++w)
         {
@@ -82,7 +83,9 @@ static void AddStereoAudio(unsigned long count, int* samples)
                 amp[w] += std::fabs(samples[p*2+w] - average[w]);
             amp[w] /= double(count);
             // Turn into logarithmic scale
-            amp[w] = std::log(amp[w]) * (18 / std::log(65535.0));
+            const double dB = std::log(amp[w]<1 ? 1 : amp[w]) * 4.328085123;
+            const double maxdB = 3*16; // = 3 * log2(65536)
+            amp[w] = 18*dB/maxdB;
         }
         for(unsigned y=0; y<18; ++y)
             for(unsigned w=0; w<2; ++w)
@@ -90,11 +93,12 @@ static void AddStereoAudio(unsigned long count, int* samples)
                 char c = amp[w] > 17-y ? '|' : UI.background[w][y+1];
                 if(UI.slots[w][y+1] != c)
                 {
+                    UI.slots[w][y+1] = c;
                     UI.HideCursor();
                     UI.GotoXY(w,y+1);
                     UI.Color(c=='|' ? (y?(y<4?12:(y<8?14:10)):15) :
                             (c=='.' ? 1 : 8));
-                    std::fputc(UI.slots[w][y+1] = c, stderr);
+                    std::fputc(c, stderr);
                     UI.x += 1;
     }       }   }
 
