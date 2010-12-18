@@ -43,7 +43,7 @@ struct OPL3
     }
     void Touch_Real(unsigned c, unsigned volume)
     {
-        unsigned i = ins[c], x = adl[i][8], y = adl[i][9];
+        unsigned i = ins[c], x = adl[i].carrier_40, y = adl[i].modulator_40;
         Poke(0x40 + Operators[c], (x|63) - volume + volume*(x&63)/63);
         Poke(0x43 + Operators[c], (y|63) - volume + volume*(y&63)/63);
         // Correct formula (ST3, AdPlug):
@@ -62,15 +62,18 @@ struct OPL3
     }
     void Patch(unsigned c, unsigned i)
     {
-        static const unsigned char data[8] =
-            {0x20,0x23,0x60,0x63,0x80,0x83,0xE0,0xE3};
-        unsigned o = Operators[c];
+        static const unsigned char data[4] = {0x20,0x60,0x80,0xE0};
         ins[c] = i;
-        for(unsigned a=0; a<8; ++a) Poke(data[a]+o, adl[i][a]);
+        unsigned o = Operators[c], x = adl[i].carrier_E862, y = adl[i].modulator_E862;
+        for(unsigned a=0; a<4; ++a)
+        {
+            Poke(data[a]+o,   x&0xFF); x>>=8;
+            Poke(data[a]+o+3, y&0xFF); y>>=8;
+        }
     }
     void Pan(unsigned c, unsigned value)
     {
-        Poke(0xC0+Channels[c], adl[ins[c]][10] | value);
+        Poke(0xC0+Channels[c], adl[ins[c]].feedconn | value);
     }
     void Silence() // Silence all OPL channels.
     {
