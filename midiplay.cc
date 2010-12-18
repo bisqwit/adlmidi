@@ -17,6 +17,8 @@
 
 static const unsigned MaxSamplesAtTime = 512; // dbopl limitation
 
+static unsigned AdlBank = 0;
+
 #include "adldata.hh"
 #include "ui.hh"
 #include "opl3.hh"
@@ -154,9 +156,19 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if(argc != 2)
+    if(argc < 2 )
     {
-        std::fprintf(stderr, "Usage: midiplay <midifilename>\n");
+        std::printf(
+            "Usage: midiplay <midifilename> [<banknumber>]\n"
+            "     Banks: 0 = General MIDI\n"
+            "            1 = HMI\n"
+            "            2 = HMI Int\n"
+            "            3 = HMI Ham\n"
+            "            4 = HMI Rick\n"
+            "     Use banks 1-4 to play Descent \"q\" soundtracks.\n"
+            "     Look up the relevant bank number from descent.sng.\n"
+            "\n"
+            );
         return 0;
     }
 
@@ -164,6 +176,16 @@ int main(int argc, char** argv)
 
     if(!player.LoadMIDI(argv[1]))
         return 2;
+    if(argc == 3)
+    {
+        AdlBank = std::atoi(argv[2]);
+        if(AdlBank > 4 || AdlBank < 0)
+        {
+            std::fprintf(stderr, "bank number may only be 0..4.\n");
+            return 0;
+        }
+        std::printf("Bank %u selected.\n", AdlBank);
+    }
 
     SDL_PauseAudio(0);
 

@@ -32,6 +32,7 @@ class MIDIplay
             signed char adlchn; // adlib channel
             unsigned char  vol; // pressure
             unsigned short ins; // instrument selected on noteon
+            unsigned short tone; // tone selected for note
         };
         typedef std::map<unsigned char,NoteInfo> activenotemap_t;
         typedef activenotemap_t::iterator activenoteiterator;
@@ -168,9 +169,7 @@ private:
          unsigned props_mask)
     {
         // Determine the instrument and the note value (tone)
-        int c = i->second.adlchn, tone = i->first, ins = i->second.ins;
-        if(MidCh == 9) tone = adl[ins][11]; // Percussion always uses constant tone
-        // (MIDI channel 9 always plays percussion and ignores the patch number)
+        int c = i->second.adlchn, tone = i->second.tone, ins = i->second.ins;
 
         ch[c].age = 0;
         if(props_mask & Upd_Off) // note off
@@ -321,27 +320,31 @@ private:
                 // Allocate AdLib channel (the physical sound channel for the note)
                 long bs = -9;
                 unsigned c = ~0u, i = Ch[MidCh].patch;
-                if(MidCh == 9)
-                    i = 128 + note - 35;
+                if(MidCh == 9) i = 128 + note; // Percussion instrument
+                i = banks[AdlBank][i];
+
+                int tone = adlins[i].tone ? adlins[i].tone : note;
+                i = adlins[i].adlno;
+
                 for(unsigned a = 0; a < 18; ++a)
                 {
                     long s = ch[a].age;   // Age in seconds = better score
                     switch(ch[a].state)
                     {
                         case AdlChannel::off:
-                            s += 3000000; // Empty channel = privileged
+                            s += 15000; // Empty channel = privileged
                             break;
                         case AdlChannel::sustained:
-                            s += 100000;  // Sustained = free but deferred
+                            s += 5000;  // Sustained = free but deferred
                             break;
                         default: break;
                     }
-                    if(i == opl.ins[a]) s += 20;  // Same instrument = good
+                    if(i == opl.ins[a]) s += 50;  // Same instrument = good
                     if(a == MidCh) s += 20;
                     if(i<128 && opl.ins[a]>127)
-                        s=s*2+9000;   // Percussion is inferior to melody
+                        s += 800;   // Percussion is inferior to melody
                     else if(opl.ins[a]<128 && i>127)
-                        s=(s-9000)/2; // Percussion is inferior to melody
+                        s -= 800; // Percussion is inferior to melody
                     if(s > bs) { bs=s; c = a; } // Best candidate wins
                 }
                 if(c == ~0u) break; // Could not play this note. Ignore it.
@@ -360,6 +363,7 @@ private:
                 ir.first->second.adlchn = c;
                 ir.first->second.vol    = vol;
                 ir.first->second.ins    = i;
+                ir.first->second.tone   = tone;
                 ch[c].midichn = MidCh;
                 ch[c].note    = note;
                 CurrentPosition.began  = true;

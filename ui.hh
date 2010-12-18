@@ -63,7 +63,7 @@ public:
         char illustrate_char = background[notex][notey];
         if(pressure > 0)
         {
-            illustrate_char = adl[ins][12];
+            illustrate_char = adl[ins][11];
             if(bend < 0) illustrate_char = '<';
             if(bend > 0) illustrate_char = '>';
         }

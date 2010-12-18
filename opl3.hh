@@ -12,7 +12,7 @@ static const unsigned short Channels[18] =
 struct OPL3
 {
     static const unsigned long PCM_RATE = 48000;
-    unsigned char ins[18], pit[18];
+    unsigned short ins[18], pit[18];
     DBOPL::Handler dbopl_handler;
 
     void Poke(unsigned index, unsigned value)
@@ -64,7 +64,8 @@ struct OPL3
     {
         static const unsigned char data[8] =
             {0x20,0x23,0x60,0x63,0x80,0x83,0xE0,0xE3};
-        unsigned o = Operators[c]; ins[c] = i;
+        unsigned o = Operators[c];
+        ins[c] = i;
         for(unsigned a=0; a<8; ++a) Poke(data[a]+o, adl[i][a]);
     }
     void Pan(unsigned c, unsigned value)
@@ -78,7 +79,7 @@ struct OPL3
     void Reset()
     {
         dbopl_handler.Init(PCM_RATE);
-        for(unsigned a=0; a<18; ++a) ins[a] = pit[a] = 0;
+        for(unsigned a=0; a<18; ++a) { ins[a] = 198; pit[a] = 0; }
         static const short data[(2+3+2+2)*2] =
         { 0x004,96, 0x004,128,        // Pulse timer
           0x105, 0, 0x105,1, 0x105,0, // Pulse OPL3 enable
