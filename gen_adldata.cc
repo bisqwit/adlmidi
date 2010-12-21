@@ -576,12 +576,12 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         const unsigned char* op2 = &data[offset2+15];
 
         bool percussive = is_fat
-            ?   name[1] == 'P'
-            :   data[offset2] == 1;
+            ?   name[1] == 'P' /* data[offset2] == 1 */
+            :   (c != 0);
 
         int gmno = is_fat
             ?   ((n & 127) + percussive*128)
-            :   (a + percussive*128);
+            :   (n + percussive*128);
 
         if(is_fat && percussive)
         {
@@ -591,11 +591,6 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
                 gmno = 128 + std::atoi(name.substr(3).c_str());
             }
         }
-
-        int midi_index = gmno < 128 ? gmno
-                       : gmno < 128+35 ? -1
-                       : gmno < 128+88 ? gmno-35
-                       : -1;
 
         char name2[512];
         if(is_fat)
@@ -627,6 +622,8 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         // Note: op2[2] and op2[12] are unused and contain garbage.
         ins tmp2;
         tmp2.notenum = is_fat ? data[offset2+1] : c;
+
+        if(is_fat) tmp.data[10] ^= 1;
 
         size_t resno = InsertIns(tmp,tmp, tmp2, std::string(1,'\377')+name, name2);
 
@@ -740,7 +737,6 @@ static void LoadDoom(const char* fn, unsigned bank, const char* prefix)
                 name += char(data[offset1+p]);
 
         //printf("%3d %3d %3d %8s: ", a,b,c, name.c_str());
-        int midi_index = a;
         int gmno = a<128 ? a : ((a|128)+35);
 
         char name2[512]; sprintf(name2, "%s%c%u", prefix, (gmno<128?'M':'P'), gmno&127);
@@ -813,56 +809,58 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
         unsigned gmnumber  = data[a*6+0];
         unsigned gmnumber2 = data[a*6+1];
         unsigned offset    = *(unsigned*)&data[a*6+2];
+        
         if(gmnumber == 0xFF) break;
         int gmno = gmnumber2==0x7F ? gmnumber+0x80 : gmnumber;
         int midi_index = gmno < 128 ? gmno
                        : gmno < 128+35 ? -1
                        : gmno < 128+88 ? gmno-35
                        : -1;
-        unsigned length = data[offset];
+        unsigned length = data[offset] + data[offset+1]*256;
         signed char notenum = data[offset+2];
+
+        /*printf("%02X %02X %08X ", gmnumber,gmnumber2, offset);
+        for(unsigned b=0; b<length; ++b)
+        {
+            if(b > 3 && (b-3)%11 == 0) printf("\n                        ");
+            printf("%02X ", data[offset+b]);
+        }
+        printf("\n");*/
 
         char name2[512]; sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
-        insdata tmp[2];
+        insdata tmp[200];
 
         const unsigned inscount = (length-3)/11;
         for(unsigned i=0; i<inscount; ++i)
         {
             unsigned o = offset + 3 + i*11;
             tmp[i].finetune = (gmno < 128 && i == 0) ? notenum : 0;
-            tmp[i].data[0] = data[o-3+3];  // 20
-            tmp[i].data[8] = data[o-3+4];  // 40 (vol)
-            tmp[i].data[2] = data[o-3+5];  // 60
-            tmp[i].data[4] = data[o-3+6];  // 80
-            tmp[i].data[6] = data[o-3+7];  // E0
-            tmp[i].data[10] = data[offset+8] & 0x0F; // C0
-            if(i == 1)
-                tmp[0].data[10] = data[offset+8] >> 4;
+            tmp[i].data[0] = data[o+0];  // 20
+            tmp[i].data[8] = data[o+1];  // 40 (vol)
+            tmp[i].data[2] = data[o+2];  // 60
+            tmp[i].data[4] = data[o+3];  // 80
+            tmp[i].data[6] = data[o+4];  // E0
+            tmp[i].data[1] = data[o+6];  // 23
+            tmp[i].data[9] = data[o+7]; // 43 (vol)
+            tmp[i].data[3] = data[o+8]; // 63
+            tmp[i].data[5] = data[o+9]; // 83
+            tmp[i].data[7] = data[o+10]; // E3
 
-            tmp[i].data[1] = data[o-3+9];  // 23
-            tmp[i].data[9] = data[o-3+10]; // 43 (vol)
-            tmp[i].data[3] = data[o-3+11]; // 63
-            tmp[i].data[5] = data[o-3+12]; // 83
-            tmp[i].data[7] = data[o-3+13]; // E3
+            tmp[i].data[10] = data[offset+3+5] & 0x0F; // C0
+            if(i == 1)
+                tmp[0].data[10] = data[offset+3+5] >> 4;
         }
         if(inscount == 1) tmp[1] = tmp[0];
-
-        struct ins tmp2;
-        tmp2.notenum  = gmno < 128 ? 0 : data[offset+3];
-        size_t resno = InsertIns(tmp[0], tmp[1], tmp2,
-            std::string(1,'\377')+MidiInsName[midi_index], name2);
-        SetBank(bank, gmno, resno);
-        /*
-        printf("%02X %02X %08X ", gmnumber,gmnumber2, offset);
-        for(unsigned b=0; b<length; ++b)
+        if(inscount <= 2)
         {
-            if(b == 14) printf("\n                        ");
-            printf("%02X ", data[offset+b]);
+            struct ins tmp2;
+            tmp2.notenum  = gmno < 128 ? 0 : data[offset+3];
+            size_t resno = InsertIns(tmp[0], tmp[1], tmp2,
+                std::string(1,'\377')+MidiInsName[midi_index], name2);
+            SetBank(bank, gmno, resno);
         }
-        printf("\n");
-        */
     }
 }
 
@@ -1059,26 +1057,35 @@ int main()
     LoadBNK("descent/melodic.bnk", 1, "HMIGM", false);
     LoadBNK("descent/drum.bnk",    1, "HMIGP", false);
     LoadBNK("descent/intmelo.bnk", 2, "intM", false);
-    LoadBNK("descent/intdrum.bnk", 2, "IntP", false);
+    LoadBNK("descent/intdrum.bnk", 2, "intP", false);
     LoadBNK("descent/hammelo.bnk", 3, "hamM", false);
     LoadBNK("descent/hamdrum.bnk", 3, "hamP", false);
     LoadBNK("descent/rickmelo.bnk",4, "rickM", false);
     LoadBNK("descent/rickdrum.bnk",4, "rickP", false);
-    LoadDoom("doom2/genmidi.op2", 5, "doom");
-    LoadDoom("doom2/genmidi.htc", 6, "hexen");
-    LoadMiles("miles2/warcraft.ad", 7, "smiles");
-    LoadMiles("miles/simfarm.opl", 8, "qmiles");
+    LoadDoom("doom2/genmidi.op2", 5, "dM");
+    LoadDoom("doom2/genmidi.htc", 6, "hxM");
+    LoadMiles("miles/warcraft.ad", 7, "sG");
+    LoadMiles("miles/simfarm.opl", 8, "qG");
+    LoadMiles("miles/simfarm.ad", 9, "mG");
+    LoadMiles("miles/sample.ad", 10, "MG");
+    LoadMiles("miles/sample.opl", 11, "oG");
+    // LoadMiles("miles/sc3.opl",  10, "2miles"); // Actually this is our "standard"!
+
     //LoadBNK("fat/fatv10.bnk",   9, "sfat", true); // Two banks. Also, not worth it.
 
     static const char* banknames[] =
-    {"MS GM",
-     "HMI GM",
+    {"Miles SC3",      // Nov  9  1993
+     "HMI GM",         // 
      "HMI int",
      "HMI ham",
      "HMI rick",
-     "Doom", "Hexen",
-     "Miles Single-op",
-     "Miles Four-op"
+     "Doom",           //
+     "Hexen",          // 
+     "Miles Warcraft", // 1995
+     "Miles QUAD-OP",  // 
+     "Miles Simfarm",  // 1993
+     "Miles 2.14 OSS",
+     "Miles UW"        //
     };
 
 #if 0
