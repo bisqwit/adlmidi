@@ -362,7 +362,10 @@ public:
         FILE* fp = std::fopen(filename.c_str(), "rb");
         if(!fp) { std::perror(filename.c_str()); return false; }
         char HeaderBuf[4+4+2+2+2]="";
+    riffskip:;
         std::fread(HeaderBuf, 1, 4+4+2+2+2, fp);
+        if(std::memcmp(HeaderBuf, "RIFF", 4) == 0)
+            { fseek(fp, 6, SEEK_CUR); goto riffskip; }
         if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
         { InvFmt:
             std::fclose(fp);
