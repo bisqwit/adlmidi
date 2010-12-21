@@ -160,7 +160,7 @@ public:
         std::fprintf(stderr, "\33[?25h"); // show cursor
         std::fflush(stderr);
     }
-    void PrintLn(const char* fmt, ...)
+    void PrintLn(const char* fmt, ...) __attribute__((format(printf,2,3)))
     {
         va_list ap;
         va_start(ap, fmt);
@@ -172,19 +172,27 @@ public:
       #endif
         va_end(ap);
 
+        if(nchars == 0) return;
+
         const int beginx = 2;
 
         HideCursor();
         GotoXY(beginx,txtline);
-        Color(8);
         for(x=beginx; x-beginx<nchars && x < 80; ++x)
-            std::fputc( slots[x][txtline] =
-                        background[x][txtline] = Line[x-beginx], stderr);
-        for(int tmp=0; tmp<3 && x<80 && background[x][txtline]!='.'; ++x,++tmp)
         {
-            Color(1);
-            std::fputc( slots[x][txtline] =
-                        background[x][txtline] = '.', stderr);
+            if(Line[x-beginx] == '\n') break;
+            Color(Line[x-beginx] == '.' ? 1 : 8);
+            std::fputc( background[x][txtline] = Line[x-beginx], stderr);
+        }
+        for(int tx=x; tx<80; ++tx)
+        {
+            if(background[tx][txtline]!='.' && slots[tx][txtline]=='.')
+            {
+                GotoXY(tx,txtline);
+                Color(1);
+                std::fputc(background[tx][txtline] = '.', stderr);
+                ++x;
+            }
         }
         std::fflush(stderr);
 
@@ -228,9 +236,10 @@ public:
         if(newy < y) { std::fprintf(stderr, "\33[%dA", y-newy); y = newy; }
         if(newx != x)
         {
-            if(newx == 0) std::fputc('\r', stderr);
-            else if(newx < x) std::fprintf(stderr, "\33[%dD", x-newx);
-            else if(newx > x) std::fprintf(stderr, "\33[%dC", newx-x);
+            if(newx == 0 || (newx<10 && std::abs(newx-x)>=10))
+                { std::fputc('\r', stderr); x = 0; }
+            if(newx < x) std::fprintf(stderr, "\33[%dD", x-newx);
+            if(newx > x) std::fprintf(stderr, "\33[%dC", newx-x);
             x = newx;
         }
     }
@@ -264,8 +273,8 @@ public:
         }
         else
         {
-            static const char shuffle[] = {9,10,11,12,13,14,15};
-            return ins_colors[ins] = shuffle[ins_color_counter++ % 7];
+            static const char shuffle[] = {10,11,12,13,14,15};
+            return ins_colors[ins] = shuffle[ins_color_counter++ % 6];
         }
     }
 } UI;
