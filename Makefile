@@ -1,7 +1,7 @@
 CXX=g++
 
-DEBUG=-O0 -fno-inline -D_GLIBCXX_DEBUG -g -fstack-protector-all -fdata-sections
-#DEBUG=-O3 -g
+#DEBUG=-O0 -fno-inline -D_GLIBCXX_DEBUG -g -fstack-protector-all -fdata-sections
+DEBUG=-O3 -g
 
 # For Cygwin:
 #SDL=-I/usr/local/include/SDL -L/usr/local/lib -lSDL
