@@ -449,13 +449,15 @@ private:
            Upd_All    = Upd_Pan + Upd_Volume + Upd_Pitch,
            Upd_Off    = 0x20 };
 
-    void NoteUpdate
-        (unsigned MidCh,
-         MIDIchannel::activenoteiterator i,
-         unsigned props_mask)
+    void NoteUpdate_Sub(
+        int c,
+        int tone,
+        int ins,
+        int vol,
+        unsigned MidCh,
+        unsigned props_mask)
     {
-        // Determine the instrument and the note value (tone)
-        int c = i->second.adlchn, tone = i->second.tone, ins = i->second.ins;
+        if(c < 0) return;
 
         if(props_mask & Upd_Off) // note off
         {
@@ -473,7 +475,6 @@ private:
                 ch[c].state = AdlChannel::sustained;
                 UI.IllustrateNote(c, tone, ins, -1, 0.0);
             }
-            Ch[MidCh].activenotes.erase(i);
         }
         if(props_mask & Upd_Patch)
         {
@@ -486,7 +487,7 @@ private:
         }
         if(props_mask & Upd_Volume)
         {
-            opl.Touch(c, i->second.vol * Ch[MidCh].volume * Ch[MidCh].expression);
+            opl.Touch(c, vol * Ch[MidCh].volume * Ch[MidCh].expression);
         }
         if(props_mask & Upd_Pitch)
         {
@@ -495,9 +496,29 @@ private:
                 bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
             opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
             ch[c].state = AdlChannel::on;
-            UI.IllustrateNote(c, tone, ins, i->second.vol, Ch[MidCh].bend);
+            UI.IllustrateNote(c, tone, ins, vol, Ch[MidCh].bend);
         }
     }
+
+    void NoteUpdate
+        (unsigned MidCh,
+         MIDIchannel::activenoteiterator& i,
+         unsigned props_mask)
+     {
+        NoteUpdate_Sub(
+            i->second.adlchn,
+            i->second.tone,
+            i->second.ins,
+            i->second.vol,
+            MidCh,
+            props_mask);
+
+        if(props_mask & Upd_Off)
+        {
+            Ch[MidCh].activenotes.erase(i);
+            i = Ch[MidCh].activenotes.end();
+        }
+     }
 
     void ProcessEvents()
     {
@@ -758,7 +779,7 @@ private:
                         Ch[MidCh].volume = value;
                         NoteUpdate_All(MidCh, Upd_Volume);
                         break;
-                    case 64: // Change sustain
+                    case 64: // Enable/disable sustain
                         Ch[MidCh].sustain = value;
                         if(!value)
                             for(unsigned c=0; c<18; ++c)
@@ -805,6 +826,7 @@ private:
                     case 99: Ch[MidCh].lastmrpn=value; Ch[MidCh].nrpn=true; break;
                     case 100:Ch[MidCh].lastlrpn=value; Ch[MidCh].nrpn=false; break;
                     case 101:Ch[MidCh].lastmrpn=value; Ch[MidCh].nrpn=false; break;
+                    case 113: break; // Related to pitch-bender, used by missimp.mid in Duke3D
                     case  6: SetRPN(MidCh, value, true); break;
                     case 38: SetRPN(MidCh, value, false); break;
                     default:
