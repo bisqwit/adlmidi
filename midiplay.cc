@@ -675,60 +675,78 @@ private:
                 int i = adlins[meta].adlno;
 
                 // Allocate AdLib channel (the physical sound channel for the note)
-                unsigned c = ~0u;
-                long bs = -9;
-                for(unsigned a = 0; a < 18; ++a)
+                int adlchannel[1] = { -1 };
+                for(unsigned ccount = 0; ccount < 1; ++ccount)
                 {
-                    long s = ch[a].age;   // Age in seconds = better score
-                    switch(ch[a].state)
+                    int c = -1;
+                    long bs = -9;
+                    for(int a = 0; a < 18; ++a)
                     {
-                        case AdlChannel::off:
-                            s += 15000; // Empty channel = privileged
-                            break;
-                        case AdlChannel::sustained:
-                            s += 5000;  // Sustained = free but deferred
-                            break;
-                        default: break;
+                        long s = ch[a].age;   // Age in seconds = better score
+                        switch(ch[a].state)
+                        {
+                            case AdlChannel::on:
+                            {
+                                break;
+                            }
+                            case AdlChannel::sustained:
+                            {
+                                s += 5000;  // Sustained = free but deferred
+                                break;
+                            }
+                            case AdlChannel::off:
+                            {
+                                s += 15000; // Empty channel = privileged
+                                break;
+                            }
+                        }
+                        if(i == opl.ins[a]) s += 50;  // Same instrument = good
+                        if(a == MidCh) s += 1;
+                        s += 50 * (opl.midiins[a] / 128); // Percussion is inferior to melody
+                        if(s > bs) { bs=s; c = a; } // Best candidate wins
                     }
-                    if(i == opl.ins[a]) s += 50;  // Same instrument = good
-                    if(a == MidCh) s += 1;
-                    s += 50 * (opl.midiins[a] / 128); // Percussion is inferior to melody
-                    if(s > bs) { bs=s; c = a; } // Best candidate wins
+                    if(c < 0)
+                    {
+                        //UI.PrintLn("ignored unplaceable note");
+                       continue; // Could not play this note. Ignore it.
+                    }
+                    if(ch[c].state == AdlChannel::on)
+                    {
+                        /*UI.PrintLn(
+                            "collision @%u: G%c%u[%ld] <- G%c%u",
+                            c,
+                            opl.midiins[c]<128?'M':'P', opl.midiins[c]&127,
+                            ch[c].age,
+                            midiins<128?'M':'P', midiins&127
+                            );*/
+                        NoteOff(ch[c].midichn, ch[c].note); // Collision: Kill old note
+                    }
+                    if(ch[c].state == AdlChannel::sustained)
+                    {
+                        NoteOffSustain(c);
+                        // A sustained note needs to be keyoff'd
+                        // first so that it can be retriggered.
+                    }
+                    adlchannel[ccount] = c;
                 }
-                if(c == ~0u)
-                {
-                    //UI.PrintLn("ignored unplaceable note");
-                    break; // Could not play this note. Ignore it.
-                }
-                if(ch[c].state == AdlChannel::on)
-                {
-                    /*UI.PrintLn(
-                        "collision @%u: G%c%u[%ld] <- G%c%u",
-                        c,
-                        opl.midiins[c]<128?'M':'P', opl.midiins[c]&127,
-                        ch[c].age,
-                        midiins<128?'M':'P', midiins&127
-                        );*/
-                    NoteOff(ch[c].midichn, ch[c].note); // Collision: Kill old note
-                }
-                if(ch[c].state == AdlChannel::sustained)
-                {
-                    NoteOffSustain(c);
-                    // A sustained note needs to be keyoff'd
-                    // first so that it can be retriggered.
-                }
+                if(adlchannel[0] < 0) break;
+
                 // Allocate active note for MIDI channel
                 std::pair<MIDIchannel::activenoteiterator,bool>
                     ir = Ch[MidCh].activenotes.insert(
                         std::make_pair(note, MIDIchannel::NoteInfo()));
-                ir.first->second.adlchn = c;
+                ir.first->second.adlchn = adlchannel[0];
                 ir.first->second.vol    = vol;
                 ir.first->second.ins    = i;
                 ir.first->second.tone   = tone;
-                ch[c].midichn = MidCh;
-                ch[c].note    = note;
-                opl.insmeta[c] = meta;
-                opl.midiins[c] = midiins;
+                for(unsigned ccount=0; ccount<1; ++ccount)
+                {
+                    unsigned c = adlchannel[ccount];
+                    ch[c].midichn = MidCh;
+                    ch[c].note    = note;
+                    opl.insmeta[c] = meta;
+                    opl.midiins[c] = midiins;
+                }
                 CurrentPosition.began  = true;
                 NoteUpdate(MidCh, ir.first, Upd_All | Upd_Patch);
                 break;
