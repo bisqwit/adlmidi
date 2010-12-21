@@ -96,7 +96,7 @@ struct OPL3
     {
         // The formula below: SOLVE(V=127^3 * 2^( (A-63.49999) / 8), A)
         Touch_Real(c, volume>8725  ? std::log(volume)*11.541561 + (0.5 - 104.22845) : 0);
-        // The formula below: SOLVE(V=127^3 * (2^(A/63)-1), A)
+        // The incorrect formula below: SOLVE(V=127^3 * (2^(A/63)-1), A)
         //Touch_Real(c, volume>11210 ? 91.61112 * std::log(4.8819E-7*volume + 1.0)+0.5 : 0);
     }
     void Patch(unsigned c, unsigned i)
@@ -121,7 +121,8 @@ struct OPL3
     void Reset()
     {
         dbopl_handler.Init(PCM_RATE);
-        for(unsigned a=0; a<18; ++a) { ins[a] = 198; pit[a] = 0; }
+        for(unsigned a=0; a<18; ++a)
+            { ins[a] = 198; pit[a] = 0; }
         static const short data[(2+3+2+2)*2] =
         { 0x004,96, 0x004,128,        // Pulse timer
           0x105, 0, 0x105,1, 0x105,0, // Pulse OPL3 enable
@@ -306,7 +307,9 @@ class MIDIplay
         unsigned char patch;
         unsigned char volume, expression;
         unsigned char panning, vibrato, sustain;
-        double        bend, bendsense;
+        double bend, bendsense;
+        double vibpos, vibspeed, vibdepth;
+        long vibdelay;
         unsigned char lastlrpn,lastmrpn; bool nrpn;
         struct NoteInfo
         {
@@ -324,6 +327,8 @@ class MIDIplay
               volume(100),expression(100),
               panning(0x30), vibrato(0), sustain(0),
               bend(0.0), bendsense(2 / 8192.0),
+              vibpos(0), vibspeed(2*3.141592653*5.0),
+              vibdepth(0.5/127), vibdelay(0),
               lastlrpn(0),lastmrpn(0),nrpn(false),
               activenotes() { }
     } Ch[16];
@@ -335,14 +340,13 @@ class MIDIplay
         unsigned char midichn, note;
         // For channel allocation:
         enum { off, on, sustained } state;
-        long   age;
+        long age;
         AdlChannel(): midichn(0),note(0), state(off),age(0) { }
     } ch[18];
 
     std::vector< std::vector<unsigned char> > TrackData;
 public:
     double InvDeltaTicks, Tempo;
-    double VibPos;
     bool loopStart, loopEnd;
     OPL3 opl;
 public:
@@ -388,7 +392,6 @@ public:
         CurrentPosition.track.resize(TrackCount);
         InvDeltaTicks = 1e-6 / DeltaTicks;
         Tempo         = 1e6 * InvDeltaTicks;
-        VibPos        = 0.0;
         for(size_t tk = 0; tk < TrackCount; ++tk)
         {
             // Read track header
@@ -422,20 +425,14 @@ public:
             ProcessEvents();
         }
 
-        bool had_vibrato = false;
         for(unsigned a=0; a<16; ++a)
             if(Ch[a].vibrato && !Ch[a].activenotes.empty()) 
             {
-                had_vibrato = true;
                 NoteUpdate_All(a, Upd_Pitch);
+                Ch[a].vibpos += s * Ch[a].vibspeed;
             }
-        if(had_vibrato)
-        {
-            const double twopi = 2*3.141592653;
-            VibPos = std::fmod(VibPos + s * (twopi * 5), twopi);
-        }
-        else
-            VibPos = 0.0;
+            else
+                Ch[a].vibpos = 0.0;
 
         return CurrentPosition.wait;
     }
@@ -455,12 +452,12 @@ private:
         // Determine the instrument and the note value (tone)
         int c = i->second.adlchn, tone = i->second.tone, ins = i->second.ins;
 
-        ch[c].age = 0;
         if(props_mask & Upd_Off) // note off
         {
             if(Ch[MidCh].sustain == 0)
             {
                 opl.NoteOff(c);
+                ch[c].age   = 0;
                 ch[c].state = AdlChannel::off;
                 UI.IllustrateNote(c, tone, ins, 0, 0.0);
             }
@@ -476,6 +473,7 @@ private:
         if(props_mask & Upd_Patch)
         {
             opl.Patch(c, ins);
+            ch[c].age = 0;
         }
         if(props_mask & Upd_Pan)
         {
@@ -488,8 +486,8 @@ private:
         if(props_mask & Upd_Pitch)
         {
             double bend = Ch[MidCh].bend;
-            if(Ch[MidCh].vibrato)
-                bend += (Ch[MidCh].vibrato * (0.5/127)) * std::sin(VibPos);
+            if(Ch[MidCh].vibrato && ch[c].age >= Ch[MidCh].vibdelay)
+                bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
             opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
             ch[c].state = AdlChannel::on;
             UI.IllustrateNote(c, tone, ins, i->second.vol, Ch[MidCh].bend);
@@ -531,7 +529,9 @@ private:
 
         double t = shortest * Tempo;
         if(CurrentPosition.began) CurrentPosition.wait += t;
-        for(unsigned a=0; a<18; ++a) ch[a].age += t*1000;
+        for(unsigned a=0; a<18; ++a)
+            if(ch[a].age < 0x70000000)
+                ch[a].age += t*1000;
 
         if(loopStart)
         {
@@ -719,6 +719,9 @@ private:
                         Ch[MidCh].expression = 100;
                         Ch[MidCh].sustain    = 0;
                         Ch[MidCh].vibrato    = 0;
+                        Ch[MidCh].vibspeed   = 2*3.141592653*5.0;
+                        Ch[MidCh].vibdepth   = 0.5/127;
+                        Ch[MidCh].vibdelay   = 0;
                         Ch[MidCh].panning    = 0x30;
                         Ch[MidCh].portamento = 0;
                         UpdatePortamento(MidCh);
@@ -781,7 +784,25 @@ private:
         unsigned addr = Ch[MidCh].lastmrpn*0x100 + Ch[MidCh].lastlrpn;
         switch(addr + nrpn*0x10000 + MSB*0x20000)
         {
-            case 0x20000: Ch[MidCh].bendsense = value/8192.0; break;
+            case 0x0000 + 0*0x10000 + 1*0x20000: // Pitch-bender sensitivity
+                Ch[MidCh].bendsense = value/8192.0;
+                break;
+            case 0x0108 + 1*0x10000 + 1*0x20000: // Vibrato speed
+                if(value == 64)
+                    Ch[MidCh].vibspeed = 1.0;
+                else if(value < 100)
+                    Ch[MidCh].vibspeed = 1.0/(1.6e-2*(value?value:1));
+                else
+                    Ch[MidCh].vibspeed = 1.0/(0.051153846*value-3.4965385);
+                Ch[MidCh].vibspeed *= 2*3.141592653*5.0;
+                break;
+            case 0x0109 + 1*0x10000 + 1*0x20000: // Vibrato depth
+                Ch[MidCh].vibdepth = ((value-64)*0.15)*0.01;
+                break;
+            case 0x010A + 1*0x10000 + 1*0x20000: // Vibrato delay in millisecons
+                Ch[MidCh].vibdelay =
+                    value ? long(0.2092 * std::exp(0.0795 * value)) : 0.0;
+                break;
             default: UI.PrintLn("%s %04X <- %d (%cSB) (ch %u)",
                 "NRPN"+!nrpn, addr, value, "LM"[MSB], MidCh);
         }
