@@ -12,9 +12,7 @@ SDL=`pkg-config --cflags --libs sdl`
 midiplay: midiplay.o dbopl.o
 	$(CXX) -ansi $^ -Wall -W $(DEBUG) $(SDL) -o $@ 
 
-midiplay.o: midiplay.cc \
-		dbopl.h opl3.hh adldata.hh \
-		ui.hh midiplay.hh reverb.hh
+midiplay.o: midiplay.cc dbopl.h
 	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
 
 dbopl.o: dbopl.cpp dbopl.h
