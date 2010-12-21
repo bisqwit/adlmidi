@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
@@ -303,7 +304,8 @@ class MIDIplay
     // Persistent settings for each MIDI channel
     struct MIDIchannel
     {
-        unsigned short bank, portamento;
+        unsigned short portamento;
+        unsigned char bank_lsb, bank_msb;
         unsigned char patch;
         unsigned char volume, expression;
         unsigned char panning, vibrato, sustain;
@@ -323,7 +325,8 @@ class MIDIplay
         activenotemap_t activenotes;
 
         MIDIchannel()
-            : bank(0), portamento(0), patch(0),
+            : portamento(0),
+              bank_lsb(0), bank_msb(0), patch(0),
               volume(100),expression(100),
               panning(0x30), vibrato(0), sustain(0),
               bend(0.0), bendsense(2 / 8192.0),
@@ -613,14 +616,44 @@ private:
                 if(vol == 0 || EvType == 0x8) break;
 
                 // Allocate AdLib channel (the physical sound channel for the note)
+                unsigned midiins = Ch[MidCh].patch;
+                if(MidCh == 9) midiins = 128 + note; // Percussion instrument
+
+                static std::set<unsigned> bank_warnings;
+                if(Ch[MidCh].bank_msb)
+                {
+                    unsigned bankid = midiins + 256*Ch[MidCh].bank_msb;
+                    std::set<unsigned>::iterator
+                        i = bank_warnings.lower_bound(bankid);
+                    if(i == bank_warnings.end() || *i != bankid)
+                    {
+                        UI.PrintLn("[%u]Bank %u undefined, patch=%c%u",
+                            MidCh,
+                            Ch[MidCh].bank_msb,
+                            (midiins&128)?'P':'M', midiins&127);
+                        bank_warnings.insert(i, bankid);
+                    }
+                }
+                if(Ch[MidCh].bank_lsb)
+                {
+                    unsigned bankid = Ch[MidCh].bank_lsb*65536;
+                    std::set<unsigned>::iterator
+                        i = bank_warnings.lower_bound(bankid);
+                    if(i == bank_warnings.end() || *i != bankid)
+                    {
+                        UI.PrintLn("[%u]Bank lsb %u undefined",
+                            MidCh,
+                            Ch[MidCh].bank_lsb);
+                        bank_warnings.insert(i, bankid);
+                    }
+                }
+
+                int meta = banks[AdlBank][midiins];
+                int tone = adlins[meta].tone ? adlins[meta].tone : note;
+                int i = adlins[meta].adlno;
+
+                unsigned c = ~0u;
                 long bs = -9;
-                unsigned c = ~0u, i = Ch[MidCh].patch;
-                if(MidCh == 9) i = 128 + note; // Percussion instrument
-                i = banks[AdlBank][i];
-
-                int tone = adlins[i].tone ? adlins[i].tone : note;
-                i = adlins[i].adlno;
-
                 for(unsigned a = 0; a < 18; ++a)
                 {
                     long s = ch[a].age;   // Age in seconds = better score
@@ -689,11 +722,11 @@ private:
                     case 1: // Adjust vibrato
                         //UI.PrintLn("%u:vibrato %d", MidCh,value);
                         Ch[MidCh].vibrato = value; break;
-                    case 0: // Set bank msb
-                        Ch[MidCh].bank = (Ch[MidCh].bank & 0xFF) | (value<<8);
+                    case 0: // Set bank msb (GM bank)
+                        Ch[MidCh].bank_msb = value;
                         break;
-                    case 32: // Set bank lsb
-                        Ch[MidCh].bank = (Ch[MidCh].bank & 0xFF00) | (value);
+                    case 32: // Set bank lsb (XG bank)
+                        Ch[MidCh].bank_lsb = value;
                         break;
                     case 5: // Set portamento msb
                         Ch[MidCh].portamento = (Ch[MidCh].portamento & 0x7F) | (value<<7);
@@ -758,10 +791,6 @@ private:
             }
             case 0xC: // Patch change
                 Ch[MidCh].patch = TrackData[tk][CurrentPosition.track[tk].ptr++];
-                if(Ch[MidCh].bank)
-                {
-                    UI.PrintLn("Bank %Xh ignored (ch %u)", Ch[MidCh].bank, MidCh);
-                }
                 break;
             case 0xD: // Channel after-touch
             {
