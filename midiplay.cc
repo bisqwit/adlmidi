@@ -419,7 +419,7 @@ public:
     double Tick(double s, double granularity)
     {
         if(CurrentPosition.began) CurrentPosition.wait -= s;
-        while(CurrentPosition.wait < granularity/2)
+        while(CurrentPosition.wait <= granularity/2)
         {
             //std::fprintf(stderr, "wait = %g...\n", CurrentPosition.wait);
             ProcessEvents();
@@ -950,9 +950,9 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(OPL3::PCM_RATE,
-                5.0,  // wet_gain_dB  (-10..10)
-                .7,   // room_scale   (0..1)
-                .6,   // reverberance (0..1)
+                4.0,  // wet_gain_dB  (-10..10)
+                .8,//.7,   // room_scale   (0..1)
+                0.,//.6,   // reverberance (0..1)
                 .5,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
                 .6,   // stereo_depth (0..1)
@@ -1125,7 +1125,7 @@ int main(int argc, char** argv)
 
     SDL_PauseAudio(0);
 
-    const double mindelay = 0.01;
+    const double mindelay = 1 / (double)OPL3::PCM_RATE;
     const double maxdelay = MaxSamplesAtTime / (double)OPL3::PCM_RATE;
 
     UI.GotoXY(0,0); UI.Color(15);
