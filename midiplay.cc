@@ -522,6 +522,7 @@ private:
             {
                 shortest = CurrentPosition.track[tk].delay;
             }
+        //if(shortest > 0) UI.PrintLn("shortest: %ld", shortest);
 
         // Schedule the next playevent to be processed after that delay
         for(size_t tk=0; tk<TrackCount; ++tk)
@@ -532,6 +533,19 @@ private:
         for(unsigned a=0; a<18; ++a)
             if(ch[a].age < 0x70000000)
                 ch[a].age += t*1000;
+        /*for(unsigned a=0; a<18; ++a)
+        {
+            UI.GotoXY(64,a+1); UI.Color(2);
+            std::fprintf(stderr, "%7ld,%c,%6ld\r",
+                ch[a].age,
+                "01s"[ch[a].state],
+                ch[a].state == AdlChannel::off
+                ? adlins[opl.insmeta[a]].ms_sound_koff
+                : adlins[opl.insmeta[a]].ms_sound_kon);
+            UI.x = 0;
+        }*/
+
+        //if(shortest > 0) UI.PrintLn("Delay %ld (%g)", shortest,t);
 
         if(loopStart)
         {
@@ -551,7 +565,7 @@ private:
         unsigned char byte = TrackData[tk][CurrentPosition.track[tk].ptr++];
         if(byte >= 0xF0)
         {
-            //std::fprintf(stderr, "@%X Track %u: %02X\n", CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte);
+            //UI.PrintLn("@%X Track %u: %02X", CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte);
             // Special Fx events
             if(byte == 0xF7 || byte == 0xF0)
                 { unsigned length = ReadVarLen(tk);
@@ -578,29 +592,26 @@ private:
         if(byte < 0x80)
           { byte = CurrentPosition.track[tk].status | 0x80;
             CurrentPosition.track[tk].ptr--; }
-        //std::fprintf(stderr, "@%X Track %u: %02X\n", CurrentPosition.track[tk].ptr, (unsigned)tk, byte);
-        unsigned MidCh = byte & 0x0F;
+        /*UI.PrintLn("@%X Track %u: %02X %02X",
+            CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte,
+            TrackData[tk][CurrentPosition.track[tk].ptr]);*/
+        unsigned MidCh = byte & 0x0F, EvType = byte >> 4;
         CurrentPosition.track[tk].status = byte;
-        switch(byte >> 4)
+        switch(EvType)
         {
             case 0x8: // Note off
-            {
-            Actually8x:;
-                int note = TrackData[tk][CurrentPosition.track[tk].ptr];
-                CurrentPosition.track[tk].ptr += 2;
-                NoteOff(MidCh, note);
-                break;
-            }
             case 0x9: // Note on
             {
-                if(TrackData[tk][CurrentPosition.track[tk].ptr+1] == 0) goto Actually8x;
                 int note = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
-                if(Ch[MidCh].activenotes.find(note) != Ch[MidCh].activenotes.end())
-                {
-                    // Ignore repeat notes w/o keyoffs
-                    break;
-                }
+                NoteOff(MidCh, note);
+                // On Note on, Keyoff the note first, just in case keyoff
+                // was omitted; this fixes Dance of sugar-plum fairy
+                // by Microsoft. Now that we've done a Keyoff,
+                // check if we still need to do a Keyon.
+                // vol=0 and event 8x are both Keyoff-only.
+                if(vol == 0 || EvType == 0x8) break;
+
                 // Allocate AdLib channel (the physical sound channel for the note)
                 long bs = -9;
                 unsigned c = ~0u, i = Ch[MidCh].patch;
@@ -834,7 +845,9 @@ private:
         MIDIchannel::activenoteiterator
             i = Ch[MidCh].activenotes.find(note);
         if(i != Ch[MidCh].activenotes.end())
+        {
             NoteUpdate(MidCh, i, Upd_Off);
+        }
     }
     void NoteOffSustain(unsigned c)
     {
@@ -946,6 +959,7 @@ static struct MyReverbData
                 MaxSamplesAtTime);
     }
 } reverb_data;
+
 
 static std::deque<short> AudioBuffer;
 #ifndef __MINGW32__
