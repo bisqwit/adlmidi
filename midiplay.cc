@@ -52,7 +52,8 @@ static const unsigned short Channels[18] =
 struct OPL3
 {
     static const unsigned long PCM_RATE = 48000;
-    unsigned short ins[18], pit[18];
+    unsigned short ins[18], pit[18], insmeta[18], midiins[18];
+
     DBOPL::Handler dbopl_handler;
 
     void Poke(unsigned index, unsigned value)
@@ -123,7 +124,7 @@ struct OPL3
     {
         dbopl_handler.Init(PCM_RATE);
         for(unsigned a=0; a<18; ++a)
-            { ins[a] = 198; pit[a] = 0; }
+            { insmeta[a] = 199; midiins[a] = 0; ins[a] = 189; pit[a] = 0; }
         static const short data[(2+3+2+2)*2] =
         { 0x004,96, 0x004,128,        // Pulse timer
           0x105, 0, 0x105,1, 0x105,0, // Pulse OPL3 enable
@@ -144,8 +145,8 @@ public:
 public:
     UI(): x(0), y(0), color(-1), txtline(1),
           cursor_visible(true)
-        { std::fputc('\r', stderr);
-          std::memset(slots, 0,        sizeof(slots));
+        { std::fputc('\r', stderr); // Ensure cursor is at x=0
+          std::memset(slots, '.',      sizeof(slots));
           std::memset(background, '.', sizeof(background));
         }
     void HideCursor()
@@ -311,7 +312,7 @@ class MIDIplay
         unsigned char panning, vibrato, sustain;
         double bend, bendsense;
         double vibpos, vibspeed, vibdepth;
-        long vibdelay;
+        long   vibdelay;
         unsigned char lastlrpn,lastmrpn; bool nrpn;
         struct NoteInfo
         {
@@ -615,7 +616,6 @@ private:
                 // vol=0 and event 8x are both Keyoff-only.
                 if(vol == 0 || EvType == 0x8) break;
 
-                // Allocate AdLib channel (the physical sound channel for the note)
                 unsigned midiins = Ch[MidCh].patch;
                 if(MidCh == 9) midiins = 128 + note; // Percussion instrument
 
@@ -652,6 +652,7 @@ private:
                 int tone = adlins[meta].tone ? adlins[meta].tone : note;
                 int i = adlins[meta].adlno;
 
+                // Allocate AdLib channel (the physical sound channel for the note)
                 unsigned c = ~0u;
                 long bs = -9;
                 for(unsigned a = 0; a < 18; ++a)
@@ -668,16 +669,26 @@ private:
                         default: break;
                     }
                     if(i == opl.ins[a]) s += 50;  // Same instrument = good
-                    if(a == MidCh) s += 20;
-                    if(i<128 && opl.ins[a]>127)
-                        s += 800;   // Percussion is inferior to melody
-                    else if(opl.ins[a]<128 && i>127)
-                        s -= 800; // Percussion is inferior to melody
+                    if(a == MidCh) s += 1;
+                    s += 50 * (opl.midiins[a] / 128); // Percussion is inferior to melody
                     if(s > bs) { bs=s; c = a; } // Best candidate wins
                 }
-                if(c == ~0u) break; // Could not play this note. Ignore it.
+                if(c == ~0u)
+                {
+                    //UI.PrintLn("ignored unplaceable note");
+                    break; // Could not play this note. Ignore it.
+                }
                 if(ch[c].state == AdlChannel::on)
+                {
+                    /*UI.PrintLn(
+                        "collision @%u: G%c%u[%ld] <- G%c%u",
+                        c,
+                        opl.midiins[c]<128?'M':'P', opl.midiins[c]&127,
+                        ch[c].age,
+                        midiins<128?'M':'P', midiins&127
+                        );*/
                     NoteOff(ch[c].midichn, ch[c].note); // Collision: Kill old note
+                }
                 if(ch[c].state == AdlChannel::sustained)
                 {
                     NoteOffSustain(c);
@@ -694,6 +705,8 @@ private:
                 ir.first->second.tone   = tone;
                 ch[c].midichn = MidCh;
                 ch[c].note    = note;
+                opl.insmeta[c] = meta;
+                opl.midiins[c] = midiins;
                 CurrentPosition.began  = true;
                 NoteUpdate(MidCh, ir.first, Upd_All | Upd_Patch);
                 break;
@@ -735,6 +748,10 @@ private:
                     case 37: // Set portamento lsb
                         Ch[MidCh].portamento = (Ch[MidCh].portamento & 0x3F80) | (value);
                         UpdatePortamento(MidCh);
+                        break;
+                    case 65: // Enable/disable portamento
+                        // value >= 64 ? enabled : disabled
+                        //UpdatePortamento(MidCh);
                         break;
                     case 7: // Change volume
                         Ch[MidCh].volume = value;
@@ -778,6 +795,11 @@ private:
                     case 123: // All notes off
                         NoteUpdate_All(MidCh, Upd_Off);
                         break;
+                    case 91: break; // Reverb effect depth. We don't do per-channel reverb.
+                    case 92: break; // Tremolo effect depth. We don't do...
+                    case 93: break; // Chorus effect depth. We don't do.
+                    case 94: break; // Celeste effect depth. We don't do.
+                    case 95: break; // Phaser effect depth. We don't do.
                     case 98: Ch[MidCh].lastlrpn=value; Ch[MidCh].nrpn=true; break;
                     case 99: Ch[MidCh].lastmrpn=value; Ch[MidCh].nrpn=true; break;
                     case 100:Ch[MidCh].lastlrpn=value; Ch[MidCh].nrpn=false; break;
