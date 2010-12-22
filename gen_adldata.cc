@@ -191,199 +191,6 @@ static const char *const MidiInsName[] = {
 "Mute Triangle",
 "Open Triangle",
 "Shaker","Jingle Bell","Bell Tree","Castanets","Mute Surdu","Open Surdu",""};
-static const unsigned char adl[181][14] =
-{
-// The data bytes are:
-//  [0,1] AM/VIB/EG/KSR/Multiple bits for carrier and modulator respectively
-//  [2,3] Attack and decay rates      for carrier and modulator respectively
-//  [4,5] Sustain and release rates   for carrier and modulator respectively
-//  [6,7] Wave select settings        for carrier and modulator respectively
-//  [8,9] KSL/Attenuation settings    for carrier and modulator respectively
-//  [10]  Feedback/connection bits    for the channel
-//  [11]  For percussive instruments (GP35..GP87), the tone to play
-//  [12]  Drawing symbol
-    {   1,  1,242,242,244,247,0,0,143,  6, 8,  0,'P',0x04}, // GM1:AcouGrandPiano
-    {   1,  1,242,242,244,247,0,0, 75,  0, 8,  0,'P',0x04}, // GM2:BrightAcouGrand
-    {   1,  1,242,242,244,246,0,0, 73,  0, 8,  0,'P',0x04}, // GM3:ElecGrandPiano
-    { 129, 65,242,242,247,247,0,0, 18,  0, 6,  0,'P',0x04}, // GM4:Honky-tonkPiano
-    {   1,  1,241,242,247,247,0,0, 87,  0, 0,  0,'P',0x04}, // GM5:Rhodes Piano
-    {   1,  1,241,242,247,247,0,0,147,  0, 0,  0,'P',0x04}, // GM6:Chorused Piano
-    {   1, 22,161,242,242,245,0,0,128, 14, 8,  0,'h',0x04}, // GM7:Harpsichord
-    {   1,  1,194,194,248,248,0,0,146,  0,10,  0,'c',0x04}, // GM8:Clavinet
-    {  12,129,246,243,244,245,0,0, 92,  0, 0,  0,'c',0x04}, // GM9:Celesta
-    {   7, 17,243,242,242,241,0,0,151,128, 2,  0,'k',0x04}, // GM10:Glockenspiel
-    {  23,  1, 84,244,244,244,0,0, 33,  0, 2,  0,'m',0x04}, // GM11:Music box
-    { 152,129,243,242,246,246,0,0, 98,  0, 0,  0,'v',0x04}, // GM12:Vibraphone
-    {  24,  1,246,231,246,247,0,0, 35,  0, 0,  0,'m',0x04}, // GM13:Marimba
-    {  21,  1,246,246,246,246,0,0,145,  0, 4,  0,'x',0x04}, // GM14:Xylophone
-    {  69,129,211,163,243,243,0,0, 89,128,12,  0,'b',0x04}, // GM15:Tubular Bells
-    {   3,129,117,181,245,245,1,0, 73,128, 4,  0,'d',0x04}, // GM16:Dulcimer
-    { 113, 49,246,241, 20,  7,0,0,146,  0, 2,  0,'o',0x04}, // GM17:Hammond Organ
-    { 114, 48,199,199, 88,  8,0,0, 20,  0, 2,  0,'o',0x04}, // GM18:Percussive Organ
-    { 112,177,170,138, 24,  8,0,0, 68,  0, 4,  0,'o',0x62}, // GM19:Rock Organ
-    {  35,177,151, 85, 35, 20,1,0,147,  0, 4,  0,'o',0x04}, // GM20:Church Organ
-    {  97,177,151, 85,  4,  4,1,0, 19,128, 0,  0,'o',0x62}, // GM21:Reed Organ
-    {  36,177,152, 70, 42, 26,1,0, 72,  0,12,  0,'a',0x0C}, // GM22:Accordion
-    {  97, 33,145, 97,  6,  7,1,0, 19,  0,10,  0,'h',0x04}, // GM23:Harmonica
-    {  33,161,113, 97,  6,  7,0,0, 19,137, 6,  0,'o',0x04}, // GM24:Tango Accordion
-    {   2, 65,243,243,148,200,1,0,156,128,12,  0,'G',0x04}, // GM25:Acoustic Guitar1
-    {   3, 17,243,241,154,231,1,0, 84,  0,12,  0,'G',0x04}, // GM26:Acoustic Guitar2
-    {  35, 33,241,242, 58,248,0,0, 95,  0, 0,  0,'G',0x04}, // GM27:Electric Guitar1
-    {   3, 33,246,243, 34,248,1,0,135,128, 6,  0,'G',0x04}, // GM28:Electric Guitar2
-    {   3, 33,249,246, 84, 58,0,0, 71,  0, 0,  0,'G',0x00}, // GM29:Electric Guitar3
-    {  35, 33,145,132, 65, 25,1,0, 74,  5, 8,  0,'G',0x04}, // GM30:Overdrive Guitar
-    {  35, 33,149,148, 25, 25,1,0, 74,  0, 8,  0,'G',0x04}, // GM31:Distorton Guitar
-    {   9,132, 32,209, 79,248,0,0,161,128, 8,  0,'G',0xEE}, // GM32:Guitar Harmonics
-    {  33,162,148,195,  6,166,0,0, 30,  0, 2,  0,'B',0xEE}, // GM33:Acoustic Bass
-    {  49, 49,241,241, 40, 24,0,0, 18,  0,10,  0,'B',0x0C}, // GM34:Electric Bass 1
-    {  49, 49,241,241,232,120,0,0,141,  0,10,  0,'B',0x04}, // GM35:Electric Bass 2
-    {  49, 50, 81,113, 40, 72,0,0, 91,  0,12,  0,'B',0x04}, // GM36:Fretless Bass
-    {   1, 33,161,242,154,223,0,0,139, 64, 8,  0,'B',0x04}, // GM37:Slap Bass 1
-    {  33, 33,162,161, 22,223,0,0,139,  8, 8,  0,'B',0x04}, // GM38:Slap Bass 2
-    {  49, 49,244,241,232,120,0,0,139,  0,10,  0,'B',0x04}, // GM39:Synth Bass 1
-    {  49, 49,241,241, 40, 24,0,0, 18,  0,10,  0,'B',0x04}, // GM40:Synth Bass 2
-    {  49, 33,221, 86, 19, 38,1,0, 21,  0, 8,  0,'V',0x0C}, // GM41:Violin
-    {  49, 33,221,102, 19,  6,1,0, 22,  0, 8,  0,'V',0x04}, // GM42:Viola
-    { 113, 49,209, 97, 28, 12,1,0, 73,  0, 8,  0,'V',0x04}, // GM43:Cello
-    {  33, 35,113,114, 18,  6,1,0, 77,128, 2,  0,'V',0x04}, // GM44:Contrabass
-    { 241,225,241,111, 33, 22,1,0, 64,  0, 2,  0,'V',0x04}, // GM45:Tremulo Strings
-    {   2,  1,245,133,117, 53,1,0, 26,128, 0,  0,'H',0x3D}, // GM46:Pizzicato String
-    {   2,  1,245,243,117,244,1,0, 29,128, 0,  0,'H',0x0C}, // GM47:Orchestral Harp
-    {  16, 17,245,242,  5,195,1,0, 65,  0, 2,  0,'M',0x04}, // GM48:Timpany
-    {  33,162,177,114, 37,  8,1,0,155,  1,14,  0,'S',0x04}, // GM49:String Ensemble1
-    { 161, 33,127, 63,  3,  7,1,1,152,  0, 0,  0,'S',0x00}, // GM50:String Ensemble2
-    { 161, 97,193, 79, 18,  5,0,0,147,  0,10,  0,'S',0x04}, // GM51:Synth Strings 1
-    {  33, 97,193, 79, 34,  5,0,0, 24,  0,12,  0,'S',0x04}, // GM52:SynthStrings 2
-    {  49,114,244,138, 21,  5,0,0, 91,131, 0,  0,'O',0x04}, // GM53:Choir Aahs
-    { 161, 97,116,113, 57,103,0,0,144,  0, 0,  0,'O',0x04}, // GM54:Voice Oohs
-    { 113,114, 84,122,  5,  5,0,0, 87,  0,12,  0,'O',0x62}, // GM55:Synth Voice
-    { 144, 65, 84,165, 99, 69,0,0,  0,  0, 8,  0,'c',0x04}, // GM56:Orchestra Hit
-    {  33, 33,133,143, 23,  9,0,0,146,  1,12,  0,'T',0x04}, // GM57:Trumpet
-    {  33, 33,117,143, 23,  9,0,0,148,  5,12,  0,'T',0x04}, // GM58:Trombone
-    {  33, 97,118,130, 21, 55,0,0,148,  0,12,  0,'T',0x00}, // GM59:Tuba
-    {  49, 33,158, 98, 23, 44,1,1, 67,  0, 2,  0,'T',0x62}, // GM60:Muted Trumpet
-    {  33, 33, 97,127,106, 10,0,0,155,  0, 2,  0,'T',0x62}, // GM61:French Horn
-    {  97, 34,117,116, 31, 15,0,0,138,  6, 8,  0,'T',0x04}, // GM62:Brass Section
-    { 161, 33,114,113, 85, 24,1,0,134,131, 0,  0,'T',0x04}, // GM63:Synth Brass 1
-    {  33, 33, 84,166, 60, 28,0,0, 77,  0, 8,  0,'T',0x62}, // GM64:Synth Brass 2
-    {  49, 97,147,114,  2, 11,1,0,143,  0, 8,  0,'X',0x04}, // GM65:Soprano Sax
-    {  49, 97,147,114,  3,  9,1,0,142,  0, 8,  0,'X',0x00}, // GM66:Alto Sax
-    {  49, 97,147,130,  3,  9,1,0,145,  0,10,  0,'X',0x00}, // GM67:Tenor Sax
-    {  49, 97,147,114, 15, 15,1,0,142,  0,10,  0,'X',0x62}, // GM68:Baritone Sax
-    {  33, 33,170,143, 22, 10,1,0, 75,  0, 8,  0,'T',0x04}, // GM69:Oboe
-    {  49, 33,126,139, 23, 12,1,1,144,  0, 6,  0,'T',0x04}, // GM70:English Horn
-    {  49, 50,117, 97, 25, 25,1,0,129,  0, 0,  0,'T',0x04}, // GM71:Bassoon
-    {  50, 33,155,114, 33, 23,0,0,144,  0, 4,  0,'F',0x62}, // GM72:Clarinet
-    { 225,225,133,101, 95, 26,0,0, 31,  0, 0,  0,'F',0x04}, // GM73:Piccolo
-    { 225,225,136,101, 95, 26,0,0, 70,  0, 0,  0,'F',0x3D}, // GM74:Flute
-    { 161, 33,117,117, 31, 10,0,0,156,  0, 2,  0,'F',0x62}, // GM75:Recorder
-    {  49, 33,132,101, 88, 26,0,0,139,  0, 0,  0,'F',0x04}, // GM76:Pan Flute
-    { 225,161,102,101, 86, 38,0,0, 76,  0, 0,  0,'F',0x04}, // GM77:Bottle Blow
-    {  98,161,118, 85, 70, 54,0,0,203,  0, 0,  0,'F',0x04}, // GM78:Shakuhachi
-    {  98,161, 87, 86,  7,  7,0,0,153,  0,11,  0,'F',0x04}, // GM79:Whistle
-    {  98,161,119,118,  7,  7,0,0,147,  0,11,  0,'F',0x04}, // GM80:Ocarina
-    {  34, 33,255,255,  3, 15,2,0, 89,  0, 0,  0,'L',0x04}, // GM81:Lead 1 squareea
-    {  33, 33,255,255, 15, 15,1,1, 14,  0, 0,  0,'L',0xF4}, // GM82:Lead 2 sawtooth
-    {  34, 33,134,100, 85, 24,0,0, 70,128, 0,  0,'L',0x04}, // GM83:Lead 3 calliope
-    {  33,161,102,150, 18, 10,0,0, 69,  0, 0,  0,'L',0x04}, // GM84:Lead 4 chiff
-    {  33, 34,146,145, 42, 42,1,0,139,  0, 0,  0,'L',0x04}, // GM85:Lead 5 charang
-    { 162, 97,223,111,  5,  7,0,0,158, 64, 2,  0,'L',0x04}, // GM86:Lead 6 voice
-    {  32, 96,239,143,  1,  6,0,2, 26,  0, 0,  0,'L',0x04}, // GM87:Lead 7 fifths
-    {  33, 33,241,244, 41,  9,0,0,143,128,10,  0,'L',0x04}, // GM88:Lead 8 brass
-    { 119,161, 83,160,148,  5,0,0,165,  0, 2,  0,'p',0x04}, // GM89:Pad 1 new age
-    {  97,177,168, 37, 17,  3,0,0, 31,128,10,  0,'p',0x04}, // GM90:Pad 2 warm
-    {  97, 97,145, 85, 52, 22,0,0, 23,  0,12,  0,'p',0x04}, // GM91:Pad 3 polysynth
-    { 113,114, 84,106,  1,  3,0,0, 93,  0, 0,  0,'p',0x04}, // GM92:Pad 4 choir
-    {  33,162, 33, 66, 67, 53,0,0,151,  0, 8,  0,'p',0x04}, // GM93:Pad 5 bowedpad
-    { 161, 33,161, 49,119, 71,1,1, 28,  0, 0,  0,'p',0x04}, // GM94:Pad 6 metallic
-    {  33, 97, 17, 66, 51, 37,0,0,137,  3,10,  0,'p',0x04}, // GM95:Pad 7 halo
-    { 161, 33, 17,207, 71,  7,1,0, 21,  0, 0,  0,'p',0x04}, // GM96:Pad 8 sweep
-    {  58, 81,248,134,246,  2,0,0,206,  0, 2,  0,'X',0x04}, // GM97:FX 1 rain
-    {  33, 33, 33, 65, 35, 19,1,0, 21,  0, 0,  0,'X',0x04}, // GM98:FX 2 soundtrack
-    {   6,  1,116,165,149,114,0,0, 91,  0, 0,  0,'X',0xF4}, // GM99:FX 3 crystal
-    {  34, 97,177,242,129, 38,0,0,146,131,12,  0,'X',0x04}, // GM100:FX 4 atmosphere
-    {  65, 66,241,242, 81,245,1,0, 77,  0, 0,  0,'X',0xF4}, // GM101:FX 5 brightness
-    {  97,163, 17, 17, 81, 19,1,0,148,128, 6,  0,'X',0x04}, // GM102:FX 6 goblins
-    {  97,161, 17, 29, 49,  3,0,0,140,128, 6,  0,'X',0x3D}, // GM103:FX 7 echoes
-    { 164, 97,243,129,115, 35,1,0, 76,  0, 4,  0,'X',0x04}, // GM104:FX 8 sci-fi
-    {   2,  7,210,242, 83,246,0,1,133,  3, 0,  0,'G',0x04}, // GM105:Sitar
-    {  17, 19,163,162, 17,229,1,0, 12,128, 0,  0,'G',0x04}, // GM106:Banjo
-    {  17, 17,246,242, 65,230,1,2,  6,  0, 4,  0,'G',0x04}, // GM107:Shamisen
-    { 147,145,212,235, 50, 17,0,1,145,  0, 8,  0,'G',0x04}, // GM108:Koto
-    {   4,  1,250,194, 86,  5,0,0, 79,  0,12,  0,'G',0x04}, // GM109:Kalimba
-    {  33, 34,124,111, 32, 12,0,1, 73,  0, 6,  0,'T',0xF4}, // GM110:Bagpipe
-    {  49, 33,221, 86, 51, 22,1,0,133,  0,10,  0,'S',0xF4}, // GM111:Fiddle
-    {  32, 33,218,143,  5, 11,2,0,  4,129, 6,  0,'S',0x04}, // GM112:Shanai
-    {   5,  3,241,195,229,229,0,0,106,128, 6,  0,'b',0x04}, // GM113:Tinkle Bell
-    {   7,  2,236,248, 38, 22,0,0, 21,  0,10,  0,'b',0x04}, // GM114:Agogo Bells
-    {   5,  1,103,223, 53,  5,0,0,157,  0, 8,  0,'b',0x04}, // GM115:Steel Drums
-    {  24, 18,250,248, 40,229,0,0,150,  0,10,  0,'b',0x04}, // GM116:Woodblock
-    {  16,  0,168,250,  7,  3,0,0,134,  3, 6,  0,'M',0x04}, // GM117:Taiko Drum
-    {  17, 16,248,243, 71,  3,2,0, 65,  3, 4,  0,'M',0x04}, // GM118:Melodic Tom
-    {   1, 16,241,243,  6,  2,2,0,142,  0,14,  0,'M',0x62}, // GM119:Synth Drum
-    {  14,192, 31, 31,  0,255,0,3,  0,  0,14,  0,'c',0xF4}, // GM120:Reverse Cymbal
-    {   6,  3,248, 86, 36,132,0,2,128,136,14,  0,'G',0x04}, // GM121:Guitar FretNoise
-    {  14,208,248, 52,  0,  4,0,3,  0,  5,14,  0,'X',0x04}, // GM122:Breath Noise
-    {  14,192,246, 31,  0,  2,0,3,  0,  0,14,  0,'X',0x62}, // GM123:Seashore
-    { 213,218, 55, 86,163, 55,0,0,149, 64, 0,  0,'X',0x0C}, // GM124:Bird Tweet
-    {  53, 20,178,244, 97, 21,2,0, 92,  8,10,  0,'X',0x04}, // GM125:Telephone
-    {  14,208,246, 79,  0,245,0,3,  0,  0,14,  0,'X',0x62}, // GM126:Helicopter
-    {  38,228,255, 18,  1, 22,0,1,  0,  0,14,  0,'X',0x04}, // GM127:Applause/Noise
-    {   0,  0,243,246,240,201,0,2,  0,  0,14,  0,'X',0x04}, // GM128:Gunshot
-    {  16, 17,248,243,119,  6,2,0, 68,  0, 8, 35,'D',0x04}, // GP35:Ac Bass Drum
-    {  16, 17,248,243,119,  6,2,0, 68,  0, 8, 35,'D',0x04}, // GP36:Bass Drum 1
-    {   2, 17,249,248,255,255,0,0,  7,  0, 8, 52,'D',0x04}, // GP37:Side Stick
-    {   0,  0,252,250,  5, 23,2,0,  0,  0,14, 48,'s',0x04}, // GP38:Acoustic Snare
-    {   0,  1,255,255,  7,  8,0,0,  2,  0, 0, 58,'h',0x04}, // GP39:Hand Clap
-    {   0,  0,252,250,  5, 23,2,0,  0,  0,14, 60,'s',0x04}, // GP40:Electric Snare
-    {   0,  0,246,246, 12,  6,0,0,  0,  0, 4, 47,'M',0x04}, // GP41:Low Floor Tom
-    {  12, 18,246,251,  8, 71,0,2,  0,  0,10, 43,'h',0x04}, // GP42:Closed High Hat
-    {   0,  0,246,246, 12,  6,0,0,  0,  0, 4, 49,'M',0x04}, // GP43:High Floor Tom
-    {  12, 18,246,123,  8, 71,0,2,  0,  5,10, 43,'h',0x04}, // GP44:Pedal High Hat
-    {   0,  0,246,246, 12,  6,0,0,  0,  0, 4, 51,'M',0x04}, // GP45:Low Tom
-    {  12, 18,246,203,  2, 67,0,2,  0,  0,10, 43,'h',0x04}, // GP46:Open High Hat
-    {   0,  0,246,246, 12,  6,0,0,  0,  0, 4, 54,'M',0x04}, // GP47:Low-Mid Tom
-    {   0,  0,246,246, 12,  6,0,0,  0,  0, 4, 57,'M',0x04}, // GP48:High-Mid Tom
-    {  14,208,246,159,  0,  2,0,3,  0,  0,14, 72,'C',0x62}, // GP49:Crash Cymbal 1
-    {   0,  0,246,246, 12,  6,0,0,  0,  0, 4, 60,'M',0x04}, // GP50:High Tom
-    {  14,  7,248,244, 66,228,0,3,  8, 74,14, 76,'C',0x04}, // GP51:Ride Cymbal 1
-    {  14,208,245,159, 48,  2,0,0,  0, 10,14, 84,'C',0x04}, // GP52:Chinese Cymbal
-    {  14,  7,228,245,228,229,3,1, 10, 93, 6, 36,'b',0x04}, // GP53:Ride Bell
-    {   2,  5,180,151,  4,247,0,0,  3, 10,14, 65,'M',0x04}, // GP54:Tambourine
-    {  78,158,246,159,  0,  2,0,3,  0,  0,14, 84,'C',0x04}, // GP55:Splash Cymbal
-    {  17, 16,248,243, 55,  5,2,0, 69,  8, 8, 83,'B',0x04}, // GP56:Cow Bell
-    {  14,208,246,159,  0,  2,0,3,  0,  0,14, 84,'C',0x04}, // GP57:Crash Cymbal 2
-    { 128, 16,255,255,  3, 20,3,0,  0, 13,12, 24,'D',0x04}, // GP58:Vibraslap
-    {  14,  7,248,244, 66,228,0,3,  8, 74,14, 77,'C',0x04}, // GP59:Ride Cymbal 2
-    {   6,  2,245,245, 12,  8,0,0, 11,  0, 6, 60,'M',0x04}, // GP60:High Bongo
-    {   1,  2,250,200,191,151,0,0,  0,  0, 7, 65,'M',0x04}, // GP61:Low Bongo
-    {   1,  1,250,250,135,183,0,0, 81,  0, 6, 59,'D',0x04}, // GP62:Mute High Conga
-    {   1,  2,250,248,141,184,0,0, 84,  0, 6, 51,'D',0x04}, // GP63:Open High Conga
-    {   1,  2,250,248,136,182,0,0, 89,  0, 6, 45,'D',0x04}, // GP64:Low Conga
-    {   1,  0,249,250, 10,  6,3,0,  0,  0,14, 71,'M',0x62}, // GP65:High Timbale
-    {   0,  0,249,246,137,108,3,0,128,  0,14, 60,'M',0x04}, // GP66:Low Timbale
-    {   3, 12,248,246,136,182,3,0,128,  8,15, 58,'D',0x04}, // GP67:High Agogo
-    {   3, 12,248,246,136,182,3,0,133,  0,15, 53,'D',0x04}, // GP68:Low Agogo
-    {  14,  0,118,119, 79, 24,0,2, 64,  8,14, 64,'D',0x04}, // GP69:Cabasa
-    {  14,  3,200,155, 73,105,0,2, 64,  0,14, 71,'D',0x04}, // GP70:Maracas
-    { 215,199,173,141,  5,  5,3,0,220,  0,14, 61,'D',0x04}, // GP71:Short Whistle
-    { 215,199,168,136,  4,  4,3,0,220,  0,14, 61,'D',0x04}, // GP72:Long Whistle
-    { 128, 17,246,103,  6, 23,3,3,  0,  0,14, 44,'D',0x04}, // GP73:Short Guiro
-    { 128, 17,245, 70,  5, 22,2,3,  0,  9,14, 40,'D',0x04}, // GP74:Long Guiro
-    {   6, 21,  0,247,244,245,0,0, 63,  0, 1, 69,'D',0x04}, // GP75:Claves
-    {   6, 18,  0,247,244,245,3,0, 63,  0, 0, 68,'D',0x04}, // GP76:High Wood Block
-    {   6, 18,  0,247,244,245,0,0, 63,  0, 1, 63,'D',0x04}, // GP77:Low Wood Block
-    {   1,  2,103,117,231,  7,0,0, 88,  0, 0, 74,'D',0x04}, // GP78:Mute Cuica
-    {  65, 66,248,117, 72,  5,0,0, 69,  8, 0, 60,'D',0x04}, // GP79:Open Cuica
-    {  10, 30,224,255,240,  5,3,0, 64, 78, 8, 80,'D',0x04}, // GP80:Mute Triangle
-    {  10, 30,224,255,240,  2,3,0,124, 82, 8, 64,'D',0x04}, // GP81:Open Triangle
-    {  14,  0,122,123, 74, 27,0,2, 64,  8,14, 72,'D',0x04}, // GP82
-    {  14,  7,228, 85,228, 57,3,1, 10, 64, 6, 73,'D',0x04}, // GP83
-    {   5,  4,249,214, 50,165,3,0,  5, 64,14, 70,'D',0x04}, // GP84
-    {   2, 21,  0,247,243,245,3,0, 63,  0, 8, 68,'D',0x04}, // GP85
-    {   1,  2,250,248,141,181,0,0, 79,  0, 7, 48,'D',0x04}, // GP86
-    {   0,  0,246,246, 12,  6,0,0,  0,  0, 4, 53,'D',0x04}  // GP87 (low-low-mid tom?)
-};
 
 struct insdata
 {
@@ -519,26 +326,6 @@ static size_t InsertIns(
 }
 
 
-static void LoadStandard()
-{
-    for(unsigned a=0; a<181; ++a)
-    {
-        char name2[512]; sprintf(name2, "%s%u",
-            a<128 ? "GM" : "GP",
-            a<128 ? a : (a-128+35));
-
-        const unsigned midiindex = (a&128) ? (a+35) : a;
-        insdata tmp1;
-        memcpy(tmp1.data, adl[a], 11);
-        tmp1.finetune = 0;
-        ins tmp2;
-        tmp2.notenum  = adl[a][11];
-        size_t resno = InsertIns(tmp1,tmp1, tmp2,
-            MidiInsName[a][0]?std::string(1,'\377')+MidiInsName[a]:"", name2);
-        SetBank(0, midiindex, resno);
-    }
-}
-
 static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_fat)
 {
     FILE* fp = fopen(fn, "rb");
@@ -549,6 +336,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
     fclose(fp);
 
     //printf("%s:\n", fn);
+    unsigned short version = *(short*)&data[0];
     unsigned short sig1 = *(short*)&data[8];
     unsigned short sig2 = *(short*)&data[10];
     unsigned       sig3 = *(unsigned*)&data[12];
@@ -577,7 +365,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
 
         bool percussive = is_fat
             ?   name[1] == 'P' /* data[offset2] == 1 */
-            :   (c != 0);
+            :   (c >= 16);
 
         int gmno = is_fat
             ?   ((n & 127) + percussive*128)
@@ -621,7 +409,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         tmp.finetune = 0;
         // Note: op2[2] and op2[12] are unused and contain garbage.
         ins tmp2;
-        tmp2.notenum = is_fat ? data[offset2+1] : c;
+        tmp2.notenum = is_fat ? data[offset2+1] : (percussive ? c : 0);
 
         if(is_fat) tmp.data[10] ^= 1;
 
@@ -684,6 +472,89 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             //if(p == 25) printf("\n%*s", 22, "");
         }
         printf("\n");*/
+    }
+}
+
+static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
+                     const std::string& melo_filter,
+                     const std::string& perc_filter)
+{
+    FILE* fp = fopen(fn, "rb");
+    fseek(fp, 0, SEEK_END);
+    std::vector<unsigned char> data(ftell(fp));
+    rewind(fp);
+    fread(&data[0], 1, data.size(), fp),
+    fclose(fp);
+
+    unsigned short ins_entries = *(unsigned short*)&data[28+2+10];
+    unsigned char* records = &data[48];
+
+    for(unsigned n=0; n<ins_entries; ++n)
+    {
+        const size_t offset1 = n*28;
+        int used     =         records[offset1 + 15];
+        int attrib   = *(int*)&records[offset1 + 16];
+        int offset2  = *(int*)&records[offset1 + 20];
+        if(used == 0) continue;
+
+        std::string name;
+        for(unsigned p=0; p<12; ++p)
+        {
+            if(records[offset1+3+p] == '\0') break;
+            name += char(records[offset1+3+p]);
+        }
+
+        int gmno = 0;
+        if(name.substr(0, melo_filter.size()) == melo_filter)
+            gmno = std::atoi(name.substr(melo_filter.size()).c_str());
+        else if(name.substr(0, perc_filter.size()) == perc_filter)
+            gmno = std::atoi(name.substr(perc_filter.size()).c_str()) + 128;
+        else
+            continue;
+
+        const unsigned char* insdata = &data[offset2];
+        const unsigned char* ops[4] = { insdata+0, insdata+6, insdata+12, insdata+18 };
+        unsigned char C4xxxFFFC = insdata[24];
+        unsigned char xxP24NNN = insdata[25];
+        unsigned char TTTTTTTT = insdata[26];
+        unsigned char xxxxxxxx = insdata[27];
+
+        char name2[512];
+        sprintf(name2, "%s%c%u", prefix, (gmno&128)?'P':'M', gmno&127);
+
+        struct insdata tmp[2];
+        for(unsigned a=0; a<2; ++a)
+        {
+            tmp[a].data[0] = ops[a*2+0][0];
+            tmp[a].data[1] = ops[a*2+1][0];
+            tmp[a].data[2] = ops[a*2+0][2];
+            tmp[a].data[3] = ops[a*2+1][2];
+            tmp[a].data[4] = ops[a*2+0][3];
+            tmp[a].data[5] = ops[a*2+1][3];
+            tmp[a].data[6] = ops[a*2+0][4] & 0x07;
+            tmp[a].data[7] = ops[a*2+1][4] & 0x07;
+            tmp[a].data[8] = ops[a*2+0][1];
+            tmp[a].data[9] = ops[a*2+1][1];
+            tmp[a].finetune = TTTTTTTT;
+        }
+        tmp[0].data[10] = C4xxxFFFC & 0x0F;
+        tmp[1].data[10] = (tmp[0].data[10] & 0x0E) | (C4xxxFFFC >> 7);
+
+        ins tmp2;
+        tmp2.notenum = (gmno & 128) ? 35 : 0;
+
+        if(xxP24NNN & 8)
+        {
+            // dual-op
+            size_t resno = InsertIns(tmp[0],tmp[1], tmp2, std::string(1,'\377')+name, name2);
+            SetBank(bank, gmno, resno);
+        }
+        else
+        {
+            // single-op
+            size_t resno = InsertIns(tmp[0],tmp[0], tmp2, std::string(1,'\377')+name, name2);
+            SetBank(bank, gmno, resno);
+        }
     }
 }
 
@@ -804,7 +675,7 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
     fread(&data[0], 1, data.size(), fp),
     fclose(fp);
 
-    for(unsigned a=0; a<200; ++a)
+    for(unsigned a=0; a<2000; ++a)
     {
         unsigned gmnumber  = data[a*6+0];
         unsigned gmnumber2 = data[a*6+1];
@@ -826,6 +697,8 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
             printf("%02X ", data[offset+b]);
         }
         printf("\n");*/
+
+        if(gmnumber2 != 0 && gmnumber2 != 0x7F) continue;
 
         char name2[512]; sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
@@ -861,8 +734,9 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
         {
             struct ins tmp2;
             tmp2.notenum  = gmno < 128 ? 0 : data[offset+3];
-            size_t resno = InsertIns(tmp[0], tmp[1], tmp2,
-                std::string(1,'\377')+MidiInsName[midi_index], name2);
+            std::string name;
+            if(midi_index >= 0) name = std::string(1,'\377')+MidiInsName[midi_index];
+            size_t resno = InsertIns(tmp[0], tmp[1], tmp2, name, name2);
             SetBank(bank, gmno, resno);
         }
     }
@@ -1057,39 +931,117 @@ static DurationInfo MeasureDurations(const ins& in)
 
 int main()
 {
-    LoadStandard();
-    LoadBNK("descent/melodic.bnk", 1, "HMIGM", false);
-    LoadBNK("descent/drum.bnk",    1, "HMIGP", false);
-    LoadBNK("descent/intmelo.bnk", 2, "intM", false);
-    LoadBNK("descent/intdrum.bnk", 2, "intP", false);
-    LoadBNK("descent/hammelo.bnk", 3, "hamM", false);
-    LoadBNK("descent/hamdrum.bnk", 3, "hamP", false);
-    LoadBNK("descent/rickmelo.bnk",4, "rickM", false);
-    LoadBNK("descent/rickdrum.bnk",4, "rickP", false);
+    LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank!
+
+    LoadBNK("bnk_files/melodic.bnk", 1, "HMIGM", false);
+    LoadBNK("bnk_files/drum.bnk",    1, "HMIGP", false);
+    LoadBNK("bnk_files/intmelo.bnk", 2, "intM", false);
+    LoadBNK("bnk_files/intdrum.bnk", 2, "intP", false);
+    LoadBNK("bnk_files/hammelo.bnk", 3, "hamM", false);
+    LoadBNK("bnk_files/hamdrum.bnk", 3, "hamP", false);
+    LoadBNK("bnk_files/rickmelo.bnk",4, "rickM", false);
+    LoadBNK("bnk_files/rickdrum.bnk",4, "rickP", false);
     LoadDoom("doom2/genmidi.op2", 5, "dM");
     LoadDoom("doom2/genmidi.htc", 6, "hxM");
-    LoadMiles("miles/warcraft.ad", 7, "sG");
-    LoadMiles("miles/simfarm.opl", 8, "qG");
-    LoadMiles("miles/simfarm.ad", 9, "mG");
-    LoadMiles("miles/sample.ad", 10, "MG");
-    LoadMiles("miles/sample.opl", 11, "oG");
-    // LoadMiles("miles/sc3.opl",  10, "2miles"); // Actually this is our "standard"!
+    LoadMiles("opl_files/warcraft.ad", 7, "sG");
+    LoadMiles("opl_files/simfarm.opl", 8, "qG");
+    LoadMiles("opl_files/simfarm.ad", 9, "mG");
+    LoadMiles("opl_files/sample.ad", 10, "MG");
+    LoadMiles("opl_files/sample.opl", 11, "oG");
+    LoadMiles("opl_files/file12.opl", 12, "f12G");
+    LoadMiles("opl_files/file13.opl", 13, "f13G");
+    LoadMiles("opl_files/file15.opl", 14, "f15G");
+    LoadMiles("opl_files/file16.opl", 15, "f16G");
+    LoadMiles("opl_files/file17.opl", 16, "f17G");
+    LoadMiles("opl_files/file19.opl", 17, "f19G");
+    LoadMiles("opl_files/file20.opl", 18, "f20G");
+    LoadMiles("opl_files/file21.opl", 19, "f21G");
+    LoadMiles("opl_files/file23.opl", 20, "f23G");
+    LoadMiles("opl_files/file24.opl", 21, "f24G");
+    LoadMiles("opl_files/file25.opl", 22, "f25G");
+    LoadMiles("opl_files/file26.opl", 23, "f26G");
+    LoadMiles("opl_files/file27.opl", 24, "f27G");
+    LoadMiles("opl_files/file29.opl", 25, "f29G");
+    LoadMiles("opl_files/file30.opl", 26, "f30G");
+    LoadMiles("opl_files/file31.opl", 27, "f31G");
+    LoadMiles("opl_files/file32.opl", 28, "f32G");
+    LoadMiles("opl_files/file34.opl", 29, "f34G");
+    LoadMiles("opl_files/file35.opl", 30, "f35G");
+    LoadMiles("opl_files/file36.opl", 31, "f36G");
+    LoadMiles("opl_files/file37.opl", 32, "f37G");
+    LoadMiles("opl_files/file41.opl", 33, "f41G");
+    LoadMiles("opl_files/file42.opl", 34, "f42G");
+    LoadMiles("opl_files/file47.opl", 35, "f47G");
+    LoadMiles("opl_files/file48.opl", 36, "f48G");
+    LoadMiles("opl_files/file49.opl", 37, "f49G");
+    LoadMiles("opl_files/file50.opl", 38, "f50G");
+    LoadMiles("opl_files/file53.opl", 39, "f53G");
+    LoadMiles("opl_files/file54.opl", 40, "f54G");
+    LoadBNK("bnk_files/file131.bnk", 41, "b41M", false);
+    LoadBNK("bnk_files/file132.bnk", 41, "b41P", false);
+    LoadBNK("bnk_files/file133.bnk", 42, "b42P", false);
+    LoadBNK("bnk_files/file134.bnk", 42, "b42M", false);
+    LoadBNK("bnk_files/file142.bnk", 43, "b43P", false);
+    LoadBNK("bnk_files/file143.bnk", 43, "b43M", false);
+    LoadBNK("bnk_files/file144.bnk", 44, "b44M", false);
+    LoadBNK("bnk_files/file145.bnk", 44, "b44P", false);
+    LoadBNK("bnk_files/file167.bnk", 45, "b45P", false);
+    LoadBNK("bnk_files/file168.bnk", 45, "b45M", false);
+
+    LoadBNK2("bnk_files/file159.bnk", 46, "b46", "gm","gps");
+    LoadBNK2("bnk_files/file159.bnk", 47, "b47", "gm","gpo");
 
     //LoadBNK("fat/fatv10.bnk",   9, "sfat", true); // Two banks. Also, not worth it.
 
-    static const char* banknames[] =
-    {"Miles SC3",      // Nov  9  1993
-     "HMI GM",         // 
-     "HMI int",
-     "HMI ham",
-     "HMI rick",
-     "Doom",           //
-     "Hexen",          // 
-     "Miles Warcraft", // 1995
-     "Miles QUAD-OP",  // 
-     "Miles Simfarm",  // 1993
-     "Miles 2.14 OSS",
-     "Miles UW"        //
+    static const char* const banknames[] =
+    {"AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
+     "HMI (Descent, Asterix)",
+     "HMI (Descent:: Int)",
+     "HMI (Descent:: Ham)",
+     "HMI (Descent:: Rick)",
+     "DMX (Doom)",
+     "DMX (Hexen, Heretic)",
+     "AIL (Warcraft 2)",
+     "AIL (SimFarm, SimHealth :: Quad-op)",
+     "AIL (SimFarm, Settlers, Serf City)",
+     "AIL (Air Bucks, Blue And The Gray, America Invades, Terminator 2029)",
+     "AIL (Ultima Underworld 2)",
+     "AIL (Caesar 2)",   // file12
+     "AIL (Death Gate)", // file13
+     "AIL (Kasparov's Gambit)", // file15
+     "AIL (High Seas Trader)", // file16
+     "AIL (Discworld, Grandest Fleet, Pocahontas, Slob Zone 3d, Ultima 4)", // file17
+     "AIL (Syndicate)", // file19
+     "AIL (Guilty, Orion Conspiracy, Terra Nova Strike Force Centauri)", // file20
+     "AIL (Magic Carpet 2)", // file21
+     "AIL (Jagged Alliance)", //file23
+     "AIL (When Two Worlds War)", //file24
+     "AIL (Bards Tale Construction)", //file25
+     "AIL (Return to Zork)", //file26
+     "AIL (Theme Hospital)", //file27
+     "AIL (Inherit The Earth)", //file29
+     "AIL (Inherit The Earth, file two)", //file30
+     "AIL (Little Big Adventure)", //file31
+     "AIL (Wreckin Crew)", //file32
+     "AIL (FIFA International Soccer)", //file34
+     "AIL (Starship Invasion)", //file35
+     "AIL (Super Street Fighter 2)", //file36
+     "AIL (Lords of the Realm)", //file37
+     "AIL (Syndicate Wars)", //file41
+     "AIL (Bubble Bobble Feat. Rainbow Islands, Z)", //file42
+     "AIL (Warcraft)", //file47
+     "AIL (Terra Nova Strike Force Centuri)", //file48
+     "AIL (System Shock)", //file49
+     "AIL (Advanced Civilization)", //file50
+     "AIL (Battle Chess 4000)", //file53
+     "AIL (Ultimate Soccer Manager)", //file54
+     "HMI (Theme Park)", // file131, file132 
+     "HMI (3d Table Sports, Battle Arena Toshinden)", //file133, file134
+     "HMI (Aces of the Deep)", //file142, file143
+     "HMI (Earthsiege)", //file144, file145
+     "HMI (Anvil of Dawn)", //file167,file168
+     "AIL (Master of Magic, Master of Orion 2 :: std percussion)", //file159
+     "AIL (Master of Magic, Master of Orion 2 :: orchestral percussion)", //file159
     };
 
 #if 0
@@ -1225,22 +1177,65 @@ int main()
     printf("};\n");
     //printf("static const unsigned short banks[][256] =\n");
     const unsigned bankcount = sizeof(banknames)/sizeof(*banknames);
+    std::map<unsigned, std::vector<unsigned> > bank_data;
+    for(unsigned bank=0; bank<bankcount; ++bank)
+    {
+        bool redundant = true;
+        std::vector<unsigned> data(256);
+        for(unsigned p=0; p<256; ++p)
+        {
+            unsigned v = progs[bank][p];
+            if(v == 0)
+                v = 198; // Blank.in
+            else
+                v -= 1;
+            data[p] = v;
+        }
+        bank_data[bank] = data;
+    }
+    std::set<unsigned> listed;
+    printf("const char* const banknames[%u] =\n", bankcount);
+    printf("{\n");
+    for(unsigned bank=0; bank<bankcount; ++bank)
+        printf("    \"%s\",\n", banknames[bank]);
+    printf("};\n");
+
     printf("const unsigned short banks[%u][256] =\n", bankcount);
     printf("{\n");
     for(unsigned bank=0; bank<bankcount; ++bank)
     {
         printf("    { // bank %u, %s\n", bank, banknames[bank]);
+        bool redundant = true;
         for(unsigned p=0; p<256; ++p)
         {
-            size_t v = progs[bank][p];
-            if(v == 0)
-                v = 198; // Blank.in
-            else
-                v -= 1;
-            printf("%3d,", (unsigned)v);
+            unsigned v = bank_data[bank][p];
+            if(listed.find(v) == listed.end())
+            {
+                listed.insert(v);
+                redundant = false;
+            }
+            printf("%3d,", v);
             if(p%16 == 15) printf("\n");
         }
         printf("    },\n");
+        if(redundant)
+        {
+            printf("    // Bank %u defines nothing new.\n", bank);
+            for(unsigned refbank=0; refbank<bank; ++refbank)
+            {
+                bool match = true;
+                for(unsigned p=0; p<256; ++p)
+                    if(bank_data[bank][p] != 198
+                    && bank_data[bank][p] != bank_data[refbank][p])
+                    {
+                        match=false;
+                        break;
+                    }
+                if(match)
+                    printf("    // Bank %u is just a subset of bank %u!\n",
+                        bank, refbank);
+            }
+        }
     }
     printf("};\n");
 }
