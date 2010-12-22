@@ -809,7 +809,7 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
         unsigned gmnumber  = data[a*6+0];
         unsigned gmnumber2 = data[a*6+1];
         unsigned offset    = *(unsigned*)&data[a*6+2];
-        
+
         if(gmnumber == 0xFF) break;
         int gmno = gmnumber2==0x7F ? gmnumber+0x80 : gmnumber;
         int midi_index = gmno < 128 ? gmno
@@ -848,9 +848,13 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
             tmp[i].data[5] = data[o+9]; // 83
             tmp[i].data[7] = data[o+10]; // E3
 
-            tmp[i].data[10] = data[offset+3+5] & 0x0F; // C0
+            unsigned fb_c = data[offset+3+5];
+            tmp[i].data[10] = fb_c;
             if(i == 1)
-                tmp[0].data[10] = data[offset+3+5] >> 4;
+            {
+                tmp[0].data[10] = fb_c & 0x0F;
+                tmp[1].data[10] = (fb_c & 0x0E) | (fb_c >> 7);
+            }
         }
         if(inscount == 1) tmp[1] = tmp[0];
         if(inscount <= 2)
