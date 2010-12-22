@@ -1446,7 +1446,7 @@ int main(int argc, char** argv)
         const double eat_delay = delay < maxdelay ? delay : maxdelay;
         delay -= eat_delay;
         player.opl.ProduceAudio(eat_delay);
-        while(AudioBuffer.size() > 2*spec.freq/Interval)
+        while(AudioBuffer.size() > 3*spec.freq/Interval)
             SDL_Delay(1e3 * eat_delay);
 
         double nextdelay = player.Tick(eat_delay, mindelay);
