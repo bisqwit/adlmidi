@@ -8,9 +8,40 @@ $progname = 'adlmidi';
 $git = 'git://bisqwit.iki.fi/adlmidi.git';
 
 $text = array(
-   '1. Purpose' => "
+   'purpose:1. Purpose' => "
 
 This program plays MIDI files using OPL3 emulation.
+
+", 'features:1. Key features' => "
+
+<ul>
+ <li>OPL3 emulation with four-operator mode support</li>
+ <li>FM patches from a number of known PC games, copied from
+   files typical to
+   AIL / Miles Sound System / DMX / Human Machine Interfaces
+   / Creative IBK.</li>
+ <li>Stereo sound</li>
+ <li>Reverb filter based on code from <a href=\"http://sox.sourceforge.net/\">SoX</a>,
+     based on code from <a href=\"http://freeverb3.sourceforge.net/\">Freeverb</a>.
+     A copy of either project is not needed.</li>
+ <li>Number of simulated soundcards can be specified as 1-100 (maximum channels 1800!)</li>
+ <li>xterm-256color support</li>
+ <li>Pan (binary panning, i.e. left/right side on/off)</li>
+ <li>Pitch-bender with adjustable range</li>
+ <li>Vibrato that responds to RPN/NRPN parameters</li>
+ <li>Sustain enable/disable</li>
+ <li>MIDI and RMI file support</li>
+ <li>loopStart / loopEnd tag support (Final Fantasy VII)</li>
+</ul>
+
+A GW-BASIC version is also provided
+(<a href=\"http://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.html\"
+>MIDIPLAY.BAS</a>).
+This player was
+<a href=\"http://www.youtube.com/watch?v=ZwcFV3KrnQA\"
+>first implemented in GW-BASIC for a Youtube demonstration video</a>!
+With alterations that take 15 seconds to implement,
+it can be run in QBasic and QuickBASIC too.
 
 ", 'copying:1. Copying and contributing' => "
 
