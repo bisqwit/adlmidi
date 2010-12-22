@@ -742,6 +742,58 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
     }
 }
 
+static void LoadIBK(const char* fn, unsigned bank, const char* prefix, bool percussive)
+{
+    FILE* fp = fopen(fn, "rb");
+    fseek(fp, 0, SEEK_END);
+    std::vector<unsigned char> data(ftell(fp));
+    rewind(fp);
+    fread(&data[0], 1, data.size(), fp),
+    fclose(fp);
+
+    unsigned offs1_base = 0x804, offs1_len = 9;
+    unsigned offs2_base = 0x004, offs2_len = 16;
+
+    for(unsigned a=0; a<128; ++a)
+    {
+        unsigned offset1 = offs1_base + a*offs1_len;
+        unsigned offset2 = offs2_base + a*offs2_len;
+
+        std::string name;
+        for(unsigned p=0; p<9; ++p)
+            if(data[offset1]!='\0')
+                name += char(data[offset1+p]);
+
+        int gmno = a + 128*percussive;
+        int midi_index = gmno < 128 ? gmno
+                       : gmno < 128+35 ? -1
+                       : gmno < 128+88 ? gmno-35
+                       : -1;
+        char name2[512]; sprintf(name2, "%s%c%u", prefix,
+            (gmno<128?'M':'P'), gmno&127);
+
+        insdata tmp;
+        tmp.data[0] = data[offset2+0];
+        tmp.data[1] = data[offset2+1];
+        tmp.data[8] = data[offset2+2];
+        tmp.data[9] = data[offset2+3];
+        tmp.data[2] = data[offset2+4];
+        tmp.data[3] = data[offset2+5];
+        tmp.data[4] = data[offset2+6];
+        tmp.data[5] = data[offset2+7];
+        tmp.data[6] = data[offset2+8];
+        tmp.data[7] = data[offset2+9];
+        tmp.data[10] = data[offset2+10];
+        // [+11] seems to be used also, what is it for?
+        tmp.finetune = 0;
+        struct ins tmp2;
+        tmp2.notenum  = gmno < 128 ? 0 : 35;
+
+        size_t resno = InsertIns(tmp,tmp, tmp2, std::string(1,'\377')+name, name2);
+        SetBank(bank, gmno, resno);
+    }
+}
+
 #include "dbopl.h"
 
 std::vector<int> sampleBuf;
@@ -804,11 +856,14 @@ static DurationInfo MeasureDurations(const ins& in)
         opl.WriteReg(0xA0+n, x[n]&0xFF);
         opl.WriteReg(0xB0+n, x[n]>>8);
     }
+    
+    const unsigned max_on = 40;
+    const unsigned max_off = 60;
 
     // For up to 40 seconds, measure mean amplitude.
     std::vector<double> amplitudecurve_on;
     double highest_sofar = 0;
-    for(unsigned period=0; period<40*interval; ++period)
+    for(unsigned period=0; period<max_on*interval; ++period)
     {
         sampleBuf.clear();
         unsigned n = samples_per_interval;
@@ -842,7 +897,7 @@ static DurationInfo MeasureDurations(const ins& in)
 
     // Now, for up to 60 seconds, measure mean amplitude.
     std::vector<double> amplitudecurve_off;
-    for(unsigned period=0; period<60*interval; ++period)
+    for(unsigned period=0; period<max_off*interval; ++period)
     {
         sampleBuf.clear();
         unsigned n = samples_per_interval;
@@ -932,7 +987,6 @@ static DurationInfo MeasureDurations(const ins& in)
 int main()
 {
     LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank!
-
     LoadBNK("bnk_files/melodic.bnk", 1, "HMIGM", false);
     LoadBNK("bnk_files/drum.bnk",    1, "HMIGP", false);
     LoadBNK("bnk_files/intmelo.bnk", 2, "intM", false);
@@ -991,7 +1045,10 @@ int main()
     LoadBNK2("bnk_files/file159.bnk", 46, "b46", "gm","gps");
     LoadBNK2("bnk_files/file159.bnk", 47, "b47", "gm","gpo");
 
-    //LoadBNK("fat/fatv10.bnk",   9, "sfat", true); // Two banks. Also, not worth it.
+    LoadIBK("ibk_files/soccer-genmidi.ibk", 48, "b48", false);
+    LoadIBK("ibk_files/soccer-percs.ibk",   48, "b48", true);
+    LoadIBK("ibk_files/game.ibk",           49, "b49", false);
+    LoadIBK("ibk_files/mt_fm.ibk",          50, "b50", false);
 
     static const char* const banknames[] =
     {"AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
@@ -999,49 +1056,52 @@ int main()
      "HMI (Descent:: Int)",
      "HMI (Descent:: Ham)",
      "HMI (Descent:: Rick)",
-     "DMX (Doom)",
-     "DMX (Hexen, Heretic)",
+     "DMX (Doom           :: partially 4op)",
+     "DMX (Hexen, Heretic :: partially 4op)",
      "AIL (Warcraft 2)",
-     "AIL (SimFarm, SimHealth :: Quad-op)",
+     "AIL (SimFarm, SimHealth :: 4op)",
      "AIL (SimFarm, Settlers, Serf City)",
      "AIL (Air Bucks, Blue And The Gray, America Invades, Terminator 2029)",
      "AIL (Ultima Underworld 2)",
-     "AIL (Caesar 2)",   // file12
+     "AIL (Caesar 2 :: partially 4op, MISSING INSTRUMENTS)",   // file12
      "AIL (Death Gate)", // file13
      "AIL (Kasparov's Gambit)", // file15
-     "AIL (High Seas Trader)", // file16
-     "AIL (Discworld, Grandest Fleet, Pocahontas, Slob Zone 3d, Ultima 4)", // file17
+     "AIL (High Seas Trader :: MISSING INSTRUMENTS)", // file16
+     "AIL (Discworld, Grandest Fleet, Pocahontas, Slob Zone 3d, Ultima 4, Zorro)", // file17
      "AIL (Syndicate)", // file19
-     "AIL (Guilty, Orion Conspiracy, Terra Nova Strike Force Centauri)", // file20
+     "AIL (Guilty, Orion Conspiracy, Terra Nova Strike Force Centauri :: 4op)", // file20
      "AIL (Magic Carpet 2)", // file21
      "AIL (Jagged Alliance)", //file23
-     "AIL (When Two Worlds War)", //file24
-     "AIL (Bards Tale Construction)", //file25
+     "AIL (When Two Worlds War :: 4op, MISSING INSTRUMENTS)", //file24
+     "AIL (Bards Tale Construction :: MISSING INSTRUMENTS)", //file25
      "AIL (Return to Zork)", //file26
      "AIL (Theme Hospital)", //file27
      "AIL (Inherit The Earth)", //file29
      "AIL (Inherit The Earth, file two)", //file30
-     "AIL (Little Big Adventure)", //file31
+     "AIL (Little Big Adventure :: 4op)", //file31
      "AIL (Wreckin Crew)", //file32
      "AIL (FIFA International Soccer)", //file34
      "AIL (Starship Invasion)", //file35
-     "AIL (Super Street Fighter 2)", //file36
-     "AIL (Lords of the Realm)", //file37
+     "AIL (Super Street Fighter 2 :: 4op)", //file36
+     "AIL (Lords of the Realm :: MISSING INSTRUMENTS)", //file37
      "AIL (Syndicate Wars)", //file41
      "AIL (Bubble Bobble Feat. Rainbow Islands, Z)", //file42
      "AIL (Warcraft)", //file47
-     "AIL (Terra Nova Strike Force Centuri)", //file48
-     "AIL (System Shock)", //file49
+     "AIL (Terra Nova Strike Force Centuri :: partially 4op)", //file48
+     "AIL (System Shock :: partially 4op)", //file49
      "AIL (Advanced Civilization)", //file50
-     "AIL (Battle Chess 4000)", //file53
-     "AIL (Ultimate Soccer Manager)", //file54
+     "AIL (Battle Chess 4000 :: partially 4op, melodic only)", //file53
+     "AIL (Ultimate Soccer Manager :: partially 4op)", //file54
      "HMI (Theme Park)", // file131, file132 
      "HMI (3d Table Sports, Battle Arena Toshinden)", //file133, file134
      "HMI (Aces of the Deep)", //file142, file143
      "HMI (Earthsiege)", //file144, file145
      "HMI (Anvil of Dawn)", //file167,file168
-     "AIL (Master of Magic, Master of Orion 2 :: std percussion)", //file159
-     "AIL (Master of Magic, Master of Orion 2 :: orchestral percussion)", //file159
+     "AIL (Master of Magic, Master of Orion 2 :: 4op, std percussion)", //file159
+     "AIL (Master of Magic, Master of Orion 2 :: 4op, orchestral percussion)", //file159
+     "SB (Action Soccer)",
+     "SB (3d Cyberpuck :: melodic only)",
+     "SB (Simon the Sorcerer :: melodic only)",
     };
 
 #if 0
