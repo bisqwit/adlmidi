@@ -21,11 +21,12 @@
 
 #include "dbopl.h"
 
+static const unsigned long PCM_RATE = 48000;
 static const unsigned MaxCards = 100;
 static const unsigned MaxSamplesAtTime = 512; // dbopl limitation
 static unsigned AdlBank    = 0;
-static unsigned NumFourOps = 0;
-static unsigned NumCards   = 1;
+static unsigned NumFourOps = 7;
+static unsigned NumCards   = 2;
 
 extern const struct adldata
 {
@@ -52,7 +53,6 @@ static const unsigned short Channels[18] =
 
 struct OPL3
 {
-    static const unsigned long PCM_RATE = 48000;
     unsigned NumChannels;
 
     std::vector<DBOPL::Handler> cards;
@@ -1165,7 +1165,7 @@ static struct MyReverbData
     MyReverbData() : wetonly(false)
     {
         for(size_t i=0; i<2; ++i)
-            chan[i].Create(OPL3::PCM_RATE,
+            chan[i].Create(PCM_RATE,
                 4.0,  // wet_gain_dB  (-10..10)
                 .8,//.7,   // room_scale   (0..1)
                 0.,//.6,   // reverberance (0..1)
@@ -1223,7 +1223,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
     static unsigned amplitude_display_counter = 0;
     if(!amplitude_display_counter--)
     {
-        amplitude_display_counter = (OPL3::PCM_RATE / count) / 24;
+        amplitude_display_counter = (PCM_RATE / count) / 24;
         double amp[2]={0,0};
         const unsigned maxy = NumCards*18;
         for(unsigned w=0; w<2; ++w)
@@ -1299,7 +1299,7 @@ int main(int argc, char** argv)
 {
     const unsigned Interval = 50;
     static SDL_AudioSpec spec;
-    spec.freq     = OPL3::PCM_RATE;
+    spec.freq     = PCM_RATE;
     spec.format   = AUDIO_S16SYS;
     spec.channels = 2;
     spec.samples  = spec.freq / Interval;
@@ -1369,10 +1369,15 @@ int main(int argc, char** argv)
         }
     }
     else
-        NumFourOps = NumCards==1 ? 1 : (5 + (NumCards-1)*3);
+        NumFourOps =
+            (AdlBank == 8) ? NumCards * 6
+          : (AdlBank != 5 && AdlBank != 6) ? 0
+          : (NumCards==1 ? 1 : (5 + (NumCards-1)*3));
 
-    std::printf("Using %u cards, for %u four-op channels; %u dual-op channels remain.\n",
-        NumCards,
+    std::printf(
+        "Simulating %u OPL3 cards for a total of %u operators.\n"
+        "Setting up the operators as %u four-op channels, %u dual-op channels.\n",
+        NumCards, NumCards*36,
         NumFourOps, 18*NumCards - NumFourOps*2);
 
     MIDIplay player;
@@ -1394,15 +1399,15 @@ int main(int argc, char** argv)
     {
         std::fprintf(stderr,
             "ERROR: You have selected the Miles four-op bank but no four-op channels.\n"
-            "       The results (silence + cpu load) would probably not be what you want,\n"
-            "       therefore ignoring the request.\n");
+            "       The results (silence + much cpu load) would be probably\n"
+            "       not what you want, therefore ignoring the request.\n");
         return 0;
     }
 
     SDL_PauseAudio(0);
 
-    const double mindelay = 1 / (double)OPL3::PCM_RATE;
-    const double maxdelay = MaxSamplesAtTime / (double)OPL3::PCM_RATE;
+    const double mindelay = 1 / (double)PCM_RATE;
+    const double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
 
     UI.GotoXY(0,0); UI.Color(15);
     std::fprintf(stderr, "Hit Ctrl-C to quit\r");
@@ -1413,7 +1418,7 @@ int main(int argc, char** argv)
         delay -= eat_delay;
 
         static double carry = 0.0;
-        carry += OPL3::PCM_RATE * eat_delay;
+        carry += PCM_RATE * eat_delay;
         const unsigned long n_samples = (unsigned) carry;
         carry -= n_samples;
 
