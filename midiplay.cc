@@ -667,18 +667,16 @@ private:
     void HandleEvent(size_t tk)
     {
         unsigned char byte = TrackData[tk][CurrentPosition.track[tk].ptr++];
-        if(byte >= 0xF0)
+        if(byte == 0xF7 || byte == 0xF0) // Ignore SysEx
         {
-            //UI.PrintLn("@%X Track %u: %02X", CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte);
-            // Special Fx events
-            if(byte == 0xF7 || byte == 0xF0)
-                { unsigned length = ReadVarLen(tk);
-                  //std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
-                  CurrentPosition.track[tk].ptr += length;
-                  UI.PrintLn("SysEx %02X: %u bytes", byte, length/*, data.c_str()*/);
-                  return; } // Ignore SysEx
-            if(byte == 0xF3) { CurrentPosition.track[tk].ptr += 1; return; }
-            if(byte == 0xF2) { CurrentPosition.track[tk].ptr += 2; return; }
+            unsigned length = ReadVarLen(tk);
+            //std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
+            CurrentPosition.track[tk].ptr += length;
+            UI.PrintLn("SysEx %02X: %u bytes", byte, length/*, data.c_str()*/);
+            return;
+        }
+        if(byte == 0xFF)
+        {
             // Special event FF
             unsigned char evtype = TrackData[tk][CurrentPosition.track[tk].ptr++];
             unsigned long length = ReadVarLen(tk);
@@ -696,6 +694,8 @@ private:
         if(byte < 0x80)
           { byte = CurrentPosition.track[tk].status | 0x80;
             CurrentPosition.track[tk].ptr--; }
+        if(byte == 0xF3) { CurrentPosition.track[tk].ptr += 1; return; }
+        if(byte == 0xF2) { CurrentPosition.track[tk].ptr += 2; return; }
         /*UI.PrintLn("@%X Track %u: %02X %02X",
             CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte,
             TrackData[tk][CurrentPosition.track[tk].ptr]);*/
@@ -1426,9 +1426,11 @@ int main(int argc, char** argv)
 
     if(AdlBank == 8 && NumFourOps == 0)
     {
-        std::printf(
-            "WARNING: You have selected the Miles four-op bank but no four-op channels.\n"
-            "         The results probably are not what you intended.\n");
+        std::fprintf(stderr,
+            "ERROR: You have selected the Miles four-op bank but no four-op channels.\n"
+            "       The results (silence + cpu load) would probably not be what you want,\n"
+            "       therefore ignoring the request.\n");
+        return 0;
     }
 
     SDL_PauseAudio(0);
