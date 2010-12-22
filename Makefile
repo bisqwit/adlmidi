@@ -1,6 +1,7 @@
-VERSION=1.0.1
+VERSION=1.0.2
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
+NOGZIPARCHIVES=1
 
 ARCHFILES=\
 	midiplay.cc \

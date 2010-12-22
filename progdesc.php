@@ -10,7 +10,8 @@ $git = 'git://bisqwit.iki.fi/adlmidi.git';
 $text = array(
    'purpose:1. Purpose' => "
 
-This program plays MIDI files using OPL3 emulation.
+AdlMIDI is a commandline program that plays MIDI files
+using software OPL3 emulation.
 
 ", 'features:1. Key features' => "
 
@@ -34,7 +35,8 @@ This program plays MIDI files using OPL3 emulation.
  <li>loopStart / loopEnd tag support (Final Fantasy VII)</li>
 </ul>
 
-A GW-BASIC version is also provided
+<hr>
+This project is <b>developed in C++</b>, but a <i>GW-BASIC version</i> is also provided
 (<a href=\"http://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.html\"
 >MIDIPLAY.BAS</a>).
 This player was
