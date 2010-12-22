@@ -1428,9 +1428,8 @@ int main(int argc, char** argv)
         }
         else
         {
-            static std::vector<int> sample_buf;
-            sample_buf.clear();
-            sample_buf.resize(n_samples * 2);
+            /* Mix together the audio from different cards */
+            std::vector<int> sample_buf(n_samples*2, 0);
             struct Mix
             {
                 static void AddStereoAudio(unsigned long count, int* samples)
@@ -1446,6 +1445,7 @@ int main(int argc, char** argv)
                     Mix::AddStereoAudio,
                     n_samples);
             }
+            /* Process it */
             SendStereoAudio(n_samples, &sample_buf[0]);
         }
 
