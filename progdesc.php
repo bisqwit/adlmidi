@@ -57,7 +57,10 @@ The OPL3 emulator within is from DOSBox is licensed under GPL2+.
  <br/>
 The FM soundfonts (patches) used in the program are
 imported from various PC games without permission
-from their respective authors.
+from their respective authors. The question of copyright, when
+it comes to sets of 11 numeric bytes, is somewhat vague, especially
+considering that most of those sets are simply descendants of the
+patch sets originally published by AdLib Inc. for everyone's free use.
  <p/>
 Patches and other related material can be submitted to the
 author
