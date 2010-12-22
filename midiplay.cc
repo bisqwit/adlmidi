@@ -25,7 +25,7 @@ static const unsigned MaxSamplesAtTime = 512; // dbopl limitation
 
 static unsigned AdlBank = 0;
 static unsigned NumFourOps = 0;
-static unsigned AdlPercussionMask = 0;
+static bool AdlPercussionMode = false;
 
 extern const struct adldata
 {
@@ -46,17 +46,28 @@ extern const unsigned short banks[12][256];
 static void AddMonoAudio(unsigned long count, int* samples);
 static void AddStereoAudio(unsigned long count, int* samples);
 
-static const unsigned short Operators[18] =
-    {0x000,0x001,0x002, 0x008,0x009,0x00A, 0x010,0x011,0x012,
-     0x100,0x101,0x102, 0x108,0x109,0x10A, 0x110,0x111,0x112 };
-static const unsigned short Channels[18] =
+static const unsigned short Operators[23*2] =
+    {0x000,0x003,0x001,0x004,0x002,0x005,
+     0x008,0x00B,0x009,0x00C,0x00A,0x00D,
+     0x010,0x013,0x011,0x014,0x012,0x015,
+     0x100,0x103,0x101,0x104,0x102,0x105,
+     0x108,0x10B,0x109,0x10C,0x10A,0x10D,
+     0x110,0x113,0x111,0x114,0x112,0x115,
+     0x010,0x013,
+     0x014,0xFFF,
+     0x012,0xFFF,
+     0x015,0xFFF,
+     0x011,0xFFF };
+static const unsigned short Channels[23] =
     {0x000,0x001,0x002, 0x003,0x004,0x005, 0x006,0x007,0x008,
-     0x100,0x101,0x102, 0x103,0x104,0x105, 0x106,0x107,0x108 };
+     0x100,0x101,0x102, 0x103,0x104,0x105, 0x106,0x107,0x108,
+     0x006,0x007,0x008,0xFFF,0xFFF };
 
 struct OPL3
 {
     static const unsigned long PCM_RATE = 48000;
-    unsigned short ins[18], pit[18], insmeta[18], midiins[18];
+    unsigned short ins[23], pit[23], insmeta[23], midiins[23];
+    unsigned char regBD;
 
     DBOPL::Handler dbopl_handler;
 
@@ -76,6 +87,12 @@ struct OPL3
     }
     void NoteOff(unsigned c)
     {
+        if(c >= 18)
+        {
+            regBD = regBD & ~(1 << (c-18));
+            Poke(0x0BD, regBD);
+            return;
+        }
         Poke(0xB0 + Channels[c], pit[c] & 0xDF);
     }
     void NoteOn(unsigned c, double hertz) // Hertz range: 0..131071
@@ -83,14 +100,27 @@ struct OPL3
         unsigned x = 0x2000;
         while(hertz >= 1023.5) { hertz /= 2.0; x += 0x400; } // Calculate octave
         x += (int)(hertz + 0.5);
-        Poke(0xA0 + Channels[c], x & 0xFF);
-        Poke(0xB0 + Channels[c], pit[c] = x >> 8);
+        unsigned chn = Channels[c];
+        if(c >= 18)
+        {
+            regBD = regBD | (1 << (c-18));
+            Poke(0x0BD, regBD);
+            x &= ~0x2000;
+            x |= 0x800; // for test
+        }
+        if(chn != 0xFFF)
+        {
+            Poke(0xA0+chn, x & 0xFF);
+            Poke(0xB0+chn, pit[c] = x >> 8);
+        }
     }
     void Touch_Real(unsigned c, unsigned volume)
     {
         unsigned i = ins[c], x = adl[i].carrier_40, y = adl[i].modulator_40;
-        Poke(0x40 + Operators[c], (x|63) - volume + volume*(x&63)/63);
-        Poke(0x43 + Operators[c], (y|63) - volume + volume*(y&63)/63);
+        unsigned o1 = Operators[c*2], o2 = Operators[c*2+1];
+        Poke(0x40+o1, (x|63) - volume + volume*(x&63)/63);
+        if(o2 != 0xFFF)
+        Poke(0x40+o2, (y|63) - volume + volume*(y&63)/63);
         // Correct formula (ST3, AdPlug):
         //   63-((63-(instrvol))/63)*chanvol
         // Reduces to (tested identical):
@@ -109,16 +139,16 @@ struct OPL3
     {
         static const unsigned char data[4] = {0x20,0x60,0x80,0xE0};
         ins[c] = i;
-        unsigned o = Operators[c], x = adl[i].carrier_E862, y = adl[i].modulator_E862;
-        for(unsigned a=0; a<4; ++a)
-        {
-            Poke(data[a]+o,   x&0xFF); x>>=8;
-            Poke(data[a]+o+3, y&0xFF); y>>=8;
-        }
+        unsigned o1 = Operators[c*2], o2 = Operators[c*2+1];
+        unsigned x = adl[i].carrier_E862, y = adl[i].modulator_E862;
+        for(unsigned a=0; a<4; ++a) { Poke(data[a]+o1, x&0xFF); x>>=8; }
+        if(o2 != 0xFFF)
+        for(unsigned a=0; a<4; ++a) { Poke(data[a]+o2, y&0xFF); y>>=8; }
     }
     void Pan(unsigned c, unsigned value)
     {
-        Poke(0xC0+Channels[c], adl[ins[c]].feedconn | value);
+        if(Channels[c] != 0xFFF)
+            Poke(0xC0+Channels[c], adl[ins[c]].feedconn | value);
     }
     void Silence() // Silence all OPL channels.
     {
@@ -127,15 +157,15 @@ struct OPL3
     void Reset()
     {
         dbopl_handler.Init(PCM_RATE);
-        for(unsigned a=0; a<18; ++a)
+        for(unsigned a=0; a<23; ++a)
             { insmeta[a] = 198; midiins[a] = 0; ins[a] = 189; pit[a] = 0; }
-        static const short data[(2+3+2+2)*2] =
+        static const short data[] =
         { 0x004,96, 0x004,128,        // Pulse timer
           0x105, 0, 0x105,1, 0x105,0, // Pulse OPL3 enable
           0x001,32, 0x105, 1          // Enable wave, enable OPL3
         };
-        Poke(0x0BD, AdlPercussionMask);
-        for(unsigned a=0; a<18; a+=2) Poke(data[a], data[a+1]);
+        Poke(0x0BD, regBD = (0xC0 | (AdlPercussionMode ? 0x20 : 0x00)));
+        for(unsigned a=0; a < sizeof(data)/sizeof(*data); a+=2) Poke(data[a], data[a+1]);
         Poke(0x104, (1 << NumFourOps) - 1);
         Silence();
     }
@@ -158,12 +188,29 @@ static const char MIDIsymbols[256+1] =
 "????????????????"
 "????????????????"
 "????????????????";
+static const char PercussionMap[256+1] =
+"----------------"//GM
+"----------------" // B = bass drum
+"----------------" // S = snare
+"----------------" // T = tom
+"----------------" // C = cymbal
+"----------------" // H = hihat
+"----------------"
+"----------------"
+"----------------"//GP
+"----------------"
+"---BBHS-STHTHTHT"
+"TCTCC-TC-C-CTTTT"
+"T-----H---------"
+"----------------"
+"----------------"
+"----------------";
 
 static class UI
 {
 public:
     int x, y, color, txtline;
-    char slots[80][19], background[80][19];
+    char slots[80][23+1], background[80][23+1];
     bool cursor_visible;
 public:
     UI(): x(0), y(0), color(-1), txtline(1),
@@ -369,7 +416,7 @@ class MIDIplay
         enum { off, on, sustained } state;
         long age;
         AdlChannel(): midichn(0),note(0), state(off),age(0) { }
-    } ch[18];
+    } ch[23];
 
     std::vector< std::vector<unsigned char> > TrackData;
 public:
@@ -587,10 +634,10 @@ private:
 
         double t = shortest * Tempo;
         if(CurrentPosition.began) CurrentPosition.wait += t;
-        for(unsigned a=0; a<18; ++a)
+        for(unsigned a=0; a<23; ++a)
             if(ch[a].age < 0x70000000)
                 ch[a].age += t*1000;
-        /*for(unsigned a=0; a<18; ++a)
+        /*for(unsigned a=0; a<23; ++a)
         {
             UI.GotoXY(64,a+1); UI.Color(2);
             std::fprintf(stderr, "%7ld,%c,%6ld\r",
@@ -737,13 +784,44 @@ private:
                       Channel 8:  14  12     17  15
                      Same goes principally for channels 9-17 respectively.
                     */
-                    for(int a = 0; a < 18; ++a)
+                    for(int a = 0; a < (AdlPercussionMode ? 23 : 18); ++a)
                     {
                         if(ccount == 1 && a == adlchannel[0]) continue;
 
-                        static const unsigned char category[18] =
-                        { 1,2,3, 1,2,3, 9,9,9, 4,5,6, 4,5,6, 9,9,9 };
+                        static const unsigned char category[23] =
+                        { 1,2,3,
+                          1,2,3,
+                          9,9,9,
+                          4,5,6,
+                          4,5,6,
+                          9,9,9,
+                          18,19,20,21,22 };
 
+                        if(AdlPercussionMode)
+                        {
+                            char mapslot = PercussionMap[midiins];
+                            switch(PercussionMap[midiins])
+                            {
+                                case '-':
+                                    if(a >= 18) continue;
+                                    break;
+                                case 'B':
+                                    if(a != 18) continue;
+                                    goto skip_channel_check;
+                                case 'S':
+                                    if(a != 19) continue;
+                                    goto skip_channel_check;
+                                case 'T':
+                                    if(a != 20) continue;
+                                    goto skip_channel_check;
+                                case 'C':
+                                    if(a != 21) continue;
+                                    goto skip_channel_check; // No pitch
+                                case 'H':
+                                    if(a != 22) continue;
+                                    goto skip_channel_check; // No pitch
+                            }
+                        }
                         if(i[0] == i[1])
                         {
                             if(NumFourOps >= category[a]) continue;
@@ -759,6 +837,7 @@ private:
                                 if(a != adlchannel[0]+3) continue;
                                 break;
                         }
+                    skip_channel_check:;
 
                         long s = ch[a].age;   // Age in seconds = better score
                         switch(ch[a].state)
@@ -892,7 +971,7 @@ private:
                     case 64: // Enable/disable sustain
                         Ch[MidCh].sustain = value;
                         if(!value)
-                            for(unsigned c=0; c<18; ++c)
+                            for(unsigned c=0; c<23; ++c)
                                 if(ch[c].state == AdlChannel::sustained)
                                     NoteOffSustain(c);
                         break;
@@ -920,7 +999,7 @@ private:
                         UpdatePortamento(MidCh);
                         NoteUpdate_All(MidCh, Upd_Pan+Upd_Volume+Upd_Pitch);
                         // Kill all sustained notes
-                        for(unsigned c=0; c<18; ++c)
+                        for(unsigned c=0; c<23; ++c)
                             if(ch[c].state == AdlChannel::sustained)
                                 NoteOffSustain(c);
                         break;
@@ -1327,21 +1406,23 @@ int main(int argc, char** argv)
             std::fprintf(stderr, "number of four-op channels may only be 0..6.\n");
             return 0;
         }
-        std::printf("Using %u four-op channels; %u dual-op channels remain.\n",
-            NumFourOps,
-            18 - NumFourOps*2);
-
-        unsigned n_fourop[2] = {0,0};
-        for(unsigned a=0; a<256; ++a)
-        {
-            unsigned insno = banks[AdlBank][a];
-            if(insno != 198
-            && adlins[insno].adlno1 != adlins[insno].adlno2)
-                ++n_fourop[a/128];
-        }
-        std::printf("This bank has %u four-op melodic instruments and %u percussive ones.\n",
-            n_fourop[0], n_fourop[1]);
     }
+
+    std::printf("Using %u four-op channels; %s%u dual-op channels remain.\n",
+        NumFourOps,
+        AdlPercussionMode ? "percussion mode enabled; " : "",
+        (AdlPercussionMode ? 15 : 18) - NumFourOps*2);
+
+    unsigned n_fourop[2] = {0,0};
+    for(unsigned a=0; a<256; ++a)
+    {
+        unsigned insno = banks[AdlBank][a];
+        if(insno != 198
+        && adlins[insno].adlno1 != adlins[insno].adlno2)
+            ++n_fourop[a/128];
+    }
+    std::printf("This bank has %u four-op melodic instruments and %u percussive ones.\n",
+        n_fourop[0], n_fourop[1]);
 
     if(AdlBank == 8 && NumFourOps == 0)
     {
