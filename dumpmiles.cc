@@ -18,14 +18,10 @@ static void LoadMiles(const char* fn)
 
         if(gmnumber == 0xFF) break;
         int gmno = gmnumber2==0x7F ? gmnumber+0x80 : gmnumber;
-        int midi_index = gmno < 128 ? gmno
-                       : gmno < 128+35 ? -1
-                       : gmno < 128+88 ? gmno-35
-                       : -1;
         unsigned length = data[offset] + data[offset+1]*256;
         signed char notenum = data[offset+2];
 
-        printf("%02X %02X ", gmnumber,gmnumber2, offset);
+        printf("%02X %02X ", gmnumber,gmnumber2); //, offset);
         for(unsigned b=0; b<length; ++b)
         {
             if(b > 3 && (b-3)%11 == 0) printf("\n                        ");

@@ -817,7 +817,7 @@ private:
                             }
                         }
                         if(i[ccount] == opl.ins[a]) s += 50;  // Same instrument = good
-                        if(a == MidCh) s += 1;
+                        if(a == (int)MidCh) s += 1;
                         s += 50 * (opl.midiins[a] / 128); // Percussion is inferior to melody
                         if(s > bs) { bs=s; c = a; } // Best candidate wins
                     }
