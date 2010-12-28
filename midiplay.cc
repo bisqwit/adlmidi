@@ -221,6 +221,9 @@ public:
         { std::fputc('\r', stderr); // Ensure cursor is at x=0
           std::memset(slots, '.',      sizeof(slots));
           std::memset(background, '.', sizeof(background));
+
+          GotoXY(0,0); Color(15);
+          std::fprintf(stderr, "Hit Ctrl-C to quit\r");
         }
     void HideCursor()
     {
@@ -303,6 +306,34 @@ public:
             ++x;
         }
     }
+
+    void IllustrateVolumes(double left, double right)
+    {
+        const unsigned maxy = NumCards*18;
+        const unsigned white_threshold  = maxy/18;
+        const unsigned red_threshold    = maxy*4/18;
+        const unsigned yellow_threshold = maxy*8/18;
+
+        double amp[2] = {left*maxy, right*maxy};
+        for(unsigned y=0; y<maxy; ++y)
+            for(unsigned w=0; w<2; ++w)
+            {
+                char c = amp[w] > (maxy-1)-y ? '|' : background[w][y+1];
+                if(slots[w][y+1] == c) continue;
+
+                slots[w][y+1] = c;
+                HideCursor();
+                GotoXY(w,y+1);
+                Color(c=='|' ? y<white_threshold ? 15
+                                : y<red_threshold ? 12
+                                : y<yellow_threshold ? 14
+                                : 10 :
+                        (c=='.' ? 1 : 8));
+                std::fputc(c, stderr);
+                x += 1;
+            }
+    }
+
     // Move tty cursor to the indicated position.
     // Movements will be done in relative terms
     // to the current cursor position only.
@@ -1226,7 +1257,6 @@ static void SendStereoAudio(unsigned long count, int* samples)
     {
         amplitude_display_counter = (PCM_RATE / count) / 24;
         double amp[2]={0,0};
-        const unsigned maxy = NumCards*18;
         for(unsigned w=0; w<2; ++w)
         {
             average[w] /= double(count);
@@ -1236,28 +1266,10 @@ static void SendStereoAudio(unsigned long count, int* samples)
             // Turn into logarithmic scale
             const double dB = std::log(amp[w]<1 ? 1 : amp[w]) * 4.328085123;
             const double maxdB = 3*16; // = 3 * log2(65536)
-            amp[w] = maxy*dB/maxdB;
+            amp[w] = dB/maxdB;
         }
-        const unsigned white_threshold  = maxy/18;
-        const unsigned red_threshold    = maxy*4/18;
-        const unsigned yellow_threshold = maxy*8/18;
-        for(unsigned y=0; y<maxy; ++y)
-            for(unsigned w=0; w<2; ++w)
-            {
-                char c = amp[w] > (maxy-1)-y ? '|' : UI.background[w][y+1];
-                if(UI.slots[w][y+1] != c)
-                {
-                    UI.slots[w][y+1] = c;
-                    UI.HideCursor();
-                    UI.GotoXY(w,y+1);
-                    UI.Color(c=='|' ? y<white_threshold ? 15
-                                    : y<red_threshold ? 12
-                                    : y<yellow_threshold ? 14
-                                    : 10 :
-                            (c=='.' ? 1 : 8));
-                    std::fputc(c, stderr);
-                    UI.x += 1;
-    }       }   }
+        UI.IllustrateVolumes(amp[0], amp[1]);
+    }
 
     // Convert input to float format
     std::vector<float> dry[2];
@@ -1407,9 +1419,6 @@ int main(int argc, char** argv)
 
     const double mindelay = 1 / (double)PCM_RATE;
     const double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
-
-    UI.GotoXY(0,0); UI.Color(15);
-    std::fprintf(stderr, "Hit Ctrl-C to quit\r");
 
     for(double delay=0; ; )
     {
