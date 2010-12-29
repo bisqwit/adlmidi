@@ -41,6 +41,7 @@ using software OPL3 emulation (FM synthesis).
      A copy of either project is not needed.</li>
  <li>Number of simulated soundcards can be specified as 1-100 (maximum channels 1800!)</li>
  <li>xterm-256color support</li>
+ <li>WIN32 console support (also tested with <a href=\"http://www.japheth.de/HX.html\">HXRT / MS-DOS</a>)</li>
  <li>Pan (binary panning, i.e. left/right side on/off)</li>
  <li>Pitch-bender with adjustable range</li>
  <li>Vibrato that responds to RPN/NRPN parameters</li>
