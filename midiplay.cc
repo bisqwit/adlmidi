@@ -1,3 +1,6 @@
+#ifdef __MINGW32__
+typedef struct vswprintf {} swprintf;
+#endif
 #include <vector>
 #include <string>
 #include <map>
@@ -12,18 +15,31 @@
 #include <deque>  // deque
 #include <cmath>  // exp, log, ceil
 
-#include <SDL.h>
-#include <deque>
+#include <assert.h>
 
-#ifndef __MINGW32__
-# include <pthread.h>
+#include <SDL.h>
+#ifdef __WIN32__
+#include <windows.h>
 #endif
+
+#include <deque>
+#include <algorithm>
+
+class MutexType
+{
+    SDL_mutex* mut;
+public:
+    MutexType() : mut(SDL_CreateMutex()) { }
+    ~MutexType() { SDL_DestroyMutex(mut); }
+    void Lock() { SDL_mutexP(mut); }
+    void Unlock() { SDL_mutexV(mut); }
+};
 
 #include "dbopl.h"
 
 static const unsigned long PCM_RATE = 48000;
 static const unsigned MaxCards = 100;
-static const unsigned MaxSamplesAtTime = 512; // dbopl limitation
+static const unsigned MaxSamplesAtTime = 512; // 512=dbopl limitation
 static unsigned AdlBank    = 0;
 static unsigned NumFourOps = 7;
 static unsigned NumCards   = 2;
@@ -57,8 +73,10 @@ struct OPL3
     unsigned NumChannels;
 
     std::vector<DBOPL::Handler> cards;
-    std::vector<unsigned short> ins, pit, insmeta, midiins;
-
+private:
+    std::vector<unsigned short> ins; // index to adl[], cached, needed by Touch()
+    std::vector<unsigned char> pit;  // value poked to B0, cached, needed by NoteOff)(
+public:
     std::vector<char> four_op_category; // 1 = master, 2 = slave, 0 = regular
 
     void Poke(unsigned card, unsigned index, unsigned value)
@@ -81,6 +99,7 @@ struct OPL3
     }
     void Touch_Real(unsigned c, unsigned volume)
     {
+        if(volume > 63) volume = 63;
         unsigned card = c/18, cc = c%18;
         unsigned i = ins[c], o = Operators[cc];
         unsigned x = adl[i].carrier_40, y = adl[i].modulator_40;
@@ -128,8 +147,6 @@ struct OPL3
         NumChannels = NumCards * 18;
         ins.resize(NumChannels,     189);
         pit.resize(NumChannels,       0);
-        insmeta.resize(NumChannels, 198);
-        midiins.resize(NumChannels,   0);
         four_op_category.resize(NumChannels, 0);
         static const short data[] =
         { 0x004,96, 0x004,128,        // Pulse timer
@@ -211,21 +228,45 @@ static const char MIDIsymbols[256+1] =
 static class UI
 {
 public:
+  #ifdef __WIN32__
+    void* handle;
+  #endif
     int x, y, color, txtline;
     typedef char row[80];
     char slots[80][1 + 18*MaxCards], background[80][1 + 18*MaxCards];
     bool cursor_visible;
 public:
-    UI(): x(0), y(0), color(-1), txtline(1),
-          cursor_visible(true)
-        { std::fputc('\r', stderr); // Ensure cursor is at x=0
-          std::memset(slots, '.',      sizeof(slots));
-          std::memset(background, '.', sizeof(background));
+    UI(): x(0), y(0), color(-1), txtline(1), cursor_visible(true)
+    {
+      #ifdef __WIN32__
+        handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        GotoXY(41,13);
+        CONSOLE_SCREEN_BUFFER_INFO tmp;
+        GetConsoleScreenBufferInfo(handle,&tmp);
+        if(tmp.dwCursorPosition.X != 41)
+        {
+            // Console is not obeying controls! Probably cygwin xterm.
+            handle = 0;
         }
+      #endif
+        std::memset(slots, '.',      sizeof(slots));
+        std::memset(background, '.', sizeof(background));
+        std::fputc('\r', stderr); // Ensure cursor is at x=0
+        GotoXY(0,0); Color(15);
+        std::fprintf(stderr, "Hit Ctrl-C to quit\r");
+    }
     void HideCursor()
     {
         if(!cursor_visible) return;
         cursor_visible = false;
+      #ifdef __WIN32__
+        if(handle)
+        {
+          const CONSOLE_CURSOR_INFO info = {100,false};
+          SetConsoleCursorInfo(handle,&info);
+          return;
+        }
+      #endif
         std::fprintf(stderr, "\33[?25l"); // hide cursor
     }
     void ShowCursor()
@@ -233,6 +274,14 @@ public:
         if(cursor_visible) return;
         cursor_visible = true;
         GotoXY(0,19); Color(7);
+      #ifdef __WIN32__
+        if(handle)
+        {
+          const CONSOLE_CURSOR_INFO info = {100,true};
+          SetConsoleCursorInfo(handle,&info);
+          return;
+        }
+      #endif
         std::fprintf(stderr, "\33[?25h"); // show cursor
         std::fflush(stderr);
     }
@@ -244,7 +293,7 @@ public:
       #ifndef __CYGWIN__
         int nchars = vsnprintf(Line, sizeof(Line), fmt, ap);
       #else
-        int nchars = vsprintf(Line, fmt, ap); /* SECURITY: POSSIBLE BUFFER OVERFLOW */
+        int nchars = std::vsprintf(Line, fmt, ap); /* SECURITY: POSSIBLE BUFFER OVERFLOW */
       #endif
         va_end(ap);
 
@@ -303,12 +352,50 @@ public:
             ++x;
         }
     }
+
+    void IllustrateVolumes(double left, double right)
+    {
+        const unsigned maxy = NumCards*18;
+        const unsigned white_threshold  = maxy/18;
+        const unsigned red_threshold    = maxy*4/18;
+        const unsigned yellow_threshold = maxy*8/18;
+
+        double amp[2] = {left*maxy, right*maxy};
+        for(unsigned y=0; y<maxy; ++y)
+            for(unsigned w=0; w<2; ++w)
+            {
+                char c = amp[w] > (maxy-1)-y ? '|' : background[w][y+1];
+                if(slots[w][y+1] == c) continue;
+
+                slots[w][y+1] = c;
+                HideCursor();
+                GotoXY(w,y+1);
+                Color(c=='|' ? y<white_threshold ? 15
+                                : y<red_threshold ? 12
+                                : y<yellow_threshold ? 14
+                                : 10 :
+                        (c=='.' ? 1 : 8));
+                std::fputc(c, stderr);
+                x += 1;
+            }
+    }
+
     // Move tty cursor to the indicated position.
     // Movements will be done in relative terms
     // to the current cursor position only.
     void GotoXY(int newx, int newy)
     {
         while(newy > y) { std::fputc('\n', stderr); y+=1; x=0; }
+      #ifdef __WIN32__
+        if(handle)
+        {
+          CONSOLE_SCREEN_BUFFER_INFO tmp;
+          GetConsoleScreenBufferInfo(handle, &tmp);
+          COORD tmp2 = { x = newx, tmp.dwCursorPosition.Y } ;
+          if(newy < y) { tmp2.Y -= (y-newy); y = newy; }
+          SetConsoleCursorPosition(handle, tmp2);
+        }
+      #endif
         if(newy < y) { std::fprintf(stderr, "\33[%dA", y-newy); y = newy; }
         if(newx != x)
         {
@@ -324,15 +411,22 @@ public:
     {
         if(color != newcolor)
         {
-            static const char map[8+1] = "04261537";
-            std::fprintf(stderr, "\33[0;%s40;3%c",
-                (newcolor&8) ? "1;" : "", map[newcolor&7]);
-            // If xterm-256color is used, try using improved colors:
-            //        Translate 8 (dark gray) into #003366 (bluish dark cyan)
-            //        Translate 1 (dark blue) into #000033 (darker blue)
-            if(newcolor==8) std::fprintf(stderr, ";38;5;24;25");
-            if(newcolor==1) std::fprintf(stderr, ";38;5;17;25");
-            std::fputc('m', stderr);
+          #ifdef __WIN32__
+            if(handle)
+              SetConsoleTextAttribute(handle, newcolor);
+            else
+          #endif
+            {
+              static const char map[8+1] = "04261537";
+              std::fprintf(stderr, "\33[0;%s40;3%c",
+                  (newcolor&8) ? "1;" : "", map[newcolor&7]);
+              // If xterm-256color is used, try using improved colors:
+              //        Translate 8 (dark gray) into #003366 (bluish dark cyan)
+              //        Translate 1 (dark blue) into #000033 (darker blue)
+              if(newcolor==8) std::fprintf(stderr, ";38;5;24;25");
+              if(newcolor==1) std::fprintf(stderr, ";38;5;17;25");
+              std::fputc('m', stderr);
+            }
             color=newcolor;
         }
     }
@@ -389,10 +483,18 @@ class MIDIplay
         unsigned char lastlrpn,lastmrpn; bool nrpn;
         struct NoteInfo
         {
-            signed char adlchn1, adlchn2; // adlib channel
-            unsigned char  vol;           // pressure
-            unsigned short ins1, ins2;    // instrument selected on noteon
-            unsigned short tone;          // tone selected for note
+            // Current pressure
+            unsigned char  vol;
+            // Tone selected on noteon:
+            unsigned short tone;
+            // Patch selected on noteon; index to banks[AdlBank][]
+            unsigned char midiins;
+            // Index to physical adlib data structure, adlins[]
+            unsigned short insmeta;
+            // List of adlib channels it is currently occupying.
+            std::map<unsigned short/*adlchn*/,
+                     unsigned short/*ins, inde to adl[]*/
+                    > phys;
         };
         typedef std::map<unsigned char,NoteInfo> activenotemap_t;
         typedef activenotemap_t::iterator activenoteiterator;
@@ -414,13 +516,49 @@ class MIDIplay
     struct AdlChannel
     {
         // For collisions
-        unsigned char midichn, note;
+        struct Location
+        {
+            unsigned char MidCh;
+            unsigned char note;
+            bool operator==(const Location&b) const
+                { return MidCh==b.MidCh && note==b.note; }
+            bool operator< (const Location&b) const
+                { return MidCh<b.MidCh || (MidCh==b.MidCh&& note<b.note); }
+        };
+        struct LocationData
+        {
+            bool sustained;
+            unsigned short ins;  // a copy of that in phys[]
+            long kon_time_until_neglible;
+            long vibdelay;
+        };
+        typedef std::map<Location, LocationData> users_t;
+        users_t users;
+
+        // If the channel is keyoff'd
+        long koff_time_until_neglible;
         // For channel allocation:
-        enum { off, on, sustained } state;
-        long age;
-        AdlChannel(): midichn(0),note(0), state(off),age(0) { }
+        AdlChannel(): users(), koff_time_until_neglible(0) { }
+
+        void AddAge(long ms)
+        {
+            if(users.empty())
+                koff_time_until_neglible =
+                    std::max(koff_time_until_neglible-ms, -0x1FFFFFFFl);
+            else
+            {
+                koff_time_until_neglible = 0;
+                for(users_t::iterator i = users.begin(); i != users.end(); ++i)
+                {
+                    i->second.kon_time_until_neglible =
+                    std::max(i->second.kon_time_until_neglible-ms, -0x1FFFFFFFl);
+                    i->second.vibdelay += ms;
+                }
+            }
+        }
     };
     std::vector<AdlChannel> ch;
+
     std::vector< std::vector<unsigned char> > TrackData;
 public:
     double InvDeltaTicks, Tempo;
@@ -449,13 +587,13 @@ public:
 
     bool LoadMIDI(const std::string& filename)
     {
-        FILE* fp = std::fopen(filename.c_str(), "rb");
+        std::FILE* fp = std::fopen(filename.c_str(), "rb");
         if(!fp) { std::perror(filename.c_str()); return false; }
         char HeaderBuf[4+4+2+2+2]="";
     riffskip:;
         std::fread(HeaderBuf, 1, 4+4+2+2+2, fp);
         if(std::memcmp(HeaderBuf, "RIFF", 4) == 0)
-            { fseek(fp, 6, SEEK_CUR); goto riffskip; }
+            { std::fseek(fp, 6, SEEK_CUR); goto riffskip; }
         if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
         { InvFmt:
             std::fclose(fp);
@@ -484,7 +622,7 @@ public:
         loopStart = true;
 
         opl.Reset(); // Reset AdLib
-        opl.Reset(); // ...twice (just in case someone misprogrammed OPL3 previously)
+        //opl.Reset(); // ...twice (just in case someone misprogrammed OPL3 previously)
         ch.clear();
         ch.resize(opl.NumChannels);
         return true;
@@ -504,17 +642,14 @@ public:
             ProcessEvents();
         }
 
-        for(unsigned a=0; a<16; ++a)
-            if(Ch[a].vibrato && !Ch[a].activenotes.empty())
-            {
-                NoteUpdate_All(a, Upd_Pitch);
-                Ch[a].vibpos += s * Ch[a].vibspeed;
-            }
-            else
-                Ch[a].vibpos = 0.0;
+        for(unsigned c = 0; c < opl.NumChannels; ++c)
+            ch[c].AddAge(s * 1000);
 
+        UpdateVibrato(s);
+        UpdateArpeggio(s);
         return CurrentPosition.wait;
     }
+
 private:
     enum { Upd_Patch  = 0x1,
            Upd_Pan    = 0x2,
@@ -523,84 +658,97 @@ private:
            Upd_All    = Upd_Pan + Upd_Volume + Upd_Pitch,
            Upd_Off    = 0x20 };
 
-    void NoteUpdate_Sub(
-        int c,
-        int tone,
-        int ins,
-        int vol,
-        unsigned MidCh,
-        unsigned props_mask)
-    {
-        if(c < 0) return;
-        int midiins = opl.midiins[c];
-
-        if(props_mask & Upd_Off) // note off
-        {
-            if(Ch[MidCh].sustain == 0)
-            {
-                opl.NoteOff(c);
-                ch[c].age   = 0;
-                ch[c].state = AdlChannel::off;
-                UI.IllustrateNote(c, tone, midiins, 0, 0.0);
-            }
-            else
-            {
-                // Sustain: Forget about the note, but don't key it off.
-                //          Also will avoid overwriting it very soon.
-                ch[c].state = AdlChannel::sustained;
-                UI.IllustrateNote(c, tone, midiins, -1, 0.0);
-            }
-        }
-        if(props_mask & Upd_Patch)
-        {
-            opl.Patch(c, ins);
-            ch[c].age = 0;
-        }
-        if(props_mask & Upd_Pan)
-        {
-            opl.Pan(c, Ch[MidCh].panning);
-        }
-        if(props_mask & Upd_Volume)
-        {
-            opl.Touch(c, vol * Ch[MidCh].volume * Ch[MidCh].expression);
-        }
-        if(props_mask & Upd_Pitch)
-        {
-            double bend = Ch[MidCh].bend + adl[ opl.ins[c] ].finetune;
-            if(Ch[MidCh].vibrato && ch[c].age >= Ch[MidCh].vibdelay)
-                bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
-            opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
-            ch[c].state = AdlChannel::on;
-            UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
-        }
-    }
-
     void NoteUpdate
         (unsigned MidCh,
-         MIDIchannel::activenoteiterator& i,
-         unsigned props_mask)
-     {
-        NoteUpdate_Sub(
-            i->second.adlchn1,
-            i->second.tone,
-            i->second.ins1,
-            i->second.vol,
-            MidCh,
-            props_mask);
+         MIDIchannel::activenoteiterator i,
+         unsigned props_mask,
+         int select_adlchn = -1)
+    {
+        MIDIchannel::NoteInfo& info = i->second;
+        const int tone    = info.tone;
+        const int vol     = info.vol;
+        const int midiins = info.midiins;
+        const int insmeta = info.insmeta;
 
-        NoteUpdate_Sub(
-            i->second.adlchn2,
-            i->second.tone,
-            i->second.ins2,
-            i->second.vol,
-            MidCh,
-            props_mask);
+        AdlChannel::Location my_loc;
+        my_loc.MidCh = MidCh;
+        my_loc.note  = i->first;
 
-        if(props_mask & Upd_Off)
+        for(std::map<unsigned short,unsigned short>::iterator
+            jnext = info.phys.begin();
+            jnext != info.phys.end();
+           )
         {
-            Ch[MidCh].activenotes.erase(i);
-            i = Ch[MidCh].activenotes.end();
+            std::map<unsigned short,unsigned short>::iterator j(jnext++);
+            int c   = j->first;
+            int ins = j->second;
+            if(select_adlchn >= 0 && c != select_adlchn) continue;
+
+            if(props_mask & Upd_Off) // note off
+            {
+                if(Ch[MidCh].sustain == 0)
+                {
+                    AdlChannel::users_t::iterator k = ch[c].users.find(my_loc);
+                    if(k != ch[c].users.end())
+                        ch[c].users.erase(k);
+                    UI.IllustrateNote(c, tone, midiins, 0, 0.0);
+
+                    if(ch[c].users.empty())
+                    {
+                        opl.NoteOff(c);
+                        ch[c].koff_time_until_neglible =
+                            adlins[insmeta].ms_sound_koff;
+                    }
+                }
+                else
+                {
+                    // Sustain: Forget about the note, but don't key it off.
+                    //          Also will avoid overwriting it very soon.
+                    AdlChannel::LocationData& d = ch[c].users[my_loc];
+                    d.sustained = true; // note: not erased!
+                    UI.IllustrateNote(c, tone, midiins, -1, 0.0);
+                }
+                info.phys.erase(j);
+                continue;
+            }
+            if(props_mask & Upd_Patch)
+            {
+                opl.Patch(c, ins);
+                AdlChannel::LocationData& d = ch[c].users[my_loc];
+                d.sustained = false; // inserts if necessary
+                d.vibdelay  = 0;
+                d.kon_time_until_neglible = adlins[insmeta].ms_sound_kon;
+                d.ins       = ins;
+            }
+            if(props_mask & Upd_Pan)
+            {
+                opl.Pan(c, Ch[MidCh].panning);
+            }
+            if(props_mask & Upd_Volume)
+            {
+                int volume = vol * Ch[MidCh].volume * Ch[MidCh].expression;
+                /* If the channel has arpeggio, the effective volume of
+                 * *this* instrument is actually lower due to timesharing.
+                 * To compensate, add extra volume that corresponds to the
+                 * time this note is *not* heard.
+                 * Empirical tests however show that a full equal-proportion
+                 * increment sounds wrong. Therefore, using the square root.
+                 */
+                volume = (int)(volume * std::sqrt( (double) ch[c].users.size() ));
+                opl.Touch(c, volume);
+            }
+            if(props_mask & Upd_Pitch)
+            {
+                AdlChannel::LocationData& d = ch[c].users[my_loc];
+                double bend = Ch[MidCh].bend + adl[ins].finetune;
+                if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
+                    bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
+                opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
+                UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
+            }
         }
+        if(info.phys.empty())
+            Ch[MidCh].activenotes.erase(i);
     }
 
     void ProcessEvents()
@@ -639,20 +787,6 @@ private:
 
         double t = shortest * Tempo;
         if(CurrentPosition.began) CurrentPosition.wait += t;
-        for(unsigned a = 0; a < opl.NumChannels; ++a)
-            if(ch[a].age < 0x70000000)
-                ch[a].age += t*1000;
-        /*for(unsigned a=0; a < opl.NumChannels; ++a)
-        {
-            UI.GotoXY(64,a+1); UI.Color(2);
-            std::fprintf(stderr, "%7ld,%c,%6ld\r",
-                ch[a].age,
-                "01s"[ch[a].state],
-                ch[a].state == AdlChannel::off
-                ? adlins[opl.insmeta[a]].ms_sound_koff
-                : adlins[opl.insmeta[a]].ms_sound_kon);
-            UI.x = 0;
-        }*/
 
         //if(shortest > 0) UI.PrintLn("Delay %ld (%g)", shortest,t);
 
@@ -768,8 +902,7 @@ private:
                     }
 
                     int c = -1;
-                    long bs = -adlins[meta].ms_sound_kon;
-                    if(NumFourOps > 0) bs = -9999999;
+                    long bs = -0x7FFFFFFFl;
                     for(int a = 0; a < (int)opl.NumChannels; ++a)
                     {
                         if(ccount == 1 && a == adlchannel[0]) continue;
@@ -797,28 +930,7 @@ private:
                             }
                         }
 
-                        long s = ch[a].age;   // Age in seconds = better score
-                        switch(ch[a].state)
-                        {
-                            case AdlChannel::on:
-                            {
-                                s -= adlins[opl.insmeta[a]].ms_sound_kon;
-                                break;
-                            }
-                            case AdlChannel::sustained:
-                            {
-                                s -= adlins[opl.insmeta[a]].ms_sound_kon / 2;
-                                break;
-                            }
-                            case AdlChannel::off:
-                            {
-                                s -= adlins[opl.insmeta[a]].ms_sound_koff / 2;
-                                break;
-                            }
-                        }
-                        if(i[ccount] == opl.ins[a]) s += 50;  // Same instrument = good
-                        if(a == (int)MidCh) s += 1;
-                        s += 50 * (opl.midiins[a] / 128); // Percussion is inferior to melody
+                        long s = CalculateAdlChannelGoodness(a, i[ccount], MidCh);
                         if(s > bs) { bs=s; c = a; } // Best candidate wins
                     }
 
@@ -827,23 +939,7 @@ private:
                         //UI.PrintLn("ignored unplaceable note");
                         continue; // Could not play this note. Ignore it.
                     }
-                    if(ch[c].state == AdlChannel::on)
-                    {
-                        /*UI.PrintLn(
-                            "collision @%u: G%c%u[%ld/%ld] <- G%c%u",
-                            c,
-                            opl.midiins[c]<128?'M':'P', opl.midiins[c]&127,
-                            ch[c].age, adlins[opl.insmeta[c]].ms_sound_kon,
-                            midiins<128?'M':'P', midiins&127
-                            );*/
-                        NoteOff(ch[c].midichn, ch[c].note); // Collision: Kill old note
-                    }
-                    if(ch[c].state == AdlChannel::sustained)
-                    {
-                        NoteOffSustain(c);
-                        // A sustained note needs to be keyoff'd
-                        // first so that it can be retriggered.
-                    }
+                    PrepareAdlChannelForNewNote(c, i[ccount]);
                     adlchannel[ccount] = c;
                 }
                 if(adlchannel[0] < 0 && adlchannel[1] < 0)
@@ -857,20 +953,15 @@ private:
                 std::pair<MIDIchannel::activenoteiterator,bool>
                     ir = Ch[MidCh].activenotes.insert(
                         std::make_pair(note, MIDIchannel::NoteInfo()));
-                ir.first->second.adlchn1 = adlchannel[0];
-                ir.first->second.adlchn2 = adlchannel[1];
                 ir.first->second.vol     = vol;
-                ir.first->second.ins1    = i[0];
-                ir.first->second.ins2    = i[1];
                 ir.first->second.tone    = tone;
+                ir.first->second.midiins = midiins;
+                ir.first->second.insmeta = meta;
                 for(unsigned ccount=0; ccount<2; ++ccount)
                 {
                     int c = adlchannel[ccount];
                     if(c < 0) continue;
-                    ch[c].midichn = MidCh;
-                    ch[c].note    = note;
-                    opl.insmeta[c] = meta;
-                    opl.midiins[c] = midiins;
+                    ir.first->second.phys[ adlchannel[ccount] ] = i[ccount];
                 }
                 CurrentPosition.began  = true;
                 NoteUpdate(MidCh, ir.first, Upd_All | Upd_Patch);
@@ -924,10 +1015,7 @@ private:
                         break;
                     case 64: // Enable/disable sustain
                         Ch[MidCh].sustain = value;
-                        if(!value)
-                            for(unsigned c = 0; c < opl.NumChannels; ++c)
-                                if(ch[c].state == AdlChannel::sustained)
-                                    NoteOffSustain(c);
+                        if(!value) KillSustainingNotes( MidCh );
                         break;
                     case 11: // Change expression (another volume factor)
                         Ch[MidCh].expression = value;
@@ -953,9 +1041,7 @@ private:
                         UpdatePortamento(MidCh);
                         NoteUpdate_All(MidCh, Upd_Pan+Upd_Volume+Upd_Pitch);
                         // Kill all sustained notes
-                        for(unsigned c = 0; c < opl.NumChannels; ++c)
-                            if(ch[c].state == AdlChannel::sustained)
-                                NoteOffSustain(c);
+                        KillSustainingNotes(MidCh);
                         break;
                     case 123: // All notes off
                         NoteUpdate_All(MidCh, Upd_Off);
@@ -1003,6 +1089,200 @@ private:
                 NoteUpdate_All(MidCh, Upd_Pitch);
                 break;
             }
+        }
+    }
+
+    // Determine how good a candidate this adlchannel
+    // would be for playing a note from this instrument.
+    long CalculateAdlChannelGoodness
+        (unsigned c, unsigned ins, unsigned MidCh) const
+    {
+        long s = -ch[c].koff_time_until_neglible;
+
+        // Same midi-instrument = some stability
+        if(c == MidCh) s += 4;
+        for(AdlChannel::users_t::const_iterator
+            j = ch[c].users.begin();
+            j != ch[c].users.end();
+            ++j)
+        {
+            if(!j->second.sustained)
+                s -= j->second.kon_time_until_neglible;
+            else
+                s -= j->second.kon_time_until_neglible / 2;
+
+            MIDIchannel::activenotemap_t::const_iterator
+                k = Ch[j->first.MidCh].activenotes.find(j->first.note);
+            if(k != Ch[j->first.MidCh].activenotes.end())
+            {
+                // Same instrument = good
+                if(j->second.ins == ins)
+                {
+                    s += 300;
+                    // Arpeggio candidate = even better
+                    if(j->second.vibdelay < 70
+                    || j->second.kon_time_until_neglible > 20000)
+                        s += 100;
+                }
+                // Percussion is inferior to melody
+                s += 50 * (k->second.midiins / 128);
+            }
+
+            // If there is another channel to which this note
+            // can be evacuated to in the case of congestion,
+            // increase the score slightly.
+            unsigned n_evacuation_stations = 0;
+            for(unsigned c2 = 0; c2 < opl.NumChannels; ++c2)
+            {
+                if(c2 == c) continue;
+                if(opl.four_op_category[c2]
+                != opl.four_op_category[c]) continue;
+                for(AdlChannel::users_t::const_iterator
+                    m = ch[c2].users.begin();
+                    m != ch[c2].users.end();
+                    ++m)
+                {
+                    if(m->second.sustained)       continue;
+                    if(m->second.vibdelay >= 200) continue;
+                    if(m->second.ins != j->second.ins) continue;
+                    n_evacuation_stations += 1;
+                }
+            }
+            s += n_evacuation_stations * 200;
+        }
+        return s;
+    }
+
+    // A new note will be played on this channel using this instrument.
+    // Kill existing notes on this channel (or don't, if we do arpeggio)
+    void PrepareAdlChannelForNewNote(int c, int ins)
+    {
+        if(ch[c].users.empty()) return; // Nothing to do
+        bool doing_arpeggio = false;
+        for(AdlChannel::users_t::iterator
+            jnext = ch[c].users.begin();
+            jnext != ch[c].users.end();
+            )
+        {
+            AdlChannel::users_t::iterator j(jnext++);
+            if(!j->second.sustained)
+            {
+                // Collision: Kill old note,
+                // UNLESS we're going to do arpeggio
+
+                MIDIchannel::activenoteiterator i
+                ( Ch[j->first.MidCh].activenotes.find( j->first.note ) );
+
+                // Check if we can do arpeggio.
+                if((j->second.vibdelay < 70
+                 || j->second.kon_time_until_neglible > 20000)
+                && j->second.ins == ins)
+                {
+                    // Do arpeggio together with this note.
+                    doing_arpeggio = true;
+                    continue;
+                }
+
+                KillOrEvacuate(c,j,i);
+                // ^ will also erase j from ch[c].users.
+            }
+        }
+
+        // Kill all sustained notes on this channel
+        // Don't keep them for arpeggio, because arpeggio requires
+        // an intact "activenotes" record. This is a design flaw.
+        KillSustainingNotes(-1, c);
+
+        // Keyoff the channel so that it can be retriggered,
+        // unless the new note will be introduced as just an arpeggio.
+        if(ch[c].users.empty())
+            opl.NoteOff(c);
+    }
+
+    void KillOrEvacuate(
+        unsigned from_channel,
+        AdlChannel::users_t::iterator j,
+        MIDIchannel::activenoteiterator i)
+    {
+        // Before killing the note, check if it can be
+        // evacuated to another channel as an arpeggio
+        // instrument. This helps if e.g. all channels
+        // are full of strings and we want to do percussion.
+        // FIXME: This does not care about four-op entanglements.
+        for(unsigned c = 0; c < opl.NumChannels; ++c)
+        {
+            if(c == from_channel) continue;
+            if(opl.four_op_category[c]
+            != opl.four_op_category[from_channel]
+              ) continue;
+            for(AdlChannel::users_t::iterator
+                m = ch[c].users.begin();
+                m != ch[c].users.end();
+                ++m)
+            {
+                if(m->second.vibdelay >= 200
+                && m->second.kon_time_until_neglible < 10000) continue;
+                if(m->second.ins != j->second.ins) continue;
+
+                // the note can be moved here!
+                UI.IllustrateNote(
+                    from_channel,
+                    i->second.tone,
+                    i->second.midiins, 0, 0.0);
+                UI.IllustrateNote(
+                    c,
+                    i->second.tone,
+                    i->second.midiins,
+                    i->second.vol,
+                    0.0);
+
+                i->second.phys.erase(from_channel);
+                i->second.phys[c] = j->second.ins;
+                ch[c].users.insert( *j );
+                ch[from_channel].users.erase( j );
+                return;
+            }
+        }
+
+        /*UI.PrintLn(
+            "collision @%u: [%ld] <- ins[%3u]",
+            c,
+            //ch[c].midiins<128?'M':'P', ch[c].midiins&127,
+            ch[c].age, //adlins[ch[c].insmeta].ms_sound_kon,
+            ins
+            );*/
+
+        // Kill it
+        NoteUpdate(j->first.MidCh,
+                   i,
+                   Upd_Off,
+                   from_channel);
+    }
+
+    void KillSustainingNotes(int MidCh = -1, int this_adlchn = -1)
+    {
+        unsigned first=0, last=opl.NumChannels;
+        if(this_adlchn >= 0) { first=this_adlchn; last=first+1; }
+        for(unsigned c = first; c < last; ++c)
+        {
+            if(ch[c].users.empty()) continue; // Nothing to do
+            for(AdlChannel::users_t::iterator
+                jnext = ch[c].users.begin();
+                jnext != ch[c].users.end();
+                )
+            {
+                AdlChannel::users_t::iterator j(jnext++);
+                if((MidCh < 0 || j->first.MidCh == MidCh)
+                && j->second.sustained)
+                {
+                    int midiins = '?';
+                    UI.IllustrateNote(c, j->first.note, midiins, 0, 0.0);
+                    ch[c].users.erase(j);
+                }
+            }
+            // Keyoff the channel, if there are no users left.
+            if(ch[c].users.empty())
+                opl.NoteOff(c);
         }
     }
 
@@ -1057,6 +1337,7 @@ private:
             NoteUpdate(MidCh, j, props_mask);
         }
     }
+
     void NoteOff(unsigned MidCh, int note)
     {
         MIDIchannel::activenoteiterator
@@ -1066,11 +1347,79 @@ private:
             NoteUpdate(MidCh, i, Upd_Off);
         }
     }
-    void NoteOffSustain(unsigned c)
+
+    void UpdateVibrato(double amount)
     {
-        UI.IllustrateNote(c, ch[c].note, opl.midiins[c], 0, 0.0);
-        opl.NoteOff(c);
-        ch[c].state = AdlChannel::off;
+        for(unsigned a=0; a<16; ++a)
+            if(Ch[a].vibrato && !Ch[a].activenotes.empty())
+            {
+                NoteUpdate_All(a, Upd_Pitch);
+                Ch[a].vibpos += amount * Ch[a].vibspeed;
+            }
+            else
+                Ch[a].vibpos = 0.0;
+    }
+
+    void UpdateArpeggio(double amount)
+    {
+        // If there is an adlib channel that has multiple notes
+        // simulated on the same channel, arpeggio them.
+        const unsigned desired_arpeggio_rate = 40; // Hz (upper limit)
+        /*
+      #if 1
+        static unsigned cache=0;
+        amount=amount; // Ignore amount. Assume we get a constant rate.
+        cache += MaxSamplesAtTime * desired_arpeggio_rate;
+        if(cache < PCM_RATE) return;
+        cache %= PCM_RATE;
+      #else
+        static double arpeggio_cache = 0;
+        arpeggio_cache += amount * desired_arpeggio_rate;
+        if(arpeggio_cache < 1.0) return;
+        arpeggio_cache = 0.0;
+      #endif
+      */
+        static unsigned arpeggio_counter = 0;
+        ++arpeggio_counter;
+
+        for(unsigned c = 0; c < opl.NumChannels; ++c)
+        {
+        retry_arpeggio:;
+            size_t n_users = ch[c].users.size();
+            /*if(true)
+            {
+                UI.GotoXY(64,c+1); UI.Color(2);
+                std::fprintf(stderr, "%7ld/%7ld,%3u\r",
+                    ch[c].keyoff,
+                    (unsigned) n_users);
+                UI.x = 0;
+            }*/
+            if(n_users > 1)
+            {
+                AdlChannel::users_t::const_iterator i = ch[c].users.begin();
+                size_t rate_reduction = 3;
+                if(n_users >= 3) rate_reduction = 2;
+                if(n_users >= 4) rate_reduction = 1;
+                std::advance(i, (arpeggio_counter / rate_reduction) % n_users);
+                if(i->second.sustained == false)
+                {
+                    if(i->second.kon_time_until_neglible <= 0l)
+                    {
+                        NoteUpdate(
+                            i->first.MidCh,
+                            Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
+                            Upd_Off,
+                            c);
+                        goto retry_arpeggio;
+                    }
+                    NoteUpdate(
+                        i->first.MidCh,
+                        Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
+                        Upd_Pitch | Upd_Volume | Upd_Pan,
+                        c);
+                }
+            }
+        }
     }
 };
 
@@ -1168,8 +1517,8 @@ static struct MyReverbData
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
                 4.0,  // wet_gain_dB  (-10..10)
-                .8,//.7,   // room_scale   (0..1)
-                0.,//.6,   // reverberance (0..1)
+                .9,   // room_scale   (0..1)
+                .8,   // reverberance (0..1)
                 .5,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
                 .6,   // stereo_depth (0..1)
@@ -1179,17 +1528,13 @@ static struct MyReverbData
 
 
 static std::deque<short> AudioBuffer;
-#ifndef __MINGW32__
-static pthread_mutex_t AudioBuffer_lock = PTHREAD_MUTEX_INITIALIZER;
-#endif
+static MutexType AudioBuffer_lock;
 
 static void SDL_AudioCallback(void*, Uint8* stream, int len)
 {
     SDL_LockAudio();
     short* target = (short*) stream;
-    #ifndef __MINGW32__
-    pthread_mutex_lock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Lock();
     /*if(len != AudioBuffer.size())
         fprintf(stderr, "len=%d stereo samples, AudioBuffer has %u stereo samples",
             len/4, (unsigned) AudioBuffer.size()/2);*/
@@ -1199,9 +1544,7 @@ static void SDL_AudioCallback(void*, Uint8* stream, int len)
         target[a] = AudioBuffer[a];
     AudioBuffer.erase(AudioBuffer.begin(), AudioBuffer.begin() + ate);
     //fprintf(stderr, " - remain %u\n", (unsigned) AudioBuffer.size()/2);
-    #ifndef __MINGW32__
-    pthread_mutex_unlock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Unlock();
     SDL_UnlockAudio();
 }
 static void SendStereoAudio(unsigned long count, int* samples)
@@ -1226,7 +1569,6 @@ static void SendStereoAudio(unsigned long count, int* samples)
     {
         amplitude_display_counter = (PCM_RATE / count) / 24;
         double amp[2]={0,0};
-        const unsigned maxy = NumCards*18;
         for(unsigned w=0; w<2; ++w)
         {
             average[w] /= double(count);
@@ -1236,28 +1578,10 @@ static void SendStereoAudio(unsigned long count, int* samples)
             // Turn into logarithmic scale
             const double dB = std::log(amp[w]<1 ? 1 : amp[w]) * 4.328085123;
             const double maxdB = 3*16; // = 3 * log2(65536)
-            amp[w] = maxy*dB/maxdB;
+            amp[w] = dB/maxdB;
         }
-        const unsigned white_threshold  = maxy/18;
-        const unsigned red_threshold    = maxy*4/18;
-        const unsigned yellow_threshold = maxy*8/18;
-        for(unsigned y=0; y<maxy; ++y)
-            for(unsigned w=0; w<2; ++w)
-            {
-                char c = amp[w] > (maxy-1)-y ? '|' : UI.background[w][y+1];
-                if(UI.slots[w][y+1] != c)
-                {
-                    UI.slots[w][y+1] = c;
-                    UI.HideCursor();
-                    UI.GotoXY(w,y+1);
-                    UI.Color(c=='|' ? y<white_threshold ? 15
-                                    : y<red_threshold ? 12
-                                    : y<yellow_threshold ? 14
-                                    : 10 :
-                            (c=='.' ? 1 : 8));
-                    std::fputc(c, stderr);
-                    UI.x += 1;
-    }       }   }
+        UI.IllustrateVolumes(amp[0], amp[1]);
+    }
 
     // Convert input to float format
     std::vector<float> dry[2];
@@ -1275,9 +1599,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         reverb_data.chan[w].Process(count);
 
     // Convert to signed 16-bit int format and put to playback queue
-    #ifndef __MINGW32__
-    pthread_mutex_lock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Lock();
     size_t pos = AudioBuffer.size();
     AudioBuffer.resize(pos + count*2);
     for(unsigned long p = 0; p < count; ++p)
@@ -1291,19 +1613,28 @@ static void SendStereoAudio(unsigned long count, int* samples)
                 out<-32768.f ? -32768 :
                 out>32767.f ?  32767 : out;
         }
-    #ifndef __MINGW32__
-    pthread_mutex_unlock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Unlock();
 }
 
+#undef main
 int main(int argc, char** argv)
 {
-    const unsigned Interval = 50;
+    // How long is SDL buffer, in seconds?
+    // The smaller the value, the more often SDL_AudioCallBack()
+    // is called.
+    const double AudioBufferLength = 0.02;
+    // How much do WE buffer, in seconds? The smaller the value,
+    // the more prone to sound chopping we are.
+    const double OurHeadRoomLength = 0.6;
+    // The lag between visual content and audio content equals
+    // the sum of these two buffers.
+
+    // Set up SDL
     static SDL_AudioSpec spec;
     spec.freq     = PCM_RATE;
     spec.format   = AUDIO_S16SYS;
     spec.channels = 2;
-    spec.samples  = spec.freq / Interval;
+    spec.samples  = spec.freq * AudioBufferLength;
     spec.callback = SDL_AudioCallback;
     if(SDL_OpenAudio(&spec, 0) < 0)
     {
@@ -1382,7 +1713,7 @@ int main(int argc, char** argv)
         NumFourOps =
             (n_fourop[0] >= n_total[0]*7/8) ? NumCards * 6
           : (n_fourop[0] < n_total[0]*1/8) ? 0
-          : (NumCards==1 ? 1 : (5 + (NumCards-1)*3));
+          : (NumCards==1 ? 1 : NumCards*4);
 
     std::printf(
         "Simulating %u OPL3 cards for a total of %u operators.\n"
@@ -1408,9 +1739,6 @@ int main(int argc, char** argv)
     const double mindelay = 1 / (double)PCM_RATE;
     const double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
 
-    UI.GotoXY(0,0); UI.Color(15);
-    std::fprintf(stderr, "Hit Ctrl-C to quit\r");
-
     for(double delay=0; ; )
     {
         const double eat_delay = delay < maxdelay ? delay : maxdelay;
@@ -1425,7 +1753,7 @@ int main(int argc, char** argv)
         {
             player.opl.cards[0].Generate(0, SendStereoAudio, n_samples);
         }
-        else
+        else if(n_samples > 0)
         {
             /* Mix together the audio from different cards */
             static std::vector<int> sample_buf;
@@ -1450,7 +1778,7 @@ int main(int argc, char** argv)
             SendStereoAudio(n_samples, &sample_buf[0]);
         }
 
-        while(AudioBuffer.size() > 3*spec.freq/Interval)
+        while(AudioBuffer.size() > spec.freq * OurHeadRoomLength)
             SDL_Delay(1e3 * eat_delay);
 
         double nextdelay = player.Tick(eat_delay, mindelay);

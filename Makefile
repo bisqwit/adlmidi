@@ -1,4 +1,4 @@
-VERSION=1.0.3
+VERSION=1.1.0
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -78,12 +78,15 @@ CXX=g++
 
 #DEBUG=-O0 -fno-inline -D_GLIBCXX_DEBUG -g -fstack-protector-all -fdata-sections
 DEBUG=-O3 -g
+# -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
-# For Cygwin:
-#SDL=-I/usr/local/include/SDL -L/usr/local/lib -lSDL
-
-# For anything else:
 SDL=`pkg-config --cflags --libs sdl`
+#SDL=-lSDL -L/usr/local/lib -I/usr/local/include/SDL
+
+CPPFLAGS += $(SDL)
+
+#CXX += -mconsole -mno-cygwin -I/usr/include/mingw -mwindows
+# ^For cygwin. For anything else, remove this line.
 
 all: adlmidi gen_adldata dumpmiles dumpbank
 
@@ -94,25 +97,25 @@ midiplay.o: midiplay.cc dbopl.h
 	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
 
 dbopl.o: dbopl.cpp dbopl.h
-	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
+	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
 
 gen_adldata: gen_adldata.o dbopl.o
-	$(CXX) -ansi $^ -Wall -W $(DEBUG) $(SDL) -o $@ 
+	$(CXX) -ansi $^ -Wall -W $(DEBUG)  -o $@ 
 
 gen_adldata.o: gen_adldata.cc dbopl.h
-	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
+	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
 
 dumpmiles: dumpmiles.o
-	$(CXX) -ansi $^ -Wall -W $(DEBUG) $(SDL) -o $@ 
+	$(CXX) -ansi $^ -Wall -W $(DEBUG)  -o $@ 
 
 dumpmiles.o: dumpmiles.cc
-	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
+	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
 
 dumpbank: dumpbank.o
-	$(CXX) -ansi $^ -Wall -W $(DEBUG) $(SDL) -o $@ 
+	$(CXX) -ansi $^ -Wall -W $(DEBUG)  -o $@ 
 
 dumpbank.o: dumpbank.cc
-	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
+	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
 
 
 include depfun.mak

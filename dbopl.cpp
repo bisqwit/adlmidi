@@ -1,3 +1,6 @@
+#ifdef __MINGW32__
+typedef struct vswprintf {} swprintf;
+#endif
 /*
  *  Copyright (C) 2002-2010  The DOSBox Team
  *
@@ -1237,8 +1240,49 @@ void Chip::Setup( Bit32u rate ) {
 		EnvelopeSelect( i, index, shift );
 		linearRates[i] = (Bit32u)( scale * (EnvelopeIncreaseTable[ index ] << ( RATE_SH + ENV_EXTRA - shift - 3 )));
 	}
+
+    if(rate == 48000)
+    {
+        /* BISQWIT ADD: Use precalculated table for this common sample-rate.
+         * Because the actual generation code, below, is MOLASSES SLOW on DOS.
+         */
+        static const Bit32u precalculated_table[62] =
+{2152,2700,3228,3712,4304,5399,6456,7424,8608,10799,12912,14849,17216,21598,
+25824,29698,34432,43196,51650,59398,68864,86392,103310,118795,137746,172847,
+206619,237693,275559,345774,413238,475500,543030,678787,814545,950302,1086060,
+1357575,1629090,1900605,2172120,2715151,3258181,3801211,4344241,5430302,
+6516362,7602423,8688483,10860604,13032725,15204846,17376967,21721209,26065451,
+30409693,34753934,43442418,52130902,60819386,69507869,69507869 };
+    	for ( Bit8u i = 0; i < 62; i++ )
+    	    attackRates[i] = precalculated_table[i];
+    }
+    else if(rate == 44100)
+    {
+        static const Bit32u precalculated_table[62] =
+{2342,2939,3513,4040,4685,5877,7027,8081,9369,11754,14054,16162,18738,23508,
+28108,32325,37478,47018,56219,64649,74965,94044,112448,129292,149929,188132,
+224945,258713,300002,376263,449999,517550,591053,738816,886579,1034343,1182106,
+1477633,1773159,2068686,2364213,2955266,3546319,4137373,4728426,5910533,
+7092639,8274746,9456853,11821066,14185279,16549492,18913706,23642132,28370559,
+33098985,37827412,47284265,56741118,66197971,75654824,75654824 };
+    	for ( Bit8u i = 0; i < 62; i++ )
+    	    attackRates[i] = precalculated_table[i];
+    }
+    else if(rate == 22050)
+    {
+        static const Bit32u precalculated_table[62] =
+{4685,5877,7027,8081,9369,11754,14054,16162,18738,23508,28108,32325,37478,
+47018,56219,64649,74965,94044,112448,129292,149929,188132,224945,258713,300002,
+376263,449999,517550,591053,738816,886579,1034343,1182106,1477633,1773159,
+2068686,2364213,2955266,3546319,4137373,4728426,5910533,7092639,8274746,
+9456853,11821066,14185279,16549492,18913706,23642132,28370559,33098985,
+37827412,47284265,56741118,66197971,75654824,94568530,113482236,132395942,
+151309648,151309648 };
+    	for ( Bit8u i = 0; i < 62; i++ )
+    	    attackRates[i] = precalculated_table[i];
+    }
 	//Generate the best matching attack rate
-	for ( Bit8u i = 0; i < 62; i++ ) {
+	else for ( Bit8u i = 0; i < 62; i++ ) {
 		Bit8u index, shift;
 		EnvelopeSelect( i, index, shift );
 		//Original amount of samples the attack would take
@@ -1284,6 +1328,11 @@ void Chip::Setup( Bit32u rate ) {
 		}
 		attackRates[i] = bestAdd;
 	}
+	/*fprintf(stderr, "attack rate table: ");
+	for ( Bit8u i = 0; i < 62; i++ )
+	    fprintf(stderr, ",%u", attackRates[i]);
+	fprintf(stderr, "\n");*/
+
 	for ( Bit8u i = 62; i < 76; i++ ) {
 		//This should provide instant volume maximizing
 		attackRates[i] = 8 << RATE_SH;
