@@ -584,56 +584,11 @@ public:
         for(unsigned c = 0; c < opl.NumChannels; ++c)
             ch[c].AddAge(s * 1000);
 
-        for(unsigned a=0; a<16; ++a)
-            if(Ch[a].vibrato && !Ch[a].activenotes.empty())
-            {
-                NoteUpdate_All(a, Upd_Pitch);
-                Ch[a].vibpos += s * Ch[a].vibspeed;
-            }
-            else
-                Ch[a].vibpos = 0.0;
-
-        // If there is an adlib channel that has multiple notes
-        // simulated on the same channel, arpeggio them.
-        static unsigned arpeggio_counter = 0;
-        ++arpeggio_counter;
-        for(unsigned c = 0; c < opl.NumChannels; ++c)
-        {
-        retry_arpeggio:;
-            size_t n_users = ch[c].users.size();
-            /*if(true)
-            {
-                UI.GotoXY(64,c+1); UI.Color(2);
-                std::fprintf(stderr, "%7ld/%7ld,%3u\r",
-                    ch[c].keyoff,
-                    (unsigned) n_users);
-                UI.x = 0;
-            }*/
-            if(n_users > 1)
-            {
-                AdlChannel::users_t::const_iterator i = ch[c].users.begin();
-                std::advance(i, (arpeggio_counter/3) % n_users);
-                if(i->second.sustained == false)
-                {
-                    if(i->second.kon_time_until_neglible <= 0l)
-                    {
-                        NoteUpdate(
-                            i->first.MidCh,
-                            Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
-                            Upd_Off,
-                            c);
-                        goto retry_arpeggio;
-                    }
-                    NoteUpdate(
-                        i->first.MidCh,
-                        Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
-                        Upd_Pitch | Upd_Volume,
-                        c);
-                }
-            }
-        }
+        UpdateVibrato(s);
+        UpdateArpeggio();
         return CurrentPosition.wait;
     }
+
 private:
     enum { Upd_Patch  = 0x1,
            Upd_Pan    = 0x2,
@@ -641,7 +596,6 @@ private:
            Upd_Pitch  = 0x8,
            Upd_All    = Upd_Pan + Upd_Volume + Upd_Pitch,
            Upd_Off    = 0x20 };
-
 
     void NoteUpdate
         (unsigned MidCh,
@@ -1101,7 +1055,9 @@ private:
             unsigned n_evacuation_stations = 0;
             for(unsigned c2 = 0; c2 < opl.NumChannels; ++c2)
             {
-                if(c2 == c) continue;
+                if(c2 == c
+                || opl.four_op_category[c2]
+                != opl.four_op_category[c]) continue;
                 for(AdlChannel::users_t::const_iterator
                     m = ch[c2].users.begin();
                     m != ch[c2].users.end();
@@ -1173,7 +1129,10 @@ private:
         // FIXME: This does not care about four-op entanglements.
         for(unsigned c = 0; c < opl.NumChannels; ++c)
         {
-            if(c == from_channel) continue;
+            if(c == from_channel
+            || opl.four_op_category[c]
+            != opl.four_op_category[from_channel]
+              ) continue;
             for(AdlChannel::users_t::iterator
                 m = ch[c].users.begin();
                 m != ch[c].users.end();
@@ -1292,6 +1251,7 @@ private:
             NoteUpdate(MidCh, j, props_mask);
         }
     }
+
     void NoteOff(unsigned MidCh, int note)
     {
         MIDIchannel::activenoteiterator
@@ -1299,6 +1259,64 @@ private:
         if(i != Ch[MidCh].activenotes.end())
         {
             NoteUpdate(MidCh, i, Upd_Off);
+        }
+    }
+
+    void UpdateVibrato(double amount)
+    {
+        for(unsigned a=0; a<16; ++a)
+            if(Ch[a].vibrato && !Ch[a].activenotes.empty())
+            {
+                NoteUpdate_All(a, Upd_Pitch);
+                Ch[a].vibpos += amount * Ch[a].vibspeed;
+            }
+            else
+                Ch[a].vibpos = 0.0;
+    }
+
+    void UpdateArpeggio()
+    {
+        // If there is an adlib channel that has multiple notes
+        // simulated on the same channel, arpeggio them.
+        static unsigned arpeggio_lo = 0, arpeggio_hi = 0;
+        if(++arpeggio_lo < 3) return;
+        arpeggio_lo = 0;
+        ++arpeggio_hi;
+
+        for(unsigned c = 0; c < opl.NumChannels; ++c)
+        {
+        retry_arpeggio:;
+            size_t n_users = ch[c].users.size();
+            /*if(true)
+            {
+                UI.GotoXY(64,c+1); UI.Color(2);
+                std::fprintf(stderr, "%7ld/%7ld,%3u\r",
+                    ch[c].keyoff,
+                    (unsigned) n_users);
+                UI.x = 0;
+            }*/
+            if(n_users > 1)
+            {
+                AdlChannel::users_t::const_iterator i = ch[c].users.begin();
+                std::advance(i, arpeggio_hi % n_users);
+                if(i->second.sustained == false)
+                {
+                    if(i->second.kon_time_until_neglible <= 0l)
+                    {
+                        NoteUpdate(
+                            i->first.MidCh,
+                            Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
+                            Upd_Off,
+                            c);
+                        goto retry_arpeggio;
+                    }
+                    NoteUpdate(
+                        i->first.MidCh,
+                        Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
+                        Upd_Pitch | Upd_Volume,
+                        c);
+                }
+            }
         }
     }
 };
