@@ -85,7 +85,7 @@ SDL=`pkg-config --cflags --libs sdl`
 
 CPPFLAGS += $(SDL)
 
-#CXX += -mconsole -mno-cygwin -I/usr/include/mingw -mwindows
+CXX += -mconsole -mno-cygwin -I/usr/include/mingw -mwindows
 # ^For cygwin. For anything else, remove this line.
 
 all: adlmidi gen_adldata dumpmiles dumpbank

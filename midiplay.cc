@@ -43,6 +43,7 @@ static const unsigned MaxSamplesAtTime = 512; // 512=dbopl limitation
 static unsigned AdlBank    = 0;
 static unsigned NumFourOps = 7;
 static unsigned NumCards   = 2;
+static bool QuitFlag = false;
 
 extern const struct adldata
 {
@@ -225,7 +226,7 @@ static const char MIDIsymbols[256+1] =
 "????????????????"
 "????????????????";
 
-static class UI
+class UI
 {
 public:
   #ifdef __WIN32__
@@ -264,6 +265,7 @@ public:
         {
           const CONSOLE_CURSOR_INFO info = {100,false};
           SetConsoleCursorInfo(handle,&info);
+          CheckTetris();
           return;
         }
       #endif
@@ -339,15 +341,19 @@ public:
         {
             illustrate_char = '%';
         }
-        if(slots[notex][notey] != illustrate_char)
+        Draw(notex,notey,
+            pressure?AllocateColor(ins):(illustrate_char=='.'?1:8),
+            illustrate_char);
+    }
+
+    void Draw(int notex,int notey, int color, char ch)
+    {
+        if(slots[notex][notey] != ch)
         {
-            slots[notex][notey] = illustrate_char;
+            slots[notex][notey] = ch;
             GotoXY(notex, notey);
-            if(!pressure)
-                Color(illustrate_char=='.' ? 1 : 8);
-            else
-                Color(  AllocateColor(ins) );
-            std::fputc(illustrate_char, stderr);
+            Color(color);
+            std::fputc(ch, stderr);
             std::fflush(stderr);
             ++x;
         }
@@ -385,7 +391,14 @@ public:
     // to the current cursor position only.
     void GotoXY(int newx, int newy)
     {
-        while(newy > y) { std::fputc('\n', stderr); y+=1; x=0; }
+        while(newy > y)
+        {
+            std::fputc('\n', stderr); y+=1; x=0;
+      #ifdef __WIN32__
+            /*static int counter=0;
+            if(counter<43) { ++counter; SDL_Delay(25); }*/
+      #endif
+        }
       #ifdef __WIN32__
         if(handle)
         {
@@ -447,6 +460,136 @@ public:
             return ins_colors[ins] = shuffle[ins_color_counter++ % 6];
         }
     }
+  #ifdef __WIN32__
+    void CheckTetris()
+    {
+        static const unsigned short shapes[19] =
+        {0xCC,0x8C4,0x6C,0x4444,0xF0,0x264,0xC6,0xE4,0x4C4,
+         0x4E0,0x464,0x8E,0xC88,0xE2,0x226,0x2E,0x88C,0xE8,0x622},
+         indices[28]={0,0,0,0, 1,2,1,2, 3,4,3,4, 5,6,5,6, 7,8,9,10, 11,12,13,14, 15,16,17,18};
+        static char area[12][25]={{0}};
+        static int emptycount;
+        static const char empty[5][13]=
+            {"!..........!", "!..SINGLE..!", "!..DOUBLE..!",
+             "!..TRIPLE..!", "!..TETRIS..!"};
+        static struct Tetris
+        {
+            static int block(int bl,int rot,int x,int y)
+                { return shapes[indices[bl*4+rot]] & (1 << (y*4+x)); }
+            static bool bounds(int x,int y) { return x>=0 && y>=0 && x<12 && y<25; }
+            static bool edge(int x,int y) { return x==0||x==11||y>=24; }
+            static void init_area()
+                { for(int x=12; x-->0; ) for(int y=25; y-->0; ) area[x][y]=y<24?edge(x,y)*2:3; }
+            static void plotp(int bl,int rot, int x,int y, int color, int fix)
+                { for(int by=0; by<4; ++by) for(int bx=0; bx<4; ++bx)
+                    if(bounds(x+bx,y+by)&&block(bl,rot,bx,by)) setp(x+bx,y+by,color, fix); }
+            static bool testp(int bl,int rot, int x,int y)
+                { for(int by=0; by<4; ++by) for(int bx=0; bx<4; ++bx)
+                    if(bounds(x+bx,y+by)&&block(bl,rot,bx,by)&&area[x+bx][y+by]) return false;
+                  return true; }
+            static void setp(int x,int y, int color, int fix=1)
+            {
+                if(fix) area[x][y] = color;
+                extern UI UI;
+                int c = color==2?':':color==3?'-':
+                        color?'#':empty[emptycount][x];
+                x+=2; y+=std::max(0,(int)NumCards*18-25);
+                UI.background[x][y]=c;
+                UI.Draw(x, y, color>3?color:1, c);
+            }
+            static void make_full_lines_empty()
+            {
+                bool fullline[25];
+                emptycount=0;
+                for(int y=1; !edge(6,y); ++y)
+                {
+                    int x=1; while(x<=10 && area[x][y]>0) ++x;
+                    if((fullline[y] = x>10)) ++emptycount;
+                }
+                for(int y=1; !edge(6,y); ++y)
+                    if(fullline[y]) for(int x=1; x<=10; ++x) setp(x,y,0);
+            }
+            static void cascade_lines()
+            {
+                emptycount=0;
+                int y=23; while(edge(6,y)) --y;
+                for(int srcy=y; srcy>0; --srcy)
+                {
+                    int x=1; while(x<=10 && !area[x][srcy]) ++x;
+                    bool empty=x>10;
+                    if(srcy!=y) for(int x=1; x<=10; ++x) setp(x,y,area[x][srcy]);
+                    if(!empty) --y;
+                }
+                for(; y>1; --y) for(int x=1; x<=10; ++x) setp(x,y,0);
+            }
+        } tetris;
+        static int gamestate=-1, curblock, currot, curx, cury, dropping;
+        static int delaycounter=-1; static void* inhandle = GetStdHandle(STD_INPUT_HANDLE);
+        INPUT_RECORD inbuf[1];
+        switch(gamestate)
+        {
+            case -1: // reset game
+                tetris.init_area(); gamestate=0; break;
+            case 0: // spawn new block
+                curblock = std::rand()%7; currot = std::rand()%4;
+                curx = 4; cury = delaycounter<0 ? -10 : -2; gamestate=1;
+                if(!tetris.testp(curblock,currot,curx,cury)) { gamestate=-1; break; }
+                tetris.plotp(curblock,currot,curx,cury, 1,0);
+                dropping=0; delaycounter=0; break;
+            case 1: // handle input
+            {
+                DWORD nread=0;
+                {int y=std::rand()%25, x=tetris.edge(6,y)?std::rand()%12:(std::rand()%2)*11;
+                tetris.setp(x,y,area[x][y]);}
+                while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
+                {
+                    ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
+                    int mr=currot,mx=curx,my=cury, move=0;
+                    if(inbuf[0].EventType==KEY_EVENT
+                    && inbuf[0].Event.KeyEvent.bKeyDown)
+                    {
+                        switch(inbuf[0].Event.KeyEvent.uChar.AsciiChar)
+                        {
+                            case 'q': case 'Q':
+                            case 27: QuitFlag=true; break;
+                            case 'w': mr=(currot+1)%4; move=1; break;
+                            case 'a': mx=curx-1; move=1; break;
+                            case 'd': mx=curx+1; move=1; break;
+                            case 's': case ' ':
+                                dropping = (inbuf[0].Event.KeyEvent.uChar.AsciiChar==' ') ? 2 : 1;
+                        }
+                        if(move && tetris.testp(curblock,mr,mx,my))
+                            { tetris.plotp(curblock,currot,curx,cury,0,0);
+                              currot=mr; curx=mx; cury=my;
+                              tetris.plotp(curblock,currot,curx,cury,1,0); }
+                        break;
+                    }
+                }
+                if(dropping || ++delaycounter>=50)
+                {
+                    delaycounter=0;
+                    if(tetris.testp(curblock,currot,curx,cury+1))
+                    {
+                        tetris.plotp(curblock,currot,curx,cury,0,0);
+                        ++cury;
+                        tetris.plotp(curblock,currot,curx,cury,1,0);
+                    }
+                    else
+                    {
+                        tetris.plotp(curblock,currot,curx,cury,0,0);
+                        tetris.plotp(curblock,currot,curx,cury,8,1);
+                        gamestate=2;
+                    }
+                    if(dropping==1) dropping=0;
+                }
+                break;
+            }
+            case 2: tetris.make_full_lines_empty();
+            default: ++gamestate; break;
+            case 9: tetris.cascade_lines(); gamestate=0; break;
+        }
+    }
+  #endif
 } UI;
 
 class MIDIplay
@@ -734,7 +877,7 @@ private:
                  * Empirical tests however show that a full equal-proportion
                  * increment sounds wrong. Therefore, using the square root.
                  */
-                volume = (int)(volume * std::sqrt( (double) ch[c].users.size() ));
+                //volume = (int)(volume * std::sqrt( (double) ch[c].users.size() ));
                 opl.Touch(c, volume);
             }
             if(props_mask & Upd_Pitch)
@@ -1609,9 +1752,9 @@ static void SendStereoAudio(unsigned long count, int* samples)
                 .5 * (reverb_data.chan[0].out[w][p]
                     + reverb_data.chan[1].out[w][p])) * 32768.0f
                  + average_flt[w];
-            AudioBuffer[pos+p*2+w] =
+            AudioBuffer[pos+p*2+w] = 0.0 /* FIXME TEMPORAY
                 out<-32768.f ? -32768 :
-                out>32767.f ?  32767 : out;
+                out>32767.f ?  32767 : out */;
         }
     AudioBuffer_lock.Unlock();
 }
@@ -1739,7 +1882,7 @@ int main(int argc, char** argv)
     const double mindelay = 1 / (double)PCM_RATE;
     const double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
 
-    for(double delay=0; ; )
+    for(double delay=0; !QuitFlag; )
     {
         const double eat_delay = delay < maxdelay ? delay : maxdelay;
         delay -= eat_delay;
