@@ -467,7 +467,7 @@ class MIDIplay
         struct LocationData
         {
             bool sustained;
-            int  ins;       // copy of that in phys[]
+            unsigned short ins;  // a copy of that in phys[]
             long kon_time_until_neglible;
             long vibdelay;
         };
@@ -483,14 +483,14 @@ class MIDIplay
         {
             if(users.empty())
                 koff_time_until_neglible =
-                    std::max(koff_time_until_neglible-ms, -0x5FFFFFFFl);
+                    std::max(koff_time_until_neglible-ms, -0x1FFFFFFFl);
             else
             {
                 koff_time_until_neglible = 0;
                 for(users_t::iterator i = users.begin(); i != users.end(); ++i)
                 {
                     i->second.kon_time_until_neglible =
-                    std::max(i->second.kon_time_until_neglible-ms, -0x5FFFFFFFl);
+                    std::max(i->second.kon_time_until_neglible-ms, -0x1FFFFFFFl);
                     i->second.vibdelay += ms;
                 }
             }
@@ -585,7 +585,7 @@ public:
             ch[c].AddAge(s * 1000);
 
         UpdateVibrato(s);
-        UpdateArpeggio();
+        UpdateArpeggio(s);
         return CurrentPosition.wait;
     }
 
@@ -1030,7 +1030,7 @@ private:
         long s = -ch[c].koff_time_until_neglible;
 
         // Same midi-instrument = some stability
-        if(c == MidCh) s += 1;
+        if(c == MidCh) s += 4;
         for(AdlChannel::users_t::const_iterator
             j = ch[c].users.begin();
             j != ch[c].users.end();
@@ -1274,14 +1274,25 @@ private:
                 Ch[a].vibpos = 0.0;
     }
 
-    void UpdateArpeggio()
+    void UpdateArpeggio(double amount)
     {
         // If there is an adlib channel that has multiple notes
         // simulated on the same channel, arpeggio them.
-        static unsigned arpeggio_lo = 0, arpeggio_hi = 0;
-        if(++arpeggio_lo < 3) return;
-        arpeggio_lo = 0;
-        ++arpeggio_hi;
+        const unsigned desired_arpeggio_rate = 40; // Hz (upper limit)
+      #if 1
+        static unsigned cache=0;
+        amount=amount; // Ignore amount. Assume we get a constant rate.
+        cache += MaxSamplesAtTime * desired_arpeggio_rate;
+        if(cache < PCM_RATE) return;
+        cache %= PCM_RATE;
+      #else
+        static double arpeggio_cache = 0;
+        arpeggio_cache += amount * desired_arpeggio_rate;
+        if(arpeggio_cache < 1.0) return;
+        arpeggio_cache = 0.0;
+      #endif
+        static unsigned arpeggio_counter = 0;
+        ++arpeggio_counter;
 
         for(unsigned c = 0; c < opl.NumChannels; ++c)
         {
@@ -1298,7 +1309,7 @@ private:
             if(n_users > 1)
             {
                 AdlChannel::users_t::const_iterator i = ch[c].users.begin();
-                std::advance(i, arpeggio_hi % n_users);
+                std::advance(i, arpeggio_counter % n_users);
                 if(i->second.sustained == false)
                 {
                     if(i->second.kon_time_until_neglible <= 0l)
