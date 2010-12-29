@@ -85,6 +85,7 @@ public:
     }
     void Touch_Real(unsigned c, unsigned volume)
     {
+        if(volume > 63) volume = 63;
         unsigned card = c/18, cc = c%18;
         unsigned i = ins[c], o = Operators[cc];
         unsigned x = adl[i].carrier_40, y = adl[i].modulator_40;
@@ -665,7 +666,16 @@ private:
             }
             if(props_mask & Upd_Volume)
             {
-                opl.Touch(c, vol * Ch[MidCh].volume * Ch[MidCh].expression);
+                int volume = vol * Ch[MidCh].volume * Ch[MidCh].expression;
+                /* If the channel has arpeggio, the effective volume of
+                 * *this* instrument is actually lower due to timesharing.
+                 * To compensate, add extra volume that corresponds to the
+                 * time this note is *not* heard.
+                 * Empirical tests however show that a full equal-proportion
+                 * increment sounds wrong. Therefore, using the square root.
+                 */
+                volume = (int)(volume * std::sqrt( (double) ch[c].users.size() ));
+                opl.Touch(c, volume);
             }
             if(props_mask & Upd_Pitch)
             {
@@ -1036,7 +1046,10 @@ private:
             j != ch[c].users.end();
             ++j)
         {
-            s -= j->second.kon_time_until_neglible;
+            if(!j->second.sustained)
+                s -= j->second.kon_time_until_neglible;
+            else
+                s -= j->second.kon_time_until_neglible / 2;
 
             MIDIchannel::activenotemap_t::const_iterator
                 k = Ch[j->first.MidCh].activenotes.find(j->first.note);
@@ -1085,6 +1098,7 @@ private:
     void PrepareAdlChannelForNewNote(int c, int ins)
     {
         if(ch[c].users.empty()) return; // Nothing to do
+        bool doing_arpeggio = false;
         for(AdlChannel::users_t::iterator
             jnext = ch[c].users.begin();
             jnext != ch[c].users.end();
@@ -1105,20 +1119,20 @@ private:
                 && j->second.ins == ins)
                 {
                     // Do arpeggio together with this note.
+                    doing_arpeggio = true;
                     continue;
                 }
 
                 KillOrEvacuate(c,j,i);
                 // ^ will also erase j from ch[c].users.
             }
-            else
-            {
-                // Forget about a sustained note
-                int midiins = '?';
-                UI.IllustrateNote(c, j->first.note, midiins, 0, 0.0);
-                ch[c].users.erase(j);
-            }
         }
+
+        // Kill all sustained notes on this channel
+        // Don't keep them for arpeggio, because arpeggio requires
+        // an intact "activenotes" record. This is a design flaw.
+        KillSustainingNotes(-1, c);
+
         // Keyoff the channel so that it can be retriggered,
         // unless the new note will be introduced as just an arpeggio.
         if(ch[c].users.empty())
@@ -1146,9 +1160,10 @@ private:
                 m != ch[c].users.end();
                 ++m)
             {
-                if(m->second.sustained)       continue;
-                if(m->second.vibdelay >= 200) continue;
+                if(m->second.vibdelay >= 200
+                && m->second.kon_time_until_neglible < 10000) continue;
                 if(m->second.ins != j->second.ins) continue;
+
                 // the note can be moved here!
                 UI.IllustrateNote(
                     from_channel,
@@ -1184,18 +1199,20 @@ private:
                    from_channel);
     }
 
-    void KillSustainingNotes(int MidCh)
+    void KillSustainingNotes(int MidCh = -1, int this_adlchn = -1)
     {
-        for(unsigned c = 0; c < opl.NumChannels; ++c)
+        unsigned first=0, last=opl.NumChannels;
+        if(this_adlchn >= 0) { first=this_adlchn; last=first+1; }
+        for(unsigned c = first; c < last; ++c)
         {
-            if(ch[c].users.empty()) return; // Nothing to do
+            if(ch[c].users.empty()) continue; // Nothing to do
             for(AdlChannel::users_t::iterator
                 jnext = ch[c].users.begin();
                 jnext != ch[c].users.end();
                 )
             {
                 AdlChannel::users_t::iterator j(jnext++);
-                if(j->first.MidCh == MidCh
+                if((MidCh < 0 || j->first.MidCh == MidCh)
                 && j->second.sustained)
                 {
                     int midiins = '?';
@@ -1288,6 +1305,7 @@ private:
         // If there is an adlib channel that has multiple notes
         // simulated on the same channel, arpeggio them.
         const unsigned desired_arpeggio_rate = 40; // Hz (upper limit)
+        /*
       #if 1
         static unsigned cache=0;
         amount=amount; // Ignore amount. Assume we get a constant rate.
@@ -1300,6 +1318,7 @@ private:
         if(arpeggio_cache < 1.0) return;
         arpeggio_cache = 0.0;
       #endif
+      */
         static unsigned arpeggio_counter = 0;
         ++arpeggio_counter;
 
@@ -1318,7 +1337,10 @@ private:
             if(n_users > 1)
             {
                 AdlChannel::users_t::const_iterator i = ch[c].users.begin();
-                std::advance(i, arpeggio_counter % n_users);
+                size_t rate_reduction = 3;
+                if(n_users >= 3) rate_reduction = 2;
+                if(n_users >= 4) rate_reduction = 1;
+                std::advance(i, (arpeggio_counter / rate_reduction) % n_users);
                 if(i->second.sustained == false)
                 {
                     if(i->second.kon_time_until_neglible <= 0l)
@@ -1435,8 +1457,8 @@ static struct MyReverbData
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
                 4.0,  // wet_gain_dB  (-10..10)
-                .8,//.7,   // room_scale   (0..1)
-                0.,//.6,   // reverberance (0..1)
+                .9,   // room_scale   (0..1)
+                .8,   // reverberance (0..1)
                 .5,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
                 .6,   // stereo_depth (0..1)
