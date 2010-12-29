@@ -1621,7 +1621,7 @@ int main(int argc, char** argv)
         NumFourOps =
             (n_fourop[0] >= n_total[0]*7/8) ? NumCards * 6
           : (n_fourop[0] < n_total[0]*1/8) ? 0
-          : (NumCards==1 ? 1 : (5 + (NumCards-1)*3));
+          : (NumCards==1 ? 1 : NumCards*4);
 
     std::printf(
         "Simulating %u OPL3 cards for a total of %u operators.\n"
