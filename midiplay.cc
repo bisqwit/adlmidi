@@ -1,3 +1,6 @@
+#ifdef __MINGW32__
+typedef struct vswprintf {} swprintf;
+#endif
 #include <vector>
 #include <string>
 #include <map>
@@ -15,17 +18,28 @@
 #include <assert.h>
 
 #include <SDL.h>
-#include <deque>
-
-#ifndef __MINGW32__
-# include <pthread.h>
+#ifdef __WIN32__
+#include <windows.h>
 #endif
+
+#include <deque>
+#include <algorithm>
+
+class MutexType
+{
+    SDL_mutex* mut;
+public:
+    MutexType() : mut(SDL_CreateMutex()) { }
+    ~MutexType() { SDL_DestroyMutex(mut); }
+    void Lock() { SDL_mutexP(mut); }
+    void Unlock() { SDL_mutexV(mut); }
+};
 
 #include "dbopl.h"
 
 static const unsigned long PCM_RATE = 48000;
 static const unsigned MaxCards = 100;
-static const unsigned MaxSamplesAtTime = 512; // dbopl limitation
+static const unsigned MaxSamplesAtTime = 512; // 512=dbopl limitation
 static unsigned AdlBank    = 0;
 static unsigned NumFourOps = 7;
 static unsigned NumCards   = 2;
@@ -214,24 +228,45 @@ static const char MIDIsymbols[256+1] =
 static class UI
 {
 public:
+  #ifdef __WIN32__
+    void* handle;
+  #endif
     int x, y, color, txtline;
     typedef char row[80];
     char slots[80][1 + 18*MaxCards], background[80][1 + 18*MaxCards];
     bool cursor_visible;
 public:
-    UI(): x(0), y(0), color(-1), txtline(1),
-          cursor_visible(true)
-        { std::fputc('\r', stderr); // Ensure cursor is at x=0
-          std::memset(slots, '.',      sizeof(slots));
-          std::memset(background, '.', sizeof(background));
-
-          GotoXY(0,0); Color(15);
-          std::fprintf(stderr, "Hit Ctrl-C to quit\r");
+    UI(): x(0), y(0), color(-1), txtline(1), cursor_visible(true)
+    {
+      #ifdef __WIN32__
+        handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        GotoXY(41,13);
+        CONSOLE_SCREEN_BUFFER_INFO tmp;
+        GetConsoleScreenBufferInfo(handle,&tmp);
+        if(tmp.dwCursorPosition.X != 41)
+        {
+            // Console is not obeying controls! Probably cygwin xterm.
+            handle = 0;
         }
+      #endif
+        std::memset(slots, '.',      sizeof(slots));
+        std::memset(background, '.', sizeof(background));
+        std::fputc('\r', stderr); // Ensure cursor is at x=0
+        GotoXY(0,0); Color(15);
+        std::fprintf(stderr, "Hit Ctrl-C to quit\r");
+    }
     void HideCursor()
     {
         if(!cursor_visible) return;
         cursor_visible = false;
+      #ifdef __WIN32__
+        if(handle)
+        {
+          const CONSOLE_CURSOR_INFO info = {100,false};
+          SetConsoleCursorInfo(handle,&info);
+          return;
+        }
+      #endif
         std::fprintf(stderr, "\33[?25l"); // hide cursor
     }
     void ShowCursor()
@@ -239,6 +274,14 @@ public:
         if(cursor_visible) return;
         cursor_visible = true;
         GotoXY(0,19); Color(7);
+      #ifdef __WIN32__
+        if(handle)
+        {
+          const CONSOLE_CURSOR_INFO info = {100,true};
+          SetConsoleCursorInfo(handle,&info);
+          return;
+        }
+      #endif
         std::fprintf(stderr, "\33[?25h"); // show cursor
         std::fflush(stderr);
     }
@@ -250,7 +293,7 @@ public:
       #ifndef __CYGWIN__
         int nchars = vsnprintf(Line, sizeof(Line), fmt, ap);
       #else
-        int nchars = vsprintf(Line, fmt, ap); /* SECURITY: POSSIBLE BUFFER OVERFLOW */
+        int nchars = std::vsprintf(Line, fmt, ap); /* SECURITY: POSSIBLE BUFFER OVERFLOW */
       #endif
         va_end(ap);
 
@@ -343,6 +386,16 @@ public:
     void GotoXY(int newx, int newy)
     {
         while(newy > y) { std::fputc('\n', stderr); y+=1; x=0; }
+      #ifdef __WIN32__
+        if(handle)
+        {
+          CONSOLE_SCREEN_BUFFER_INFO tmp;
+          GetConsoleScreenBufferInfo(handle, &tmp);
+          COORD tmp2 = { x = newx, tmp.dwCursorPosition.Y } ;
+          if(newy < y) { tmp2.Y -= (y-newy); y = newy; }
+          SetConsoleCursorPosition(handle, tmp2);
+        }
+      #endif
         if(newy < y) { std::fprintf(stderr, "\33[%dA", y-newy); y = newy; }
         if(newx != x)
         {
@@ -358,15 +411,22 @@ public:
     {
         if(color != newcolor)
         {
-            static const char map[8+1] = "04261537";
-            std::fprintf(stderr, "\33[0;%s40;3%c",
-                (newcolor&8) ? "1;" : "", map[newcolor&7]);
-            // If xterm-256color is used, try using improved colors:
-            //        Translate 8 (dark gray) into #003366 (bluish dark cyan)
-            //        Translate 1 (dark blue) into #000033 (darker blue)
-            if(newcolor==8) std::fprintf(stderr, ";38;5;24;25");
-            if(newcolor==1) std::fprintf(stderr, ";38;5;17;25");
-            std::fputc('m', stderr);
+          #ifdef __WIN32__
+            if(handle)
+              SetConsoleTextAttribute(handle, newcolor);
+            else
+          #endif
+            {
+              static const char map[8+1] = "04261537";
+              std::fprintf(stderr, "\33[0;%s40;3%c",
+                  (newcolor&8) ? "1;" : "", map[newcolor&7]);
+              // If xterm-256color is used, try using improved colors:
+              //        Translate 8 (dark gray) into #003366 (bluish dark cyan)
+              //        Translate 1 (dark blue) into #000033 (darker blue)
+              if(newcolor==8) std::fprintf(stderr, ";38;5;24;25");
+              if(newcolor==1) std::fprintf(stderr, ";38;5;17;25");
+              std::fputc('m', stderr);
+            }
             color=newcolor;
         }
     }
@@ -527,13 +587,13 @@ public:
 
     bool LoadMIDI(const std::string& filename)
     {
-        FILE* fp = std::fopen(filename.c_str(), "rb");
+        std::FILE* fp = std::fopen(filename.c_str(), "rb");
         if(!fp) { std::perror(filename.c_str()); return false; }
         char HeaderBuf[4+4+2+2+2]="";
     riffskip:;
         std::fread(HeaderBuf, 1, 4+4+2+2+2, fp);
         if(std::memcmp(HeaderBuf, "RIFF", 4) == 0)
-            { fseek(fp, 6, SEEK_CUR); goto riffskip; }
+            { std::fseek(fp, 6, SEEK_CUR); goto riffskip; }
         if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
         { InvFmt:
             std::fclose(fp);
@@ -562,7 +622,7 @@ public:
         loopStart = true;
 
         opl.Reset(); // Reset AdLib
-        opl.Reset(); // ...twice (just in case someone misprogrammed OPL3 previously)
+        //opl.Reset(); // ...twice (just in case someone misprogrammed OPL3 previously)
         ch.clear();
         ch.resize(opl.NumChannels);
         return true;
@@ -1468,17 +1528,13 @@ static struct MyReverbData
 
 
 static std::deque<short> AudioBuffer;
-#ifndef __MINGW32__
-static pthread_mutex_t AudioBuffer_lock = PTHREAD_MUTEX_INITIALIZER;
-#endif
+static MutexType AudioBuffer_lock;
 
 static void SDL_AudioCallback(void*, Uint8* stream, int len)
 {
     SDL_LockAudio();
     short* target = (short*) stream;
-    #ifndef __MINGW32__
-    pthread_mutex_lock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Lock();
     /*if(len != AudioBuffer.size())
         fprintf(stderr, "len=%d stereo samples, AudioBuffer has %u stereo samples",
             len/4, (unsigned) AudioBuffer.size()/2);*/
@@ -1488,9 +1544,7 @@ static void SDL_AudioCallback(void*, Uint8* stream, int len)
         target[a] = AudioBuffer[a];
     AudioBuffer.erase(AudioBuffer.begin(), AudioBuffer.begin() + ate);
     //fprintf(stderr, " - remain %u\n", (unsigned) AudioBuffer.size()/2);
-    #ifndef __MINGW32__
-    pthread_mutex_unlock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Unlock();
     SDL_UnlockAudio();
 }
 static void SendStereoAudio(unsigned long count, int* samples)
@@ -1545,9 +1599,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         reverb_data.chan[w].Process(count);
 
     // Convert to signed 16-bit int format and put to playback queue
-    #ifndef __MINGW32__
-    pthread_mutex_lock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Lock();
     size_t pos = AudioBuffer.size();
     AudioBuffer.resize(pos + count*2);
     for(unsigned long p = 0; p < count; ++p)
@@ -1561,19 +1613,28 @@ static void SendStereoAudio(unsigned long count, int* samples)
                 out<-32768.f ? -32768 :
                 out>32767.f ?  32767 : out;
         }
-    #ifndef __MINGW32__
-    pthread_mutex_unlock(&AudioBuffer_lock);
-    #endif
+    AudioBuffer_lock.Unlock();
 }
 
+#undef main
 int main(int argc, char** argv)
 {
-    const unsigned Interval = 50;
+    // How long is SDL buffer, in seconds?
+    // The smaller the value, the more often SDL_AudioCallBack()
+    // is called.
+    const double AudioBufferLength = 0.02;
+    // How much do WE buffer, in seconds? The smaller the value,
+    // the more prone to sound chopping we are.
+    const double OurHeadRoomLength = 0.6;
+    // The lag between visual content and audio content equals
+    // the sum of these two buffers.
+
+    // Set up SDL
     static SDL_AudioSpec spec;
     spec.freq     = PCM_RATE;
     spec.format   = AUDIO_S16SYS;
     spec.channels = 2;
-    spec.samples  = spec.freq / Interval;
+    spec.samples  = spec.freq * AudioBufferLength;
     spec.callback = SDL_AudioCallback;
     if(SDL_OpenAudio(&spec, 0) < 0)
     {
@@ -1717,7 +1778,7 @@ int main(int argc, char** argv)
             SendStereoAudio(n_samples, &sample_buf[0]);
         }
 
-        while(AudioBuffer.size() > 3*spec.freq/Interval)
+        while(AudioBuffer.size() > spec.freq * OurHeadRoomLength)
             SDL_Delay(1e3 * eat_delay);
 
         double nextdelay = player.Tick(eat_delay, mindelay);
