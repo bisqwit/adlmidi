@@ -47,6 +47,7 @@ using software OPL3 emulation (FM synthesis).
  <li>Sustain enable/disable</li>
  <li>MIDI and RMI file support</li>
  <li>loopStart / loopEnd tag support (Final Fantasy VII)</li>
+ <li>Use automatic arpeggio with chords to relieve channel pressure</li>
 </ul>
 
 <hr>

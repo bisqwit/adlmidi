@@ -467,6 +467,7 @@ class MIDIplay
         struct LocationData
         {
             bool sustained;
+            int  ins;       // copy of that in phys[]
             long kon_time_until_neglible;
             long vibdelay;
         };
@@ -626,7 +627,7 @@ public:
                     NoteUpdate(
                         i->first.MidCh,
                         Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
-                        Upd_Pitch,
+                        Upd_Pitch | Upd_Volume,
                         c);
                 }
             }
@@ -681,7 +682,7 @@ private:
                     {
                         opl.NoteOff(c);
                         ch[c].koff_time_until_neglible =
-                            adlins[insmeta].ms_sound_koff / 2;
+                            adlins[insmeta].ms_sound_koff;
                     }
                 }
                 else
@@ -703,6 +704,7 @@ private:
                 d.sustained = false; // inserts if necessary
                 d.vibdelay  = 0;
                 d.kon_time_until_neglible = adlins[insmeta].ms_sound_kon;
+                d.ins       = ins;
             }
             if(props_mask & Upd_Pan)
             {
@@ -1069,7 +1071,7 @@ private:
 
     // Determine how good a candidate this adlchannel
     // would be for playing a note from this instrument.
-    long CalculateAdlChannelGoodness(int c, int ins, int MidCh) const
+    long CalculateAdlChannelGoodness(unsigned c, unsigned ins, unsigned MidCh) const
     {
         long s = -ch[c].koff_time_until_neglible;
 
@@ -1087,13 +1089,31 @@ private:
             if(k != Ch[j->first.MidCh].activenotes.end())
             {
                 // Same instrument = good
-                std::map<unsigned short,unsigned short>::const_iterator
-                    l = k->second.phys.find(c);
-                if(l != k->second.phys.end() && l->second == ins)
+                if(j->second.ins == ins)
                     s += 300;
                 // Percussion is inferior to melody
                 s += 50 * (k->second.midiins / 128);
             }
+
+            // If there is another channel to which this note
+            // can be evacuated to in the case of congestion,
+            // increase the score slightly.
+            unsigned n_evacuation_stations = 0;
+            for(unsigned c2 = 0; c2 < opl.NumChannels; ++c2)
+            {
+                if(c2 == c) continue;
+                for(AdlChannel::users_t::const_iterator
+                    m = ch[c2].users.begin();
+                    m != ch[c2].users.end();
+                    ++m)
+                {
+                    if(m->second.sustained)       continue;
+                    if(m->second.vibdelay >= 200) continue;
+                    if(m->second.ins != j->second.ins) continue;
+                    n_evacuation_stations += 1;
+                }
+            }
+            s += n_evacuation_stations * 200;
         }
         return s;
     }
@@ -1114,33 +1134,19 @@ private:
                 // Collision: Kill old note,
                 // UNLESS we're going to do arpeggio
 
-                MIDIchannel::activenoteiterator k
+                MIDIchannel::activenoteiterator i
                 ( Ch[j->first.MidCh].activenotes.find( j->first.note ) );
 
                 // Check if we can do arpeggio.
                 if(j->second.vibdelay < 70
-                && k->second.phys.find(c)->second == ins
-                //&& (ch[c].age - ch[c].decay) > 1000
-                  )
+                && j->second.ins == ins)
                 {
                     // Do arpeggio together with this note.
                     continue;
                 }
 
-                /*UI.PrintLn(
-                    "collision @%u: [%ld] <- ins[%3u]",
-                    c,
-                    //ch[c].midiins<128?'M':'P', ch[c].midiins&127,
-                    ch[c].age, //adlins[ch[c].insmeta].ms_sound_kon,
-                    ins
-                    );*/
-
-                // Kill it
-                NoteUpdate(j->first.MidCh,
-                           k,
-                           Upd_Off,
-                           c);
-                // NoteUpdate() will also erase(j)
+                KillOrEvacuate(c,j,i);
+                // ^ will also erase(j)
             }
             else
             {
@@ -1153,6 +1159,62 @@ private:
         // Keyoff the channel so that it can be retriggered.
         if(ch[c].users.empty())
             opl.NoteOff(c);
+    }
+
+    void KillOrEvacuate(
+        unsigned from_channel,
+        AdlChannel::users_t::iterator j,
+        MIDIchannel::activenoteiterator i)
+    {
+        // Before killing the note, check if it can be
+        // evacuated to another channel as an arpeggio
+        // instrument. This helps if e.g. all channels
+        // are full of strings and we want to do percussion.
+        // FIXME: This does not care about four-op entanglements.
+        for(unsigned c = 0; c < opl.NumChannels; ++c)
+        {
+            if(c == from_channel) continue;
+            for(AdlChannel::users_t::iterator
+                m = ch[c].users.begin();
+                m != ch[c].users.end();
+                ++m)
+            {
+                if(m->second.sustained)       continue;
+                if(m->second.vibdelay >= 200) continue;
+                if(m->second.ins != j->second.ins) continue;
+                // the note can be moved here!
+                UI.IllustrateNote(
+                    from_channel,
+                    i->second.tone,
+                    i->second.midiins, 0, 0.0);
+                UI.IllustrateNote(
+                    c,
+                    i->second.tone,
+                    i->second.midiins,
+                    i->second.vol,
+                    0.0);
+
+                i->second.phys.erase(from_channel);
+                i->second.phys[c] = j->second.ins;
+                ch[c].users.insert( *j );
+                ch[from_channel].users.erase( j );
+                return;
+            }
+        }
+
+        /*UI.PrintLn(
+            "collision @%u: [%ld] <- ins[%3u]",
+            c,
+            //ch[c].midiins<128?'M':'P', ch[c].midiins&127,
+            ch[c].age, //adlins[ch[c].insmeta].ms_sound_kon,
+            ins
+            );*/
+
+        // Kill it
+        NoteUpdate(j->first.MidCh,
+                   i,
+                   Upd_Off,
+                   from_channel);
     }
 
     void KillSustainingNotes(int MidCh)
