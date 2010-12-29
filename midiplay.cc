@@ -645,7 +645,6 @@ private:
                     //          Also will avoid overwriting it very soon.
                     AdlChannel::LocationData& d = ch[c].users[my_loc];
                     d.sustained = true; // note: not erased!
-                    d.kon_time_until_neglible = adlins[insmeta].ms_sound_kon / 2;
                     UI.IllustrateNote(c, tone, midiins, -1, 0.0);
                 }
                 info.phys.erase(j);
@@ -1025,7 +1024,8 @@ private:
 
     // Determine how good a candidate this adlchannel
     // would be for playing a note from this instrument.
-    long CalculateAdlChannelGoodness(unsigned c, unsigned ins, unsigned MidCh) const
+    long CalculateAdlChannelGoodness
+        (unsigned c, unsigned ins, unsigned MidCh) const
     {
         long s = -ch[c].koff_time_until_neglible;
 
@@ -1044,7 +1044,13 @@ private:
             {
                 // Same instrument = good
                 if(j->second.ins == ins)
+                {
                     s += 300;
+                    // Arpeggio candidate = even better
+                    if(j->second.vibdelay < 70
+                    || j->second.kon_time_until_neglible > 20000)
+                        s += 100;
+                }
                 // Percussion is inferior to melody
                 s += 50 * (k->second.midiins / 128);
             }
@@ -1055,8 +1061,8 @@ private:
             unsigned n_evacuation_stations = 0;
             for(unsigned c2 = 0; c2 < opl.NumChannels; ++c2)
             {
-                if(c2 == c
-                || opl.four_op_category[c2]
+                if(c2 == c) continue;
+                if(opl.four_op_category[c2]
                 != opl.four_op_category[c]) continue;
                 for(AdlChannel::users_t::const_iterator
                     m = ch[c2].users.begin();
@@ -1094,7 +1100,8 @@ private:
                 ( Ch[j->first.MidCh].activenotes.find( j->first.note ) );
 
                 // Check if we can do arpeggio.
-                if(j->second.vibdelay < 70
+                if((j->second.vibdelay < 70
+                 || j->second.kon_time_until_neglible > 20000)
                 && j->second.ins == ins)
                 {
                     // Do arpeggio together with this note.
@@ -1102,7 +1109,7 @@ private:
                 }
 
                 KillOrEvacuate(c,j,i);
-                // ^ will also erase(j)
+                // ^ will also erase j from ch[c].users.
             }
             else
             {
@@ -1112,7 +1119,8 @@ private:
                 ch[c].users.erase(j);
             }
         }
-        // Keyoff the channel so that it can be retriggered.
+        // Keyoff the channel so that it can be retriggered,
+        // unless the new note will be introduced as just an arpeggio.
         if(ch[c].users.empty())
             opl.NoteOff(c);
     }
@@ -1129,8 +1137,8 @@ private:
         // FIXME: This does not care about four-op entanglements.
         for(unsigned c = 0; c < opl.NumChannels; ++c)
         {
-            if(c == from_channel
-            || opl.four_op_category[c]
+            if(c == from_channel) continue;
+            if(opl.four_op_category[c]
             != opl.four_op_category[from_channel]
               ) continue;
             for(AdlChannel::users_t::iterator
@@ -1187,14 +1195,15 @@ private:
                 )
             {
                 AdlChannel::users_t::iterator j(jnext++);
-                if(j->first.MidCh == MidCh && j->second.sustained)
+                if(j->first.MidCh == MidCh
+                && j->second.sustained)
                 {
                     int midiins = '?';
                     UI.IllustrateNote(c, j->first.note, midiins, 0, 0.0);
                     ch[c].users.erase(j);
                 }
             }
-            // Keyoff the channel if there are no users left.
+            // Keyoff the channel, if there are no users left.
             if(ch[c].users.empty())
                 opl.NoteOff(c);
         }
@@ -1324,7 +1333,7 @@ private:
                     NoteUpdate(
                         i->first.MidCh,
                         Ch[ i->first.MidCh ].activenotes.find( i->first.note ),
-                        Upd_Pitch | Upd_Volume,
+                        Upd_Pitch | Upd_Volume | Upd_Pan,
                         c);
                 }
             }
