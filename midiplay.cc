@@ -47,17 +47,17 @@ static bool QuitFlag = false;
 
 extern const struct adldata
 {
-    unsigned carrier_E862, modulator_E862;  // See below
-    unsigned char carrier_40, modulator_40; // KSL/attenuation settings
-    unsigned char feedconn; // Feedback/connection bits for the channel
+    Uint32 carrier_E862, modulator_E862;  // See below
+    Uint8 carrier_40, modulator_40; // KSL/attenuation settings
+    Uint8 feedconn; // Feedback/connection bits for the channel
     signed char finetune;
 } adl[3212];
 extern const struct adlinsdata
 {
-    unsigned short adlno1, adlno2;
-    unsigned char tone;
-    unsigned short ms_sound_kon;  // Number of milliseconds it produces sound;
-    unsigned short ms_sound_koff;
+    Uint16 adlno1, adlno2;
+    Uint8 tone;
+    Uint16 ms_sound_kon;  // Number of milliseconds it produces sound;
+    Uint16 ms_sound_koff;
 } adlins[3141];
 extern const unsigned short banks[51][256];
 extern const char* const banknames[51];
@@ -232,12 +232,13 @@ public:
   #ifdef __WIN32__
     void* handle;
   #endif
-    int x, y, color, txtline;
+    int x, y, color, txtline, maxy;
     typedef char row[80];
     char slots[80][1 + 18*MaxCards], background[80][1 + 18*MaxCards];
     bool cursor_visible;
 public:
-    UI(): x(0), y(0), color(-1), txtline(1), cursor_visible(true)
+    UI(): x(0), y(0), color(-1), txtline(1),
+          maxy(0), cursor_visible(true)
     {
       #ifdef __WIN32__
         handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -275,7 +276,7 @@ public:
     {
         if(cursor_visible) return;
         cursor_visible = true;
-        GotoXY(0,19); Color(7);
+        GotoXY(0,maxy); Color(7);
       #ifdef __WIN32__
         if(handle)
         {
@@ -323,7 +324,11 @@ public:
         }
         std::fflush(stderr);
 
-        txtline=1 + (txtline) % (18*NumCards);
+        unsigned n_textlines = 18*NumCards;
+      #ifdef __WIN32__
+        if(n_textlines > 26) n_textlines -= 26; /* Reserved for tetris */
+      #endif
+        txtline=1 + (txtline) % n_textlines;
     }
     void IllustrateNote(int adlchn, int note, int ins, int pressure, double bend)
     {
@@ -342,7 +347,9 @@ public:
             illustrate_char = '%';
         }
         Draw(notex,notey,
-            pressure?AllocateColor(ins):(illustrate_char=='.'?1:8),
+            pressure?AllocateColor(ins):
+            (illustrate_char=='.'?1:
+             illustrate_char=='&'?1: 8),
             illustrate_char);
     }
 
@@ -391,6 +398,7 @@ public:
     // to the current cursor position only.
     void GotoXY(int newx, int newy)
     {
+        if(newy > maxy) maxy = newy;
         while(newy > y)
         {
             std::fputc('\n', stderr); y+=1; x=0;
@@ -463,10 +471,7 @@ public:
   #ifdef __WIN32__
     void CheckTetris()
     {
-        static const unsigned short shapes[19] =
-        {0xCC,0x8C4,0x6C,0x4444,0xF0,0x264,0xC6,0xE4,0x4C4,
-         0x4E0,0x464,0x8E,0xC88,0xE2,0x226,0x2E,0x88C,0xE8,0x622},
-         indices[28]={0,0,0,0, 1,2,1,2, 3,4,3,4, 5,6,5,6, 7,8,9,10, 11,12,13,14, 15,16,17,18};
+        extern UI UI;
         static char area[12][25]={{0}};
         static int emptycount;
         static const char empty[5][13]=
@@ -475,7 +480,14 @@ public:
         static struct Tetris
         {
             static int block(int bl,int rot,int x,int y)
-                { return shapes[indices[bl*4+rot]] & (1 << (y*4+x)); }
+            {
+                static const unsigned short shapes[4][7] =
+                {{0xCC,0x8C4,0x4444,0x264,0xE4, 0x8E, 0x2E},
+                 {0xCC,0x6C, 0xF0,  0xC6, 0x4C4,0xC88,0x88C},
+                 {0xCC,0x8C4,0x4444,0x264,0x4E0,0xE2, 0xE8},
+                 {0xCC,0x6C, 0xF0,  0xC6, 0x464,0x226,0x622}};
+                return shapes[rot][bl] & (1 << (y*4+x));
+            }
             static bool bounds(int x,int y) { return x>=0 && y>=0 && x<12 && y<25; }
             static bool edge(int x,int y) { return x==0||x==11||y>=24; }
             static void init_area()
@@ -485,14 +497,18 @@ public:
                     if(bounds(x+bx,y+by)&&block(bl,rot,bx,by)) setp(x+bx,y+by,color, fix); }
             static bool testp(int bl,int rot, int x,int y)
                 { for(int by=0; by<4; ++by) for(int bx=0; bx<4; ++bx)
-                    if(bounds(x+bx,y+by)&&block(bl,rot,bx,by)&&area[x+bx][y+by]) return false;
+                    if(block(bl,rot,bx,by)
+                    && (x+bx<=0||x+bx>10
+                    || (bounds(x+bx,y+by) && area[x+bx][y+by])))
+                      return false;
                   return true; }
             static void setp(int x,int y, int color, int fix=1)
             {
                 if(fix) area[x][y] = color;
-                extern UI UI;
-                int c = color==2?':':color==3?'-':
-                        color?'#':empty[emptycount][x];
+                static int counter=0; ++counter;
+                int c = color==2 ? (counter<700?':':'&')
+                       :color==3 ? (counter<500?'-':'&')
+                       :color    ? '#' : empty[emptycount][x];
                 x+=2; y+=std::max(0,(int)NumCards*18-25);
                 UI.background[x][y]=c;
                 UI.Draw(x, y, color>3?color:1, c);
@@ -524,21 +540,22 @@ public:
             }
         } tetris;
         static int gamestate=-1, curblock, currot, curx, cury, dropping;
-        static int delaycounter=-1; static void* inhandle = GetStdHandle(STD_INPUT_HANDLE);
-        INPUT_RECORD inbuf[1];
+        static int delaycounter=-1, score, lines, scorewipe, combo=0;
+        static void* inhandle = GetStdHandle(STD_INPUT_HANDLE);
         switch(gamestate)
         {
-            case -1: // reset game
-                tetris.init_area(); gamestate=0; break;
+            case -1: case 53: // reset game
+                tetris.init_area(); gamestate=0; score=lines=0; break;
             case 0: // spawn new block
                 curblock = std::rand()%7; currot = std::rand()%4;
-                curx = 4; cury = delaycounter<0 ? -10 : -2; gamestate=1;
-                if(!tetris.testp(curblock,currot,curx,cury)) { gamestate=-1; break; }
-                tetris.plotp(curblock,currot,curx,cury, 1,0);
-                dropping=0; delaycounter=0; break;
+                curx = 4; cury = delaycounter<0 ? -10 : -1; gamestate=1;
+                dropping=delaycounter=emptycount=0;
+                if(!tetris.testp(curblock,currot,curx,cury)) { cury=0; gamestate=50; break; }
+                tetris.plotp(curblock,currot,curx,cury, 1,0); break;
             case 1: // handle input
             {
                 DWORD nread=0;
+                INPUT_RECORD inbuf[1];
                 {int y=std::rand()%25, x=tetris.edge(6,y)?std::rand()%12:(std::rand()%2)*11;
                 tetris.setp(x,y,area[x][y]);}
                 while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
@@ -548,15 +565,16 @@ public:
                     if(inbuf[0].EventType==KEY_EVENT
                     && inbuf[0].Event.KeyEvent.bKeyDown)
                     {
-                        switch(inbuf[0].Event.KeyEvent.uChar.AsciiChar)
+                        char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
+                        switch(ch)
                         {
-                            case 'q': case 'Q':
+                            case 'q': case 'Q': case 3:
                             case 27: QuitFlag=true; break;
                             case 'w': mr=(currot+1)%4; move=1; break;
                             case 'a': mx=curx-1; move=1; break;
                             case 'd': mx=curx+1; move=1; break;
                             case 's': case ' ':
-                                dropping = (inbuf[0].Event.KeyEvent.uChar.AsciiChar==' ') ? 2 : 1;
+                                dropping = (ch == ' ') ? 2 : 1;
                         }
                         if(move && tetris.testp(curblock,mr,mx,my))
                             { tetris.plotp(curblock,currot,curx,cury,0,0);
@@ -565,7 +583,15 @@ public:
                         break;
                     }
                 }
-                if(dropping || ++delaycounter>=50)
+                if(scorewipe>0 && --scorewipe==0)
+                {
+                    UI.GotoXY(15,(int)NumCards*18);
+                    fprintf(stderr,"%*s",7,""); fflush(stderr);
+                    UI.GotoXY(15,(int)NumCards*18+1);
+                    fprintf(stderr,"%*s",5,""); fflush(stderr);
+                }
+                int level = 50 - (lines/10)/5;
+                if(dropping || ++delaycounter>=level)
                 {
                     delaycounter=0;
                     if(tetris.testp(curblock,currot,curx,cury+1))
@@ -584,9 +610,40 @@ public:
                 }
                 break;
             }
-            case 2: tetris.make_full_lines_empty();
+            case 2: tetris.make_full_lines_empty(); gamestate=3;
+            case 3: case 52:
+            {
+                int increment = "\0\1\4\11\31"[emptycount]*100;
+                if(emptycount) increment += combo++ * 50; else combo=0;
+                increment += cury*2; score += increment; lines += emptycount;
+                UI.GotoXY(2,(int)NumCards*18);
+                UI.Color(15); fprintf(stderr,"Score:"); fflush(stderr);
+                UI.Color(14); fprintf(stderr,"%6u",score); fflush(stderr);
+                UI.GotoXY(2,(int)NumCards*18+1);
+                UI.Color(15); fprintf(stderr,"Lines:"); fflush(stderr);
+                UI.Color(14); fprintf(stderr,"%6u",lines); fflush(stderr);
+                UI.GotoXY(15,(int)NumCards*18);
+                UI.Color(10); fprintf(stderr,"%+d",increment); fflush(stderr);
+                if(emptycount)
+                {
+                    UI.GotoXY(15,(int)NumCards*18+1);
+                    fprintf(stderr,"%+d",emptycount); fflush(stderr);
+                }
+                scorewipe=14;
+                // fallthru (set next state 4, state 53)
+            }
             default: ++gamestate; break;
-            case 9: tetris.cascade_lines(); gamestate=0; break;
+            case 12: tetris.cascade_lines(); gamestate=0; break;
+            case 50:
+                if(cury < 24)
+                    { for(int x=1; x<=10; ++x) tetris.setp(x,cury,4); ++cury; break; }
+                cury=-4; gamestate=51; break;
+            case 51:
+                if(cury < 24)
+                    { for(int x=1; x<=10; ++x) tetris.setp(x,cury,0); ++cury; break; }
+                emptycount=combo=score=lines=cury=0;
+                gamestate=52; // reset score display
+                break;
         }
     }
   #endif
@@ -1752,9 +1809,9 @@ static void SendStereoAudio(unsigned long count, int* samples)
                 .5 * (reverb_data.chan[0].out[w][p]
                     + reverb_data.chan[1].out[w][p])) * 32768.0f
                  + average_flt[w];
-            AudioBuffer[pos+p*2+w] = 0.0 /* FIXME TEMPORAY
+            AudioBuffer[pos+p*2+w] =
                 out<-32768.f ? -32768 :
-                out>32767.f ?  32767 : out */;
+                out>32767.f ?  32767 : out;
         }
     AudioBuffer_lock.Unlock();
 }
@@ -1768,7 +1825,7 @@ int main(int argc, char** argv)
     const double AudioBufferLength = 0.02;
     // How much do WE buffer, in seconds? The smaller the value,
     // the more prone to sound chopping we are.
-    const double OurHeadRoomLength = 0.6;
+    const double OurHeadRoomLength = 0.06;
     // The lag between visual content and audio content equals
     // the sum of these two buffers.
 
@@ -1891,7 +1948,7 @@ int main(int argc, char** argv)
         carry += PCM_RATE * eat_delay;
         const unsigned long n_samples = (unsigned) carry;
         carry -= n_samples;
-
+    #if 0
         if(NumCards == 1)
         {
             player.opl.cards[0].Generate(0, SendStereoAudio, n_samples);
@@ -1920,9 +1977,13 @@ int main(int argc, char** argv)
             /* Process it */
             SendStereoAudio(n_samples, &sample_buf[0]);
         }
+    #endif
 
-        while(AudioBuffer.size() > spec.freq * OurHeadRoomLength)
-            SDL_Delay(1e3 * eat_delay);
+        do {
+            SDL_Delay( std::min(10.0
+                                /* 1000.0*MaxSamplesAtTime/PCM_RATE */
+                                , 1e3 * eat_delay) );
+        } while(AudioBuffer.size() > spec.freq * OurHeadRoomLength);
 
         double nextdelay = player.Tick(eat_delay, mindelay);
         UI.ShowCursor();
