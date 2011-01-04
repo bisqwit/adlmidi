@@ -1,6 +1,7 @@
 #ifdef __MINGW32__
 typedef struct vswprintf {} swprintf;
 #endif
+
 #include <vector>
 #include <string>
 #include <map>
@@ -17,14 +18,16 @@ typedef struct vswprintf {} swprintf;
 
 #include <assert.h>
 
-#include <SDL.h>
 #ifdef __WIN32__
-#include <windows.h>
-#endif
-
-#include <deque>
-#include <algorithm>
-
+# include <cctype>
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+# include <mmsystem.h>
+typedef unsigned char Uint8;
+typedef unsigned short Uint16;
+typedef unsigned Uint32;
+#else
+# include <SDL.h>
 class MutexType
 {
     SDL_mutex* mut;
@@ -34,6 +37,10 @@ public:
     void Lock() { SDL_mutexP(mut); }
     void Unlock() { SDL_mutexV(mut); }
 };
+#endif
+
+#include <deque>
+#include <algorithm>
 
 #include "dbopl.h"
 
@@ -51,16 +58,16 @@ extern const struct adldata
     Uint8 carrier_40, modulator_40; // KSL/attenuation settings
     Uint8 feedconn; // Feedback/connection bits for the channel
     signed char finetune;
-} adl[3212];
+} adl[];
 extern const struct adlinsdata
 {
     Uint16 adlno1, adlno2;
     Uint8 tone;
     Uint16 ms_sound_kon;  // Number of milliseconds it produces sound;
     Uint16 ms_sound_koff;
-} adlins[3141];
-extern const unsigned short banks[51][256];
-extern const char* const banknames[51];
+} adlins[];
+extern const unsigned short banks[][256];
+extern const char* const banknames[52];
 
 static const unsigned short Operators[18] =
     {0x000,0x001,0x002, 0x008,0x009,0x00A, 0x010,0x011,0x012,
@@ -233,8 +240,9 @@ public:
     void* handle;
   #endif
     int x, y, color, txtline, maxy;
-    typedef char row[80];
-    char slots[80][1 + 18*MaxCards], background[80][1 + 18*MaxCards];
+    char background[80][1 + 18*MaxCards];
+    char slots[80][1 + 18*MaxCards];
+    unsigned char slotcolors[80][1 + 18*MaxCards];
     bool cursor_visible;
 public:
     UI(): x(0), y(0), color(-1), txtline(1),
@@ -249,6 +257,11 @@ public:
         {
             // Console is not obeying controls! Probably cygwin xterm.
             handle = 0;
+        }
+        else
+        {
+            //COORD size = { 80, 18*NumCards+5 };
+            //SetConsoleScreenBufferSize(handle,size);
         }
       #endif
         std::memset(slots, '.',      sizeof(slots));
@@ -326,7 +339,7 @@ public:
 
         unsigned n_textlines = 18*NumCards;
       #ifdef __WIN32__
-        if(n_textlines > 26) n_textlines -= 26; /* Reserved for tetris */
+        //if(n_textlines > 26) n_textlines -= 26; /* Reserved for tetris */
       #endif
         txtline=1 + (txtline) % n_textlines;
     }
@@ -334,7 +347,7 @@ public:
     {
         HideCursor();
         int notex = 2 + (note+55)%77;
-        int notey = 1+adlchn;
+        int notey = 1 + adlchn % (3*18);
         char illustrate_char = background[notex][notey];
         if(pressure > 0)
         {
@@ -355,20 +368,28 @@ public:
 
     void Draw(int notex,int notey, int color, char ch)
     {
-        if(slots[notex][notey] != ch)
+        if(slots[notex][notey] != ch
+        || slotcolors[notex][notey] != color)
         {
             slots[notex][notey] = ch;
+            slotcolors[notex][notey] = color;
             GotoXY(notex, notey);
             Color(color);
-            std::fputc(ch, stderr);
-            std::fflush(stderr);
+        #ifdef __WIN32__
+            if(handle) WriteConsole(handle,&ch,1, 0,0);
+            else
+        #endif
+            {
+              std::fputc(ch, stderr);
+              std::fflush(stderr);
+            }
             ++x;
         }
     }
 
     void IllustrateVolumes(double left, double right)
     {
-        const unsigned maxy = NumCards*18;
+        const unsigned maxy = std::min(NumCards*18, 3*18u);
         const unsigned white_threshold  = maxy/18;
         const unsigned red_threshold    = maxy*4/18;
         const unsigned yellow_threshold = maxy*8/18;
@@ -378,18 +399,12 @@ public:
             for(unsigned w=0; w<2; ++w)
             {
                 char c = amp[w] > (maxy-1)-y ? '|' : background[w][y+1];
-                if(slots[w][y+1] == c) continue;
-
-                slots[w][y+1] = c;
-                HideCursor();
-                GotoXY(w,y+1);
-                Color(c=='|' ? y<white_threshold ? 15
-                                : y<red_threshold ? 12
-                                : y<yellow_threshold ? 14
-                                : 10 :
-                        (c=='.' ? 1 : 8));
-                std::fputc(c, stderr);
-                x += 1;
+                Draw(w,y+1,
+                     c=='|' ? y<white_threshold ? 15
+                            : y<red_threshold ? 12
+                            : y<yellow_threshold ? 14
+                            : 10 : (c=='.' ? 1 : 8),
+                     c);
             }
     }
 
@@ -402,10 +417,6 @@ public:
         while(newy > y)
         {
             std::fputc('\n', stderr); y+=1; x=0;
-      #ifdef __WIN32__
-            /*static int counter=0;
-            if(counter<43) { ++counter; SDL_Delay(25); }*/
-      #endif
         }
       #ifdef __WIN32__
         if(handle)
@@ -488,13 +499,14 @@ public:
                  {0xCC,0x6C, 0xF0,  0xC6, 0x464,0x226,0x622}};
                 return shapes[rot][bl] & (1 << (y*4+x));
             }
-            static bool bounds(int x,int y) { return x>=0 && y>=0 && x<12 && y<25; }
+            static inline bool bounds(int x,int y,bool fix=true)
+                { return x>=0 && y>=0 && (x<12 || !fix) && y<25; }
             static bool edge(int x,int y) { return x==0||x==11||y>=24; }
             static void init_area()
-                { for(int x=12; x-->0; ) for(int y=25; y-->0; ) area[x][y]=y<24?edge(x,y)*2:3; }
-            static void plotp(int bl,int rot, int x,int y, int color, int fix)
+                { for(int x=12; x-->0; ) for(int y=25; y-->0; ) area[x][y]=edge(x,y)?2:0; }
+            static void plotp(int bl,int rot, int x,int y, int color, bool fix)
                 { for(int by=0; by<4; ++by) for(int bx=0; bx<4; ++bx)
-                    if(bounds(x+bx,y+by)&&block(bl,rot,bx,by)) setp(x+bx,y+by,color, fix); }
+                    if(bounds(x+bx,y+by,fix)&&block(bl,rot,bx,by)) setp(x+bx,y+by,color, fix); }
             static bool testp(int bl,int rot, int x,int y)
                 { for(int by=0; by<4; ++by) for(int bx=0; bx<4; ++bx)
                     if(block(bl,rot,bx,by)
@@ -502,16 +514,18 @@ public:
                     || (bounds(x+bx,y+by) && area[x+bx][y+by])))
                       return false;
                   return true; }
-            static void setp(int x,int y, int color, int fix=1)
+            static void setp(int x,int y, int color, bool fix=true)
             {
                 if(fix) area[x][y] = color;
                 static int counter=0; ++counter;
-                int c = color==2 ? (counter<700?':':'&')
-                       :color==3 ? (counter<500?'-':'&')
-                       :color    ? '#' : empty[emptycount][x];
+                int c = color==2&&y<24 ? (counter<700?':':'&')
+                       :color==2       ? (counter<500?'-':'&')
+                       :color==-1? '+' // shadow
+                       :color    ? '#'
+                       : (x<12?empty[emptycount][x]:'.');
                 x+=2; y+=std::max(0,(int)NumCards*18-25);
                 UI.background[x][y]=c;
-                UI.Draw(x, y, color>3?color:1, c);
+                UI.Draw(x, y, color>2?color:1, c);
             }
             static void make_full_lines_empty()
             {
@@ -538,75 +552,120 @@ public:
                 }
                 for(; y>1; --y) for(int x=1; x<=10; ++x) setp(x,y,0);
             }
+            static int calcshadowy(int bl,int rot,int x,int y)
+            {
+                while(testp(bl,rot,x,y+1)) ++y;
+                return y;
+            }
         } tetris;
         static int gamestate=-1, curblock, currot, curx, cury, dropping;
-        static int delaycounter=-1, score, lines, scorewipe, combo=0;
+        static int delaycounter=-1, score, lines, combo=0;
+        static int scorewipe=0, focuswipe=0, shadowy=0, next1=0, next2=0;
         static void* inhandle = GetStdHandle(STD_INPUT_HANDLE);
+        if(1)
+        {
+            DWORD nread=0;
+            INPUT_RECORD inbuf[1];
+            while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
+            {
+                ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
+                if(inbuf[0].EventType==KEY_EVENT
+                && inbuf[0].Event.KeyEvent.bKeyDown)
+                {
+                    char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
+                    switch(ch)
+                    {
+                        case 'q': case 'Q': case 3:
+                        case 27: QuitFlag=true; break;
+            }   }   }
+            return;
+        }
         switch(gamestate)
         {
             case -1: case 53: // reset game
-                tetris.init_area(); gamestate=0; score=lines=0; break;
+                tetris.init_area(); gamestate=0; score=lines=0;
+                next1 = std::rand()%7; next2 = std::rand()%7;
+                shadowy = 25; break;
             case 0: // spawn new block
-                curblock = std::rand()%7; currot = std::rand()%4;
-                curx = 4; cury = delaycounter<0 ? -10 : -1; gamestate=1;
+                curblock=next1; next1=next2; currot = 0;
+                curx = 4; cury = delaycounter<0 ? -10 : 0; gamestate=1;
                 dropping=delaycounter=emptycount=0;
                 if(!tetris.testp(curblock,currot,curx,cury)) { cury=0; gamestate=50; break; }
-                tetris.plotp(curblock,currot,curx,cury, 1,0); break;
+                if(cury>=0) // keep the shadow "secret" until the game really starts
+                {
+                    shadowy=tetris.calcshadowy(curblock,currot,curx,cury);
+                    tetris.plotp(curblock,currot,curx,shadowy,-1,0);
+                }
+                tetris.plotp(curblock,currot,curx,cury, 8,0); // passthru
             case 1: // handle input
             {
+                int level = 50 - (lines/10)/5;
                 DWORD nread=0;
                 INPUT_RECORD inbuf[1];
                 {int y=std::rand()%25, x=tetris.edge(6,y)?std::rand()%12:(std::rand()%2)*11;
                 tetris.setp(x,y,area[x][y]);}
-                while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
+                for(;;)
                 {
-                    ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
                     int mr=currot,mx=curx,my=cury, move=0;
-                    if(inbuf[0].EventType==KEY_EVENT
-                    && inbuf[0].Event.KeyEvent.bKeyDown)
+                    while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
                     {
-                        char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
-                        switch(ch)
+                        ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
+                        if(inbuf[0].EventType==KEY_EVENT
+                        && inbuf[0].Event.KeyEvent.bKeyDown)
                         {
-                            case 'q': case 'Q': case 3:
-                            case 27: QuitFlag=true; break;
-                            case 'w': mr=(currot+1)%4; move=1; break;
-                            case 'a': mx=curx-1; move=1; break;
-                            case 'd': mx=curx+1; move=1; break;
-                            case 's': case ' ':
-                                dropping = (ch == ' ') ? 2 : 1;
+                            char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
+                            switch(ch)
+                            {
+                                case 'q': case 'Q': case 3:
+                                case 27: QuitFlag=true; break;
+                                case 'w': mr=(currot+1)%4; move=1; break;
+                                case 'a': mx=curx-1; move=1; break;
+                                case 'd': mx=curx+1; move=1; break;
+                                case 's': case ' ':
+                                    dropping = (ch == ' ') ? 2 : 1;
+                            }
                         }
-                        if(move && tetris.testp(curblock,mr,mx,my))
-                            { tetris.plotp(curblock,currot,curx,cury,0,0);
-                              currot=mr; curx=mx; cury=my;
-                              tetris.plotp(curblock,currot,curx,cury,1,0); }
+                        if(move) break;
+                    }
+                    if(!move && (dropping || ++delaycounter>=level))
+                        { my=cury+1; move=1; delaycounter=0; }
+                    if(scorewipe>0 && --scorewipe==0)
+                    {
+                        UI.GotoXY(15,(int)NumCards*18);
+                        fprintf(stderr,"%*s",7,""); fflush(stderr);
+                        UI.GotoXY(15,(int)NumCards*18+1);
+                        fprintf(stderr,"%*s",5,""); fflush(stderr);
+                    }
+                    if(focuswipe>0 && --focuswipe==0)
+                        for(int y=0; y<24; ++y)
+                            for(int x=1; x<=10; ++x)
+                                if(area[x][y]==11)
+                                    tetris.setp(x,y,3); // Color of affixed blocks
+                    if(!move) break;
+                    if(tetris.testp(curblock,mr,mx,my))
+                    {
+                        bool x_changed = curx != mx || currot != mr;
+                        if(x_changed && shadowy<25)
+                        {
+                            tetris.plotp(curblock,currot,curx,shadowy,0,0); // hide shadow from old location
+                        }
+                        tetris.plotp(curblock,currot,curx,cury,0,0); // remove block from old location
+                        currot=mr; curx=mx; cury=my;
+                        if(x_changed)
+                        {
+                            shadowy=tetris.calcshadowy(curblock,currot,curx,cury);
+                            tetris.plotp(curblock,currot,curx,shadowy,-1,0); // show shadow
+                        }
+                        tetris.plotp(curblock,currot,curx,cury,8,0); // show block in new location
+                    }
+                    else if(my==cury+1)
+                    {
+                        tetris.plotp(curblock,currot,curx,shadowy,0,0); // remove the shadow
+                        tetris.plotp(curblock,currot,curx,cury,11,1); // affix the block
+                        gamestate=2; focuswipe=3;
                         break;
                     }
-                }
-                if(scorewipe>0 && --scorewipe==0)
-                {
-                    UI.GotoXY(15,(int)NumCards*18);
-                    fprintf(stderr,"%*s",7,""); fflush(stderr);
-                    UI.GotoXY(15,(int)NumCards*18+1);
-                    fprintf(stderr,"%*s",5,""); fflush(stderr);
-                }
-                int level = 50 - (lines/10)/5;
-                if(dropping || ++delaycounter>=level)
-                {
-                    delaycounter=0;
-                    if(tetris.testp(curblock,currot,curx,cury+1))
-                    {
-                        tetris.plotp(curblock,currot,curx,cury,0,0);
-                        ++cury;
-                        tetris.plotp(curblock,currot,curx,cury,1,0);
-                    }
-                    else
-                    {
-                        tetris.plotp(curblock,currot,curx,cury,0,0);
-                        tetris.plotp(curblock,currot,curx,cury,8,1);
-                        gamestate=2;
-                    }
-                    if(dropping==1) dropping=0;
+                    if(dropping==1) dropping=0; else break;
                 }
                 break;
             }
@@ -624,6 +683,11 @@ public:
                 UI.Color(14); fprintf(stderr,"%6u",lines); fflush(stderr);
                 UI.GotoXY(15,(int)NumCards*18);
                 UI.Color(10); fprintf(stderr,"%+d",increment); fflush(stderr);
+                UI.GotoXY(15, (int)NumCards*18-5);
+                UI.Color(15); fprintf(stderr,"Next:"); fflush(stderr);
+                next2=std::rand()%7;
+                tetris.plotp(next1,0, 13,21, 0,0);
+                tetris.plotp(next2,0, 13,21, 8,0);
                 if(emptycount)
                 {
                     UI.GotoXY(15,(int)NumCards*18+1);
@@ -633,7 +697,7 @@ public:
                 // fallthru (set next state 4, state 53)
             }
             default: ++gamestate; break;
-            case 12: tetris.cascade_lines(); gamestate=0; break;
+            case 12: if(emptycount) tetris.cascade_lines(); emptycount=gamestate=0; break;
             case 50:
                 if(cury < 24)
                     { for(int x=1; x<=10; ++x) tetris.setp(x,cury,4); ++cury; break; }
@@ -1322,7 +1386,7 @@ private:
                     // Arpeggio candidate = even better
                     if(j->second.vibdelay < 70
                     || j->second.kon_time_until_neglible > 20000)
-                        s += 100;
+                        s += 0;
                 }
                 // Percussion is inferior to melody
                 s += 50 * (k->second.midiins / 128);
@@ -1348,7 +1412,7 @@ private:
                     n_evacuation_stations += 1;
                 }
             }
-            s += n_evacuation_stations * 200;
+            s += n_evacuation_stations * 4;
         }
         return s;
     }
@@ -1716,20 +1780,135 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
-                4.0,  // wet_gain_dB  (-10..10)
-                .9,   // room_scale   (0..1)
-                .8,   // reverberance (0..1)
-                .5,   // hf_damping   (0..1)
+                3.0,  // wet_gain_dB  (-10..10)
+                .4,   // room_scale   (0..1)
+                .6,   // reverberance (0..1)
+                .8,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
-                .6,   // stereo_depth (0..1)
+                .8,   // stereo_depth (0..1)
                 MaxSamplesAtTime);
     }
 } reverb_data;
 
+#ifdef __WIN32__
+namespace WindowsAudio
+{
+  static const unsigned BUFFER_COUNT = 16;
+  static const unsigned BUFFER_SIZE  = 8192;
+  static HWAVEOUT hWaveOut;
+  static WAVEHDR headers[BUFFER_COUNT];
+  static volatile unsigned buf_read=0, buf_write=0;
 
+  static void CALLBACK Callback(HWAVEOUT,UINT msg,DWORD,DWORD,DWORD)
+  {
+      if(msg == WOM_DONE)
+      {
+          buf_read = (buf_read+1) % BUFFER_COUNT;
+      }
+  }
+  static void Open(const int rate, const int channels, const int bits)
+  {
+      WAVEFORMATEX wformat;
+      MMRESULT result;
+
+      //fill waveformatex
+      memset(&wformat, 0, sizeof(wformat));
+      wformat.nChannels       = channels;
+      wformat.nSamplesPerSec  = rate;
+      wformat.wFormatTag      = WAVE_FORMAT_PCM;
+      wformat.wBitsPerSample  = bits;
+      wformat.nBlockAlign     = wformat.nChannels * (wformat.wBitsPerSample >> 3);
+      wformat.nAvgBytesPerSec = wformat.nSamplesPerSec * wformat.nBlockAlign;
+
+      //open sound device
+      //WAVE_MAPPER always points to the default wave device on the system
+      result = waveOutOpen
+      (
+        &hWaveOut,WAVE_MAPPER,&wformat,
+        (DWORD_PTR)Callback,0,CALLBACK_FUNCTION
+      );
+      if(result == WAVERR_BADFORMAT)
+      {
+          fprintf(stderr, "ao_win32: format not supported\n");
+          return;
+      }
+      if(result != MMSYSERR_NOERROR)
+      {
+          fprintf(stderr, "ao_win32: unable to open wave mapper device\n");
+          return;
+      }
+      char* buffer = new char[BUFFER_COUNT*BUFFER_SIZE];
+      std::memset(headers,0,sizeof(headers));
+      std::memset(buffer, 0,BUFFER_COUNT*BUFFER_SIZE);
+      for(unsigned a=0; a<BUFFER_COUNT; ++a)
+          headers[a].lpData = buffer + a*BUFFER_SIZE;
+  }
+  static void Close()
+  {
+      waveOutReset(hWaveOut);
+      waveOutClose(hWaveOut);
+  }
+  static void Write(const unsigned char* Buf, unsigned len)
+  {
+      static std::vector<unsigned char> cache;
+      size_t cache_reduction = 0;
+      if(0&&len < BUFFER_SIZE&&cache.size()+len<=BUFFER_SIZE)
+      {
+          cache.insert(cache.end(), Buf, Buf+len);
+          Buf = &cache[0];
+          len = cache.size();
+          if(len < BUFFER_SIZE/2)
+              return;
+          cache_reduction = cache.size();
+      }
+
+      while(len > 0)
+      {
+          unsigned buf_next = (buf_write+1) % BUFFER_COUNT;
+          WAVEHDR* Work = &headers[buf_write];
+          while(buf_next == buf_read)
+          {
+              /*UI.Color(4);
+              UI.GotoXY(60,-5+5); fprintf(stderr, "waits\r"); UI.x=0; fflush(stderr);
+              UI.Color(4);
+              UI.GotoXY(60,-4+5); fprintf(stderr, "r%u w%u n%u\r",buf_read,buf_write,buf_next); UI.x=0; fflush(stderr);
+              */
+              /* Wait until at least one of the buffers is free */
+              Sleep(0);
+              /*UI.Color(2);
+              UI.GotoXY(60,-3+5); fprintf(stderr, "wait completed\r"); UI.x=0; fflush(stderr);*/
+          }
+
+          unsigned npending = (buf_write + BUFFER_COUNT - buf_read) % BUFFER_COUNT;
+          static unsigned counter=0, lo=0;
+          if(!counter-- || npending < lo) { lo = npending; counter=100; }
+          if(UI.maxy >= 5) {
+              UI.Color(9);
+              UI.GotoXY(70,-5+6); fprintf(stderr, "%3u bufs\r", (unsigned)npending); UI.x=0; fflush(stderr);
+              UI.GotoXY(71,-4+6); fprintf(stderr, "lo:%3u\r", lo); UI.x=0; }
+
+          //unprepare the header if it is prepared
+          if(Work->dwFlags & WHDR_PREPARED) waveOutUnprepareHeader(hWaveOut, Work, sizeof(WAVEHDR));
+          unsigned x = BUFFER_SIZE; if(x > len) x = len;
+          std::memcpy(Work->lpData, Buf, x);
+          Buf += x; len -= x;
+          //prepare the header and write to device
+          Work->dwBufferLength = x;
+          {int err=waveOutPrepareHeader(hWaveOut, Work, sizeof(WAVEHDR));
+           if(err != MMSYSERR_NOERROR) fprintf(stderr, "waveOutPrepareHeader: %d\n", err);}
+          {int err=waveOutWrite(hWaveOut, Work, sizeof(WAVEHDR));
+           if(err != MMSYSERR_NOERROR) fprintf(stderr, "waveOutWrite: %d\n", err);}
+          buf_write = buf_next;
+          //if(npending>=BUFFER_COUNT-2)
+          //    buf_read=(buf_read+1)%BUFFER_COUNT; // Simulate a read
+      }
+      if(cache_reduction)
+          cache.erase(cache.begin(), cache.begin()+cache_reduction);
+  }
+}
+#else
 static std::deque<short> AudioBuffer;
 static MutexType AudioBuffer_lock;
-
 static void SDL_AudioCallback(void*, Uint8* stream, int len)
 {
     SDL_LockAudio();
@@ -1747,8 +1926,17 @@ static void SDL_AudioCallback(void*, Uint8* stream, int len)
     AudioBuffer_lock.Unlock();
     SDL_UnlockAudio();
 }
+#endif // WIN32
+
 static void SendStereoAudio(unsigned long count, int* samples)
 {
+    if(count % 2 == 1)
+    {
+        // An uneven number of samples? To avoid complicating matters,
+        // just ignore the odd sample.
+        count   -= 1;
+        samples += 1;
+    }
     if(!count) return;
 
     // Attempt to filter out the DC component. However, avoid doing
@@ -1783,13 +1971,28 @@ static void SendStereoAudio(unsigned long count, int* samples)
         UI.IllustrateVolumes(amp[0], amp[1]);
     }
 
+#if defined(__WIN32__) && 1
+    // Cheat on dosbox recording: easier on the cpu load.
+   {count*=2;
+    std::vector<short> AudioBuffer(count);
+    for(unsigned long p = 0; p < count; ++p)
+        AudioBuffer[p] = samples[p];
+    WindowsAudio::Write( (const unsigned char*) &AudioBuffer[0], count*2);
+    return;}
+#endif
+
     // Convert input to float format
     std::vector<float> dry[2];
     for(unsigned w=0; w<2; ++w)
     {
         dry[w].resize(count);
+        float a = average_flt[w];
         for(unsigned long p = 0; p < count; ++p)
-            dry[w][p] = (samples[p*2+w] - average_flt[w]) * double(0.6/32768.0);
+        {
+            int   s = samples[p*2+w];
+            dry[w][p] = (s - a) * double(0.3/32768.0);
+        }
+        // ^  Note: ftree-vectorize causes an error in this loop on g++-4.4.5
         reverb_data.chan[w].input_fifo.insert(
         reverb_data.chan[w].input_fifo.end(),
             dry[w].begin(), dry[w].end());
@@ -1799,9 +2002,14 @@ static void SendStereoAudio(unsigned long count, int* samples)
         reverb_data.chan[w].Process(count);
 
     // Convert to signed 16-bit int format and put to playback queue
+#ifdef __WIN32__
+    std::vector<short> AudioBuffer(count*2);
+    const size_t pos = 0;
+#else
     AudioBuffer_lock.Lock();
     size_t pos = AudioBuffer.size();
     AudioBuffer.resize(pos + count*2);
+#endif
     for(unsigned long p = 0; p < count; ++p)
         for(unsigned w=0; w<2; ++w)
         {
@@ -1813,34 +2021,100 @@ static void SendStereoAudio(unsigned long count, int* samples)
                 out<-32768.f ? -32768 :
                 out>32767.f ?  32767 : out;
         }
+#ifndef __WIN32__
     AudioBuffer_lock.Unlock();
+#else
+    WindowsAudio::Write( (const unsigned char*) &AudioBuffer[0], 2*AudioBuffer.size());
+    /* Cheat on DOSBox recording: Record audio separately on Windows. */
+    /*static FILE* fp = fopen("adlmidi.raw", "wb");
+    fwrite(&AudioBuffer[0], 2, AudioBuffer.size(), fp);
+    fflush(fp);*/
+#endif
 }
 
+#ifdef __WIN32__
+/* Parse a command line buffer into arguments */
+static void UnEscapeQuotes( char *arg )
+{
+    for(char *last=0; *arg != '\0'; last=arg++)
+        if( *arg == '"' && *last == '\\' ) {
+            char *c_last = last;
+            for(char*c_curr=arg; *c_curr; ++c_curr) {
+                *c_last = *c_curr;
+                c_last = c_curr;
+            }
+            *c_last = '\0';
+        }
+}
+static int ParseCommandLine(char *cmdline, char **argv)
+{
+    char *bufp, *lastp=NULL;
+    int argc=0, last_argc=0;
+    for (bufp = cmdline; *bufp; ) {
+        /* Skip leading whitespace */
+        while ( std::isspace(*bufp) ) ++bufp;
+        /* Skip over argument */
+        if ( *bufp == '"' ) {
+            ++bufp;
+            if ( *bufp ) { if (argv) argv[argc]=bufp; ++argc; }
+            /* Skip over word */
+            while ( *bufp && ( *bufp != '"' || *lastp == '\\' ) ) {
+                lastp = bufp;
+                ++bufp;
+            }
+        } else {
+            if ( *bufp ) { if (argv) argv[argc] = bufp; ++argc; }
+            /* Skip over word */
+            while ( *bufp && ! std::isspace(*bufp) ) ++bufp;
+        }
+        if(*bufp) { if(argv) *bufp = '\0'; ++bufp; }
+        /* Strip out \ from \" sequences */
+        if( argv && last_argc != argc ) UnEscapeQuotes( argv[last_argc]);
+        last_argc = argc;
+    }
+    if(argv) argv[argc] = 0;
+    return(argc);
+}
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
+{
+    extern int main(int,char**);
+    char* cmdline = GetCommandLine();
+    int argc = ParseCommandLine(cmdline, NULL);
+    char**argv = new char* [argc+1];
+    ParseCommandLine(cmdline, argv);
+#else
 #undef main
 int main(int argc, char** argv)
 {
+#endif
     // How long is SDL buffer, in seconds?
     // The smaller the value, the more often SDL_AudioCallBack()
     // is called.
-    const double AudioBufferLength = 0.02;
+    const double AudioBufferLength = 0.045;
     // How much do WE buffer, in seconds? The smaller the value,
     // the more prone to sound chopping we are.
-    const double OurHeadRoomLength = 0.06;
+    const double OurHeadRoomLength = 0.1;
     // The lag between visual content and audio content equals
     // the sum of these two buffers.
 
+#ifndef __WIN32__
     // Set up SDL
-    static SDL_AudioSpec spec;
+    static SDL_AudioSpec spec, obtained;
     spec.freq     = PCM_RATE;
     spec.format   = AUDIO_S16SYS;
     spec.channels = 2;
     spec.samples  = spec.freq * AudioBufferLength;
     spec.callback = SDL_AudioCallback;
-    if(SDL_OpenAudio(&spec, 0) < 0)
+    if(SDL_OpenAudio(&spec, &obtained) < 0)
     {
         std::fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
         return 1;
     }
+    if(spec.samples != obtained.samples)
+        std::fprintf(stderr, "Wanted (samples=%u,rate=%u,channels=%u); obtained (samples=%u,rate=%u,channels=%u)\n",
+            spec.samples,    spec.freq,    spec.channels,
+            obtained.samples,obtained.freq,obtained.channels);
+#endif
 
     if(argc < 2)
     {
@@ -1920,6 +2194,7 @@ int main(int argc, char** argv)
         "Setting up the operators as %u four-op channels, %u dual-op channels.\n",
         NumCards, NumCards*36,
         NumFourOps, 18*NumCards - NumFourOps*2);
+    std::fflush(stdout);
 
     MIDIplay player;
     if(!player.LoadMIDI(argv[1]))
@@ -1934,10 +2209,14 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    SDL_PauseAudio(0);
-
     const double mindelay = 1 / (double)PCM_RATE;
     const double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
+
+#ifdef __WIN32
+    WindowsAudio::Open(PCM_RATE, 2, 16);
+#else
+    SDL_PauseAudio(0);
+#endif
 
     for(double delay=0; !QuitFlag; )
     {
@@ -1948,7 +2227,7 @@ int main(int argc, char** argv)
         carry += PCM_RATE * eat_delay;
         const unsigned long n_samples = (unsigned) carry;
         carry -= n_samples;
-    #if 0
+    #if 1
         if(NumCards == 1)
         {
             player.opl.cards[0].Generate(0, SendStereoAudio, n_samples);
@@ -1979,11 +2258,17 @@ int main(int argc, char** argv)
         }
     #endif
 
-        do {
-            SDL_Delay( std::min(10.0
-                                /* 1000.0*MaxSamplesAtTime/PCM_RATE */
-                                , 1e3 * eat_delay) );
-        } while(AudioBuffer.size() > spec.freq * OurHeadRoomLength);
+        //fprintf(stderr, "Enter: %u (%.2f ms)\n", (unsigned)AudioBuffer.size(),
+        //    AudioBuffer.size() * .5e3 / obtained.freq);
+    #ifndef __WIN32__
+        while(AudioBuffer.size() > obtained.samples + (obtained.freq*2) * OurHeadRoomLength)
+        {
+            SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
+        }
+    #else
+        //Sleep(1e3 * eat_delay);
+    #endif
+        //fprintf(stderr, "Exit: %u\n", (unsigned)AudioBuffer.size());
 
         double nextdelay = player.Tick(eat_delay, mindelay);
         UI.ShowCursor();
@@ -1991,7 +2276,11 @@ int main(int argc, char** argv)
         delay = nextdelay;
     }
 
+#ifdef __WIN32
+    WindowsAudio::Close();
+#else
     SDL_CloseAudio();
+#endif
     return 0;
 }
 
@@ -17788,7 +18077,7 @@ const struct adlinsdata adlins[3141] =
     { 3211,3211,  0,   1166,  1166 }, // 3140: b50M127; Wow
 
 };
-const char* const banknames[51] =
+const char* const banknames[52] =
 {
     "AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
     "HMI (Descent, Asterix)",
@@ -17841,8 +18130,9 @@ const char* const banknames[51] =
     "SB (Action Soccer)",
     "SB (3d Cyberpuck :: melodic only)",
     "SB (Simon the Sorcerer :: melodic only)",
+    "Bisqwit 51 (selection of 4op and 2op)"
 };
-const unsigned short banks[51][256] =
+const unsigned short banks[52][256] =
 {
     { // bank 0, AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)
   0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
@@ -17997,6 +18287,7 @@ const unsigned short banks[51][256] =
 729,730,731,732,733,734,735,736,737,738,739,740,741,742,743,744,
 745,746,747,748,749,750,751,752,753,754,755,756,757,758,759,760,
 761,762,763,764,765,766,767,768,769,770,771,772,773,774,775,776,
+
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,127,127,777,778,779,780,781,782,781,783,781,784,781,
@@ -18502,6 +18793,7 @@ const unsigned short banks[51][256] =
 2160,2161,2162,732,733,2163,2164,2165,737,2166,2167,740,2168,2169,2170,744,
 2171,2172,747,2173,749,2174,2175,752,753,754,2176,2177,757,758,759,760,
 761,762,763,2178,2179,2180,767,2181,2182,2183,2184,2185,2186,2187,2188,2189,
+
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,2190,2191,2192,2193,2194,2195,2196,2197,2196,2198,2199,2200,2199,
@@ -18760,6 +19052,25 @@ const unsigned short banks[51][256] =
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
+198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
+198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
+    },
+    { // bank 51, Bisqwit selection WIP (36+8)
+2224,678,2225,2226,653,654,655,2227,2228,2229,659,660,661,662,663,664,
+665,666,2230,668,669,670,671,672,2229,674,675,2231,2232,2224,2233,2234,
+2228,2235,2236,684,685,2237,2238,682,689,690,691,692,693,694,695,2239,
+2137,2138,699, 50,2139,2140,703,2141,2142,2143,2144,2145,2146,2147, 59,2148,
+713,714,715,716,717,718,719,720,721,722,723,2241,725,726,727,2242,
+729,730,731,732,733,2243,2244,2245,2246,738,739,740,741,742,743,2247,
+745,746,747,2248,749,750,751,752,753,754,755,2249,757,108,759,2227,
+2250,2251,763,764,765,766,767,2252,2253,2254,771,772,2255,774,2256,776,
+
+198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
+198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
+198,198,198,127,127,777,778,779,780,781,782,781,783,781,784,781,
+2199,2201,2199,2202,2203,2204,2205,2206,141,2207,2208,2209,143,144,145,146,
+147,148,149,2210,2211,2212,2213,154,155,2214,2215,2216,159,160,2217,881,
+2218,2219,2220,166,2221,168,2222,2223,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
     },
