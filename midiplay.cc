@@ -2118,6 +2118,7 @@ int main(int argc, char** argv)
 
     if(argc < 2)
     {
+        UI.Color(7);
         std::printf(
             "Usage: midiplay <midifilename> [ <banknumber> [ <numcards> [ <numfourops>] ] ]\n");
         for(unsigned a=0; a<sizeof(banknames)/sizeof(*banknames); ++a)

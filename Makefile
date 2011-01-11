@@ -1,4 +1,4 @@
-VERSION=1.1.0
+VERSION=1.1.1
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -82,15 +82,16 @@ DEBUG=-O3 -g -fexpensive-optimizations -ffast-math
 #DEBUG += -fno-tree-vectorize
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
-#CPPFLAGS+=`pkg-config --cflags sdl`
-#LDLIBS+=`pkg-config --libs sdl`
+CPPFLAGS+=`cygpath sh &>/dev/null||pkg-config --cflags sdl`
+LDLIBS+=`cygpath sh &>/dev/null||pkg-config --libs sdl`
 
 CPPFLAGS += $(SDL)
 
 CPPFLAGS += -ansi -Wall -W 
-CXX += -mwin32 -mconsole -mno-cygwin
-CPPFLAGS += -I/usr/include/mingw -mno-cygwin -I/usr/include/w32api
-LDLIBS += -L/usr/local/lib -L/usr/lib/w32api -lwinmm
+
+CXX += `cygpath sh &>/dev/null&&echo '-mwin32 -mconsole -mno-cygwin'`
+CPPFLAGS += `cygpath sh &>/dev/null&&echo '-I/usr/include/mingw -mno-cygwin -I/usr/include/w32api'`
+LDLIBS += `cygpath sh &>/dev/null&&echo '-L/usr/local/lib -L/usr/lib/w32api -lwinmm'`
 # ^For cygwin. For anything else, remove this line.
 
 all: adlmidi gen_adldata dumpmiles dumpbank

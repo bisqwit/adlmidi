@@ -1,9 +1,9 @@
 <?php
 require_once '/WWW/email.php';
 
-//TITLE=OPL3 MIDI player for Linux and Cygwin
+//TITLE=OPL3 MIDI player for Linux and Windows
 
-$title = 'ADLMIDI: OPL3 MIDI player for Linux and Cygwin';
+$title = 'ADLMIDI: OPL3 MIDI player for Linux and Windows';
 $progname = 'adlmidi';
 $git = 'git://bisqwit.iki.fi/adlmidi.git';
 
