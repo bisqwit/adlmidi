@@ -1,4 +1,4 @@
-VERSION=1.1.0
+VERSION=1.1.1
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -75,47 +75,53 @@ ARCHFILES=\
 INSTALLPROGS=adlmidi
 
 CXX=g++
+CXXLINK=$(CXX)
 
 #DEBUG=-O0 -fno-inline -D_GLIBCXX_DEBUG -g -fstack-protector-all -fdata-sections
-DEBUG=-O3 -g
+DEBUG=-O3 -g -fexpensive-optimizations -ffast-math
+#DEBUG += -fno-tree-vectorize
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
-SDL=`pkg-config --cflags --libs sdl`
-#SDL=-lSDL -L/usr/local/lib -I/usr/local/include/SDL
+CPPFLAGS+=`cygpath sh &>/dev/null||pkg-config --cflags sdl`
+LDLIBS+=`cygpath sh &>/dev/null||pkg-config --libs sdl`
 
 CPPFLAGS += $(SDL)
 
-#CXX += -mconsole -mno-cygwin -I/usr/include/mingw -mwindows
+CPPFLAGS += -ansi -Wall -W 
+
+CXX += `cygpath sh &>/dev/null&&echo '-mwin32 -mconsole -mno-cygwin'`
+CPPFLAGS += `cygpath sh &>/dev/null&&echo '-I/usr/include/mingw -mno-cygwin -I/usr/include/w32api'`
+LDLIBS += `cygpath sh &>/dev/null&&echo '-L/usr/local/lib -L/usr/lib/w32api -lwinmm'`
 # ^For cygwin. For anything else, remove this line.
 
 all: adlmidi gen_adldata dumpmiles dumpbank
 
 adlmidi: midiplay.o dbopl.o
-	$(CXX) -ansi $^ -Wall -W $(DEBUG) $(SDL) -o $@ 
+	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS)
 
 midiplay.o: midiplay.cc dbopl.h
-	$(CXX) -ansi $< -Wall -W $(DEBUG) $(SDL) -c -o $@ 
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@ 
 
 dbopl.o: dbopl.cpp dbopl.h
-	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
 
 gen_adldata: gen_adldata.o dbopl.o
-	$(CXX) -ansi $^ -Wall -W $(DEBUG)  -o $@ 
+	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
 gen_adldata.o: gen_adldata.cc dbopl.h
-	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
 
 dumpmiles: dumpmiles.o
-	$(CXX) -ansi $^ -Wall -W $(DEBUG)  -o $@ 
+	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
 dumpmiles.o: dumpmiles.cc
-	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
 
 dumpbank: dumpbank.o
-	$(CXX) -ansi $^ -Wall -W $(DEBUG)  -o $@ 
+	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
 dumpbank.o: dumpbank.cc
-	$(CXX) -ansi $< -Wall -W $(DEBUG)  -c -o $@ 
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
 
 
 include depfun.mak
