@@ -2,6 +2,9 @@
 typedef struct vswprintf {} swprintf;
 #endif
 
+//#define DO_INSTRUMENT_TESTER
+#undef DO_INSTRUMENT_TESTER
+
 #include <vector>
 #include <string>
 #include <map>
@@ -50,7 +53,7 @@ static const unsigned MaxSamplesAtTime = 512; // 512=dbopl limitation
 static unsigned AdlBank    = 0;
 static unsigned NumFourOps = 7;
 static unsigned NumCards   = 2;
-static bool QuitFlag = false;
+static bool QuitFlag = false, FakeDOSshell = false;
 
 extern const struct adldata
 {
@@ -575,6 +578,8 @@ public:
                     char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
                     switch(ch)
                     {
+                        case 'B': case 'b':
+                            FakeDOSshell = true; //passthru
                         case 'q': case 'Q': case 3:
                         case 27: QuitFlag=true; break;
             }   }   }
@@ -616,6 +621,9 @@ public:
                             char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
                             switch(ch)
                             {
+                                case 'B': case 'b':
+                                    FakeDOSshell = true;
+                                    //passthru
                                 case 'q': case 'Q': case 3:
                                 case 27: QuitFlag=true; break;
                                 case 'w': mr=(currot+1)%4; move=1; break;
@@ -1152,7 +1160,16 @@ private:
                 }
 
                 int meta = banks[AdlBank][midiins];
-                int tone = adlins[meta].tone ? adlins[meta].tone : note;
+                int tone = note;
+                if(adlins[meta].tone)
+                {
+                    if(adlins[meta].tone < 20)
+                        tone += adlins[meta].tone;
+                    else if(adlins[meta].tone < 128)
+                        tone = adlins[meta].tone;
+                    else
+                        tone -= adlins[meta].tone-128;
+                }
                 int i[2] = { adlins[meta].adlno1, adlins[meta].adlno2 };
 
                 // Allocate AdLib channel (the physical sound channel for the note)
@@ -1882,10 +1899,12 @@ namespace WindowsAudio
           unsigned npending = (buf_write + BUFFER_COUNT - buf_read) % BUFFER_COUNT;
           static unsigned counter=0, lo=0;
           if(!counter-- || npending < lo) { lo = npending; counter=100; }
+#ifndef DO_INSTRUMENT_TESTER
           if(UI.maxy >= 5) {
               UI.Color(9);
               UI.GotoXY(70,-5+6); fprintf(stderr, "%3u bufs\r", (unsigned)npending); UI.x=0; fflush(stderr);
               UI.GotoXY(71,-4+6); fprintf(stderr, "lo:%3u\r", lo); UI.x=0; }
+#endif
 
           //unprepare the header if it is prepared
           if(Work->dwFlags & WHDR_PREPARED) waveOutUnprepareHeader(hWaveOut, Work, sizeof(WAVEHDR));
@@ -1952,6 +1971,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         prev_avg_flt[1] = (prev_avg_flt[1] + average[1]*0.04/double(count)) / 1.04
     };
     // Figure out the amplitude of both channels
+#ifndef DO_INSTRUMENT_TESTER
     static unsigned amplitude_display_counter = 0;
     if(!amplitude_display_counter--)
     {
@@ -1970,6 +1990,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         }
         UI.IllustrateVolumes(amp[0], amp[1]);
     }
+#endif
 
 #if defined(__WIN32__) && 1
     // Cheat on dosbox recording: easier on the cpu load.
@@ -2075,6 +2096,167 @@ static int ParseCommandLine(char *cmdline, char **argv)
     if(argv) argv[argc] = 0;
     return(argc);
 }
+
+#ifdef DO_INSTRUMENT_TESTER
+class Tester
+{
+    void* inhandle;
+    unsigned cur_gm;
+    unsigned ins_idx;
+    std::vector<unsigned> adl_ins_list;
+    OPL3& opl;
+public:
+    Tester(OPL3& o) : opl(o)
+    {
+        inhandle = GetStdHandle(STD_INPUT_HANDLE);
+        cur_gm   = 0;
+        ins_idx  = 0;
+        FindAdlList();
+    }
+
+    // Find list of adlib instruments that supposedly implement this GM
+    void FindAdlList()
+    {
+        const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
+
+        std::set<unsigned> adl_ins_set;
+        for(unsigned bankno=0; bankno<NumBanks; ++bankno)
+            adl_ins_set.insert(banks[bankno][cur_gm]);
+        adl_ins_list.assign( adl_ins_set.begin(), adl_ins_set.end() );
+        ins_idx = 0;
+        NextAdl(0);
+        opl.Silence();
+    }
+
+    void DoNote(int note)
+    {
+        int meta = adl_ins_list[ins_idx];
+        const adlinsdata& ains = adlins[meta];
+        int tone = (cur_gm & 128) ? (cur_gm & 127) : (note+50);
+        if(ains.tone)
+        {
+            if(ains.tone < 20)
+                tone += ains.tone;
+            else if(ains.tone < 128)
+                tone = ains.tone;
+            else
+                tone -= ains.tone-128;
+        }
+        int i[2] = { ains.adlno1, ains.adlno2 };
+        int adlchannel[2] = { 0, 3 };
+        if(i[0] == i[1])
+        {
+            adlchannel[1] = -1;
+            adlchannel[0] = 6; // single-op
+        }
+
+        double hertz = 172.00093 * std::exp(0.057762265 * (tone + 0.0));
+        printf("noteon at %d(%d) and %d(%d) for %g Hz\n",
+            adlchannel[0], i[0], adlchannel[1], i[1], hertz);
+
+        opl.NoteOff(0); opl.NoteOff(3); opl.NoteOff(6);
+        for(unsigned c=0; c<2; ++c)
+        {
+            if(adlchannel[c] < 0) continue;
+            opl.Patch(adlchannel[c], i[c]);
+            opl.Touch(adlchannel[c], 127*127*100);
+            opl.Pan(adlchannel[c], 0x30);
+            opl.NoteOn(adlchannel[c], hertz);
+        }
+    }
+
+    void NextGM(int offset)
+    {
+        cur_gm = (cur_gm + 256 + offset) & 0xFF;
+        FindAdlList();
+    }
+
+    void NextAdl(int offset)
+    {
+        const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
+        ins_idx = (ins_idx + adl_ins_list.size() + offset) % adl_ins_list.size();
+
+        printf("SELECTED G%c%d\t%s\n",
+            cur_gm<128?'M':'P', cur_gm<128?cur_gm+1:cur_gm-128,
+            "-+ select GM /* select ins  qwe play note");
+        for(unsigned a=0; a<adl_ins_list.size(); ++a)
+        {
+            unsigned i = adl_ins_list[a];
+            printf("%s%u%s%s\t",
+                (ins_idx == a) ? "    ->\t" : "\t",
+                i,
+                adlins[i].tone ? "[perc]" : "",
+                adlins[i].adlno1 == adlins[i].adlno2 ? "" : "[dual]"
+            );
+
+            for(unsigned bankno=0; bankno<NumBanks; ++bankno)
+                if(banks[bankno][cur_gm] == i)
+                    printf(" %u", bankno);
+
+            printf("\n");
+        }
+    }
+
+    void PeekInput()
+    {
+        UI.Color(7);
+
+        DWORD nread=0;
+        INPUT_RECORD inbuf[1];
+        while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
+        {
+            ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
+            if(inbuf[0].EventType==KEY_EVENT
+            && inbuf[0].Event.KeyEvent.bKeyDown)
+            {
+                char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
+                switch(ch)
+                {
+                    case 'q': DoNote(0); break;
+                    case '2': DoNote(1); break;
+                    case 'w': DoNote(2); break;
+                    case '3': DoNote(3); break;
+                    case 'e': DoNote(4); break;
+                    case 'r': DoNote(5); break;
+                    case '5': DoNote(6); break;
+                    case 't': DoNote(7); break;
+                    case '6': DoNote(8); break;
+                    case 'y': DoNote(9); break;
+                    case '7': DoNote(10); break;
+                    case 'u': DoNote(11); break;
+                    case 'i': DoNote(12); break;
+                    case '9': DoNote(13); break;
+                    case 'o': DoNote(14); break;
+                    case '0': DoNote(15); break;
+                    case 'p': DoNote(16); break;
+                    case 'z': DoNote(0-12); break;
+                    case 's': DoNote(1-12); break;
+                    case 'x': DoNote(2-12); break;
+                    case 'd': DoNote(3-12); break;
+                    case 'c': DoNote(4-12); break;
+                    case 'v': DoNote(5-12); break;
+                    case 'g': DoNote(6-12); break;
+                    case 'b': DoNote(7-12); break;
+                    case 'h': DoNote(8-12); break;
+                    case 'n': DoNote(9-12); break;
+                    case 'j': DoNote(10-12); break;
+                    case 'm': DoNote(11-12); break;
+                    case '+': NextGM(+1); break;
+                    case '-': NextGM(-1); break;
+                    case '*': NextAdl(+1); break;
+                    case '/': NextAdl(-1); break;
+                    case 3: case 27: QuitFlag=true; break;
+        }   }   }
+    }
+
+    double Tick(double eat_delay, double mindelay)
+    {
+        PeekInput();
+        return 0.1; //eat_delay;
+    }
+};
+#endif
+
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
 {
     extern int main(int,char**);
@@ -2219,6 +2401,10 @@ int main(int argc, char** argv)
     SDL_PauseAudio(0);
 #endif
 
+#ifdef DO_INSTRUMENT_TESTER
+    Tester InstrumentTester(player.opl);
+#endif
+
     for(double delay=0; !QuitFlag; )
     {
         const double eat_delay = delay < maxdelay ? delay : maxdelay;
@@ -2271,7 +2457,11 @@ int main(int argc, char** argv)
     #endif
         //fprintf(stderr, "Exit: %u\n", (unsigned)AudioBuffer.size());
 
+    #ifndef DO_INSTRUMENT_TESTER
         double nextdelay = player.Tick(eat_delay, mindelay);
+    #else
+        double nextdelay = InstrumentTester.Tick(eat_delay, mindelay);
+    #endif
         UI.ShowCursor();
 
         delay = nextdelay;
@@ -2282,6 +2472,15 @@ int main(int argc, char** argv)
 #else
     SDL_CloseAudio();
 #endif
+
+    if(FakeDOSshell)
+    {
+        fprintf(stderr,
+            "Going TSR. Type 'EXIT' to return to ADLMIDI.\n"
+            "\n"
+            "Megasoft(R) Orifices 98\n"
+            "    (C)Copyright Megasoft Corp 1981 - 1999.\n");
+    }
     return 0;
 }
 
@@ -19057,22 +19256,242 @@ const unsigned short banks[52][256] =
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
     },
     { // bank 51, Bisqwit selection WIP (36+8)
-2224,678,2225,2226,653,654,655,2227,2228,2229,659,660,661,662,663,664,
-665,666,2230,668,669,670,671,672,2229,674,675,2231,2232,2224,2233,2234,
-2228,2235,2236,684,685,2237,2238,682,689,690,691,692,693,694,695,2239,
-2137,2138,699, 50,2139,2140,703,2141,2142,2143,2144,2145,2146,2147, 59,2148,
-713,714,715,716,717,718,719,720,721,722,723,2241,725,726,727,2242,
-729,730,731,732,733,2243,2244,2245,2246,738,739,740,741,742,743,2247,
-745,746,747,2248,749,750,751,752,753,754,755,2249,757,108,759,2227,
-2250,2251,763,764,765,766,767,2252,2253,2254,771,772,2255,774,2256,776,
-
-198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
-198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
-198,198,198,127,127,777,778,779,780,781,782,781,783,781,784,781,
-2199,2201,2199,2202,2203,2204,2205,2206,141,2207,2208,2209,143,144,145,146,
-147,148,149,2210,2211,2212,2213,154,155,2214,2215,2216,159,160,2217,881,
-2218,2219,2220,166,2221,168,2222,2223,198,198,198,198,198,198,198,198,
-198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
-198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
+0,     //GM1
+2262,  //GM2 DUAL
+2,    // GM3
+173,  //GM4
+653,  //GM5 rhodes DUAL
+654,  //GM6
+655,  //GM7 harps DUAL
+2616, //GM8 todo verify
+657,  //GM9 DUAL
+9,    //GM10
+180,  //GM11
+11,   //GM12 not sure
+182,  //GM13
+662,  //GM14
+663,  //GM15 DUAL  2114 is also strong
+185,  //GM16
+2115,  //GM17 DUAL
+2116,  //GM18 DUAL
+2729,  //GM19 DUAL
+1146,  //GM20
+20,    //GM21 no idea
+670,   //GM22 DUAL accordion
+671,   //GM23 DUAL
+672,   //GM24 DUAL no idea
+673,   //GM25 DUAL (ac guitar 1)
+674,   //GM26 DUAL
+675,   //GM27 DUAL
+676,   //GM28 DUAL
+677,   //GM29 DUAL (no idea)
+2224,  //GM30 DUAL (overdrive guitar)
+2129,  //GM31 DUAL (2122, 679 also strong)
+680,   //GM32 DUAL
+681,   //GM33 DUAL
+682,   //GM34 DUAL
+683,   //GM35 DUAL
+35,    //GM36
+2297,  //GM37 DUAL slapbass interesting
+34,    //GM38 no idea
+2130,  //GM39 synth bass
+688,   //GM40 DUAL synth bass 2
+1082,  //GM41
+1401,  //GM42 no idea
+691,   //GM43 DUAL cello
+692,   //GM44 DUAL slightly more contrabass-like than 42
+693,   //GM45 DUAL prominent sound
+694,   //GM46 DUAL. 2526 is strong but little too quiet on low sounds
+695,   //GM47 DUAL harp
+696,   //GM48 DUAL timpani
+697,   //GM49 DUAL strings1
+698,   //GM50 DUAL slowattack strings
+839,   //GM51
+50,    //GM52 no idea
+2533,  //GM53 aahs
+52,    //GM54 oohs
+53,    //GM55
+704,   //GM56
+55,    //GM57 trumpet
+56,    //GM58
+707,   //GM59 DUAL tuba
+346,   //GM60  or 1650
+1187,  //GM61 frhorn
+710,   //GM62 DUAL
+711,   //GM63 DUAL
+712,   //GM64 DUAL
+713,   //GM65 DUAL sopsax
+714,   //GM66 DUAL altosax
+715,   //GM67 DUAL tenosax
+716,   //GM68 DUAL bassax
+2152,  //GM69 DUAL
+718,   //GM70 DUAL noidea
+719,   //GM71 DUAL noidea
+720,   //GM72 DUAL clarinet
+71,    //GM73
+72,    //GM74
+723,   //GM75 recorder
+2076,  //GM76 panflute
+725,   //GM77 DUAL
+76,    //GM78
+727,   //GM79 DUAL
+1206,  //GM80
+729,   //GM81 DUAL squarewave very good!
+730,   //GM82 DUAL sawtooth
+351,   //GM83
+82,    //GM84
+733,   //GM85 DUAL
+734,   //GM86 DUAL
+735,   //GM87 DUAL
+86,    //GM88
+737,   //GM89 DUAL pad new age
+738,   //GM90 DUAL nice adsr
+739,   //GM91 DUAL
+740,   //GM92 DUAL no idea
+91,    //GM93
+92,    //GM94
+868,   //GM95
+869,   //GM96
+1802,  //GM97 raindrop interesting
+746,   //GM98 no idea
+1707,  //GM99 crystal maybe like this.
+98,    //GM100
+99,    //GM101 no idea
+3000,  //GM102 goblins. huh??
+874,   //GM103
+875,   //GM104
+753,   //GM105 DUAL sitar: might work
+754,   //GM106 DUAL
+755,   //GM107 DUAL shamisen
+756,   //GM108 DUAL koto
+757,   //GM109 DUAL
+758,   //GM110 DUAL
+759,   //GM111 DUAL
+760,   //GM112 DUAL no idea
+111,   //GM113
+762,   //GM114 DUAL
+763,   //GM115 DUAL
+1242,  //GM116
+115,   //GM117 taiko, not very convincing
+766,   //GM118 DUAL
+767,   //GM119 DUAL
+632,   //GM120
+1247,  //GM121 fretnoise good
+120,   //GM122
+1807,  //GM123 seashore
+955,   //GM124 birdtweet
+1808,  //GM125 telephone
+1693,  //GM126 helicopter
+775,   //GM127
+776,   //GM128 gunshot
+377,   //GP0, bd. 2903=snare
+367,   //GP1
+2905,  //GP2
+1759,  //GP3
+377,   //GP4
+2908,  //GP5
+2909,  //GP6
+2087,  //GP7
+1760,  //GP8
+375,   //GP9
+376,   //GP10
+377,   //GP11
+377,   //GP12
+411,   //GP13
+1767,  //GP14
+1386,  //GP15
+2087,  //GP16
+412,   //GP17
+413,   //GP18
+412,   //GP19
+413,   //GP20
+414,   //GP21
+415,   //GP22
+416,   //GP23
+417,   //GP24
+418,   //GP25
+419,   //GP26
+281,   //GP27
+2473,  //GP28 slap
+2474,  //GP29
+2475,  //GP30
+200,   //GP31 sticks
+2013,  //GP32 square click
+2419,  //GP33 metronome click
+2477,  //GP34 metronome bell
+557,   //GP35
+127,   //GP36
+777,   //GP37 DUAL sidestick
+1815,  //GP38
+2776,  //GP39 DUAL handclap not good
+129,   //GP40
+1031,  //GP41 low-floor tom
+564,   //GP42 closed hihat
+1031,  //GP43 high-floor tom
+566,   //GP44 pedal hihat
+1031,  //GP45 low tom
+568,   //GP46 open hihat
+1031,  //GP47 low-mid tom
+1031,  //GP48 high-mid tom
+135,   //GP49 crash cymbal 1
+1031,  //GP50 high tom
+2202,  //GP51 ride cymbal 1
+787,   //GP52 DUAL chinese cymbal
+2435,  //GP53 ride bell
+1543,  //GP54 tamb
+877,   //GP55 crash cymbal
+1269,  //GP56 cowbell
+2777,  //GP57 crash cymbal 2
+216,   //GP58 vibraslap
+2209,  //GP59 ride cymbal 2
+580,   //GP60 hi bongo
+581,   //GP61 lo bongo
+582,   //GP62 no idea
+583,   //GP63
+584,   //GP64
+1275,  //GP65
+1275,  //GP66
+587,   //GP67
+588,   //GP68
+566,   //GP69
+2449,  //GP70
+229,   //GP71
+230,   //GP72
+2773,  //GP73 short guiro
+2774,  //GP74 long guiro
+329,   //GP75
+1284,  //GP76
+1284,  //GP77
+2718,  //GP78
+2719,  //GP79
+595,   //GP80
+596,   //GP81 open triangle
+2798,  //GP82 shaker
+816,   //GP83 DUAL jingle bell
+241,   //GP84 bell tree?
+1291,  //GP85 castanets
+169,   //GP86 mute surdu
+131,   //GP87 open surdu
+342,   //GP88
+343,   //GP89
+344,   //GP90
+345,   //GP91
+346,   //GP92
+420,   //GP93
+421,   //GP94
+383,   //GP95
+422,   //GP96
+423,   //GP97
+374,   //GP98
+424,   //GP99
+376,   //GP100
+425,   //GP101
+426,   //GP102
+427,   //GP103
+428,   //GP104
+429,   //GP105
+198,198,198,198,198, 198,198,198,198,198, //GP106..GP115
+198,198,198,198,198, 198,198,198,198,198, //GP116..GP125
+198,198 //GP126,GP127
     },
 };

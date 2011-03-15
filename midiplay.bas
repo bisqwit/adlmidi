@@ -314,8 +314,8 @@
 476 IF ctrlno = 121 THEN 486 'Reset controllers
 477 IF ctrlno = 123 THEN mop=5: GOTO 500 'All notes off on channel
 478 'Other ctrls worth considering:
-479 '    0 = choose bank (bank+patch identifies the instrument)
-480 '   64 = sustain pedal (how does it even work?)
+479 '  0 = choose bank (bank+patch identifies the instrument)
+480 ' 64 = sustain pedal (when used, noteoff does not produce an adlib keyoff)
 481 RETURN
 482 'Ctrl 10: Alter the panning of the channel:
 483 p = 0: IF value < 48 THEN p = 32 ELSE IF value > 79 THEN p = 16
@@ -375,9 +375,16 @@
 614 cha(ActAdlChn(m,q)) = n
 615 RETURN
 
-770 'This FM Instrument Data comes from HMIMDRV, by Human Machine Interfaces.
-771 'At least I think that is where I originally learned them from.
-772 'It might also have been some Windows soundcard driver. Difficult to tell.
+760 'This FM Instrument Data comes from Miles Sound System, as used
+761 'in the following PC games: Star Control III and Asterix, under
+762 'the name AIL (Audio Interface Library). Today, AIL has been
+763 'released as "open-source freeware" under the name Miles Sound System.
+764 'AIL was used in more than fifty PC games, but so far, I have found
+765 'this particular set of General MIDI FM patches only in SC3 and Asterix.
+766 'Other games using AIL used different sets of FM patches. There is no
+767 'particular reason for preferring this patch set, and in fact, the
+768 'descendant of this program, ADLMIDI, http://iki.fi/source/adlmidi.html ,
+769 'features a large set of different FM patch sets to choose from.
 
 773 'In the Youtube video, I enter this huge blob of DATA lines very quickly
 774 'by using a preprogrammed input TSR, "inputter", which I made just for

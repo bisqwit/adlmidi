@@ -127,7 +127,7 @@ Note: The GW-BASIC version does not contain all of the same features that the C+
 
 ", 'copying:1. Copying and contributing' => "
 
-cromfs has been written by Joel Yliluoma, a.k.a.
+adlmidi has been written by Joel Yliluoma, a.k.a.
 <a href=\"http://iki.fi/bisqwit/\">Bisqwit</a>,<br />
 and is distributed under the terms of the
 <a href=\"http://www.gnu.org/licenses/gpl-3.0.html\">General Public License</a>
