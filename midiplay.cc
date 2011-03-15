@@ -1843,12 +1843,12 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
-                9,//4.0,  // wet_gain_dB  (-10..10)
-                1,//.4,   // room_scale   (0..1)
-                1,//.5,   // reverberance (0..1)
+                4.0,  // wet_gain_dB  (-10..10)
+                .4,   // room_scale   (0..1)
+                .5,   // reverberance (0..1)
                 .8,   // hf_damping   (0..1)
                 .1, // pre_delay_s  (0.. 0.5)
-                1,//.8,   // stereo_depth (0..1)
+                .8,   // stereo_depth (0..1)
                 MaxSamplesAtTime);
     }
 } reverb_data;
