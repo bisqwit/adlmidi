@@ -2138,10 +2138,7 @@ public:
 
     void DoNote(int note)
     {
-        if(adl_ins_list.empty())
-        {
-            FindAdlList();
-        }
+        if(adl_ins_list.empty()) FindAdlList();
         int meta = adl_ins_list[ins_idx];
         const adlinsdata& ains = adlins[meta];
         int tone = (cur_gm & 128) ? (cur_gm & 127) : (note+50);
@@ -2185,6 +2182,7 @@ public:
 
     void NextAdl(int offset)
     {
+        if(adl_ins_list.empty()) FindAdlList();
         const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
         ins_idx = (ins_idx + adl_ins_list.size() + offset) % adl_ins_list.size();
 
