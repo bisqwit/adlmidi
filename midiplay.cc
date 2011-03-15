@@ -342,6 +342,8 @@ public:
         {
           const CONSOLE_CURSOR_INFO info = {100,false};
           SetConsoleCursorInfo(handle,&info);
+          if(!DoingInstrumentTesting)
+              CheckTetris();
           return;
         }
       #endif
