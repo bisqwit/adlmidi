@@ -36,6 +36,7 @@ static unsigned AdlBank    = 0;
 static unsigned NumFourOps = 7;
 static unsigned NumCards   = 2;
 static bool QuitFlag = false, FakeDOSshell = false;
+static unsigned SkipForward = 0;
 static bool DoingInstrumentTesting = false;
 
 #include "adldata.hh"
@@ -630,6 +631,7 @@ public:
                             case 27:
                             #endif
                                 QuitFlag=true; break;
+                            case '!': SkipForward = 30; break;
                             case 'w':case 'H':case 'A': mr=(currot+1)%4; move=1; break;
                             case 'a':case 'K':case 'D': mx=curx-1; move=1; break;
                             case 'd':case 'M':case 'C': mx=curx+1; move=1; break;
@@ -2440,48 +2442,52 @@ int main(int argc, char** argv)
         carry += PCM_RATE * eat_delay;
         const unsigned long n_samples = (unsigned) carry;
         carry -= n_samples;
-    #if 1
-        if(NumCards == 1)
-        {
-            player.opl.cards[0].Generate(0, SendStereoAudio, n_samples);
-        }
-        else if(n_samples > 0)
-        {
-            /* Mix together the audio from different cards */
-            static std::vector<int> sample_buf;
-            sample_buf.clear();
-            sample_buf.resize(n_samples*2);
-            struct Mix
-            {
-                static void AddStereoAudio(unsigned long count, int* samples)
-                {
-                    for(unsigned long a=0; a<count*2; ++a)
-                        sample_buf[a] += samples[a];
-                }
-            };
-            for(unsigned card = 0; card < NumCards; ++card)
-            {
-                player.opl.cards[card].Generate(
-                    0,
-                    Mix::AddStereoAudio,
-                    n_samples);
-            }
-            /* Process it */
-            SendStereoAudio(n_samples, &sample_buf[0]);
-        }
-    #endif
 
-        //fprintf(stderr, "Enter: %u (%.2f ms)\n", (unsigned)AudioBuffer.size(),
-        //    AudioBuffer.size() * .5e3 / obtained.freq);
-    #ifndef __WIN32__
-        while(AudioBuffer.size() > obtained.samples + (obtained.freq*2) * OurHeadRoomLength)
+        if(SkipForward > 0)
+            SkipForward -= 1;
+        else
         {
-            SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
+            if(NumCards == 1)
+            {
+                player.opl.cards[0].Generate(0, SendStereoAudio, n_samples);
+            }
+            else if(n_samples > 0)
+            {
+                /* Mix together the audio from different cards */
+                static std::vector<int> sample_buf;
+                sample_buf.clear();
+                sample_buf.resize(n_samples*2);
+                struct Mix
+                {
+                    static void AddStereoAudio(unsigned long count, int* samples)
+                    {
+                        for(unsigned long a=0; a<count*2; ++a)
+                            sample_buf[a] += samples[a];
+                    }
+                };
+                for(unsigned card = 0; card < NumCards; ++card)
+                {
+                    player.opl.cards[card].Generate(
+                        0,
+                        Mix::AddStereoAudio,
+                        n_samples);
+                }
+                /* Process it */
+                SendStereoAudio(n_samples, &sample_buf[0]);
+            }
+
+            //fprintf(stderr, "Enter: %u (%.2f ms)\n", (unsigned)AudioBuffer.size(),
+            //    AudioBuffer.size() * .5e3 / obtained.freq);
+        #ifndef __WIN32__
+            while(AudioBuffer.size() > obtained.samples + (obtained.freq*2) * OurHeadRoomLength)
+            {
+                SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
+            }
+        #else
+            //Sleep(1e3 * eat_delay);
+        #endif
+            //fprintf(stderr, "Exit: %u\n", (unsigned)AudioBuffer.size());
         }
-    #else
-        //Sleep(1e3 * eat_delay);
-    #endif
-        //fprintf(stderr, "Exit: %u\n", (unsigned)AudioBuffer.size());
 
         double nextdelay =
             DoingInstrumentTesting

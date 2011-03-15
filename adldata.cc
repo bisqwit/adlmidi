@@ -9218,7 +9218,7 @@ const struct adlinsdata adlins[3141] =
 
     // Amplitude begins at 1084.9, peaks 1360.7 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    { 1593,1593,  0,  40000,     0 }, // 1497: b41M62; f21GM62; f27GM30; f41GM62; Distorton Guitar; Synth Brass 1; elecgtr.
+    { 1593,1593, 12,  40000,     0 }, // 1497: b41M62; f21GM62; f27GM30; f41GM62; Distorton Guitar; Synth Brass 1; elecgtr.
 
     // Amplitude begins at   75.0, peaks 1773.3 at 31.6s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.5s.
@@ -16804,7 +16804,7 @@ const unsigned short banks[52][256] =
 676,   //GM28 DUAL
 677,   //GM29 DUAL (no idea)
 2224,  //GM30 DUAL (overdrive guitar)
-2129,  //GM31 DUAL (2122, 679 also strong)
+1497,  //GM31      (2122, 679 also strong, 2129 too)
 680,   //GM32 DUAL
 681,   //GM33 DUAL
 682,   //GM34 DUAL
