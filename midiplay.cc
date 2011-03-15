@@ -1098,8 +1098,11 @@ private:
         if(CurrentPosition.began) CurrentPosition.wait += t;
 
         //if(shortest > 0) UI.PrintLn("Delay %ld (%g)", shortest,t);
+
+        /*
         if(CurrentPosition.track[0].ptr > 8119) loopEnd = true;
         // ^HACK: CHRONO TRIGGER LOOP
+        */
 
         if(loopStart)
         {
@@ -1447,12 +1450,14 @@ private:
                 // Percussion is inferior to melody
                 s += 50 * (k->second.midiins / 128);
 
+                /*
                 if(k->second.midiins >= 25
                 && k->second.midiins < 40
                 && j->second.ins != ins)
                 {
                     s -= 14000; // HACK: Don't clobber the bass or the guitar
                 }
+                */
             }
 
             // If there is another channel to which this note
@@ -2151,17 +2156,21 @@ public:
             else
                 tone -= ains.tone-128;
         }
+        double hertz = 172.00093 * std::exp(0.057762265 * (tone + 0.0));
         int i[2] = { ains.adlno1, ains.adlno2 };
         int adlchannel[2] = { 0, 3 };
         if(i[0] == i[1])
         {
             adlchannel[1] = -1;
             adlchannel[0] = 6; // single-op
+            std::printf("noteon at %d(%d) for %g Hz\n",
+                adlchannel[0], i[0], hertz);
         }
-
-        double hertz = 172.00093 * std::exp(0.057762265 * (tone + 0.0));
-        std::printf("noteon at %d(%d) and %d(%d) for %g Hz\n",
-            adlchannel[0], i[0], adlchannel[1], i[1], hertz);
+        else
+        {
+            std::printf("noteon at %d(%d) and %d(%d) for %g Hz\n",
+                adlchannel[0], i[0], adlchannel[1], i[1], hertz);
+        }
 
         opl.NoteOff(0); opl.NoteOff(3); opl.NoteOff(6);
         for(unsigned c=0; c<2; ++c)
