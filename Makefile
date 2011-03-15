@@ -82,16 +82,16 @@ DEBUG=-O3 -g -fexpensive-optimizations -ffast-math
 #DEBUG += -fno-tree-vectorize
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
-CPPFLAGS+=`cygpath sh &>/dev/null||pkg-config --cflags sdl`
-LDLIBS+=`cygpath sh &>/dev/null||pkg-config --libs sdl`
+CPPFLAGS+=`test -f /bin/sh.exe||pkg-config --cflags sdl`
+LDLIBS+=`test -f /bin/sh.exe||pkg-config --libs sdl`
 
 CPPFLAGS += $(SDL)
 
 CPPFLAGS += -ansi -Wall -W 
 
-CXX += `cygpath sh &>/dev/null&&echo '-mwin32 -mconsole -mno-cygwin'`
-CPPFLAGS += `cygpath sh &>/dev/null&&echo '-I/usr/include/mingw -mno-cygwin -I/usr/include/w32api'`
-LDLIBS += `cygpath sh &>/dev/null&&echo '-L/usr/local/lib -L/usr/lib/w32api -lwinmm'`
+CXX += `test -f /bin/sh.exe&&echo '-mwin32 -mconsole -mno-cygwin'`
+CPPFLAGS += `test -f /bin/sh.exe&&echo '-I/usr/include/mingw -mno-cygwin -I/usr/include/w32api'`
+LDLIBS += `test -f /bin/sh.exe&&echo '-L/usr/local/lib -L/usr/lib/w32api -lwinmm'`
 # ^For cygwin. For anything else, remove this line.
 
 all: adlmidi gen_adldata dumpmiles dumpbank
