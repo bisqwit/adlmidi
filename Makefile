@@ -6,6 +6,7 @@ NOGZIPARCHIVES=1
 ARCHFILES=\
 	midiplay.cc \
 	dbopl.cpp dbopl.h \
+	adldata.cc adldata.hh \
 	dumpbank.cc dumpmiles.cc \
 	gen_adldata.cc \
 	midiplay.bas \
@@ -96,13 +97,16 @@ LDLIBS += `test -f /bin/sh.exe&&echo '-L/usr/local/lib -L/usr/lib/w32api -lwinmm
 
 all: adlmidi gen_adldata dumpmiles dumpbank
 
-adlmidi: midiplay.o dbopl.o
+adlmidi: midiplay.o dbopl.o adldata.o
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS)
 
-midiplay.o: midiplay.cc dbopl.h
+midiplay.o: midiplay.cc dbopl.h adldata.hh
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@ 
 
 dbopl.o: dbopl.cpp dbopl.h
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
+
+adldata.o: adldata.cc adldata.hh
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
 
 gen_adldata: gen_adldata.o dbopl.o
