@@ -12278,7 +12278,7 @@ const struct adlinsdata adlins[3141] =
 
     // Amplitude begins at 1453.2, peaks 1465.8 at 0.0s,
     // fades to 20% at 1.6s, keyoff fades to 20% in 1.6s.
-    { 2416,2417,  0,   1586,  1586 }, // 2262: f53GM1; BrightAcouGrand
+    { 2416,2417, 12,   1586,  1586 }, // 2262: f53GM1; BrightAcouGrand
 
     // Amplitude begins at 3156.7, peaks 3727.4 at 0.0s,
     // fades to 20% at 8.6s, keyoff fades to 20% in 0.0s.
@@ -16774,9 +16774,9 @@ const unsigned short banks[52][256] =
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
     },
     { // bank 51, Joel Yliluoma's selection
-0,     //GM1
-2262,  //GM2 DUAL
-2,    // GM3
+0,    //GM1
+171,  //GM2
+2,    //GM3
 173,  //GM4
 653,  //GM5 rhodes DUAL
 654,  //GM6
