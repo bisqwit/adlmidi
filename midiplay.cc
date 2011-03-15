@@ -2,9 +2,6 @@
 typedef struct vswprintf {} swprintf;
 #endif
 
-//#define DO_INSTRUMENT_TESTER
-#undef DO_INSTRUMENT_TESTER
-
 #include <vector>
 #include <string>
 #include <map>
@@ -42,6 +39,12 @@ public:
 };
 #endif
 
+#if !defined(__WIN32__) || defined(__CYGWIN__)
+# include <termio.h>
+# include <fcntl.h>
+# include <sys/ioctl.h>
+#endif
+
 #include <deque>
 #include <algorithm>
 
@@ -54,6 +57,7 @@ static unsigned AdlBank    = 0;
 static unsigned NumFourOps = 7;
 static unsigned NumCards   = 2;
 static bool QuitFlag = false, FakeDOSshell = false;
+static bool DoingInstrumentTesting = false;
 
 extern const struct adldata
 {
@@ -236,6 +240,62 @@ static const char MIDIsymbols[256+1] =
 "????????????????"
 "????????????????";
 
+class Input
+{
+#ifdef __WIN32__
+    void* inhandle;
+#endif
+#if !defined(__WIN32__) || defined(__CYGWIN__)
+    struct termio back;
+#endif
+public:
+    Input()
+    {
+#ifdef __WIN32__
+        inhandle = GetStdHandle(STD_INPUT_HANDLE);
+#endif
+#if !defined(__WIN32__) || defined(__CYGWIN__)
+        ioctl(0, TCGETA, &back);
+        struct termio term = back;
+        term.c_lflag &= ~(ICANON|ECHO);
+        term.c_cc[VMIN] = 0; // 0=no block, 1=do block
+        if(ioctl(0, TCSETA, &term) < 0)
+            fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+#endif
+    }
+    ~Input()
+    {
+#if !defined(__WIN32__) || defined(__CYGWIN__)
+        if(ioctl(0, TCSETA, &back) < 0)
+            fcntl(0, F_SETFL, fcntl(0, F_GETFL) &~ O_NONBLOCK);
+#endif
+    }
+
+    char PeekInput()
+    {
+#ifdef __WIN32__
+        DWORD nread=0;
+        INPUT_RECORD inbuf[1];
+        while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
+        {
+            ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
+            if(inbuf[0].EventType==KEY_EVENT
+            && inbuf[0].Event.KeyEvent.bKeyDown)
+            {
+                char c = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
+                unsigned s = inbuf[0].Event.KeyEvent.wVirtualScanCode;
+                if(c == 0) c = s;
+                return c;
+        }   }
+#endif
+#if !defined(__WIN32__) || defined(__CYGWIN__)
+        char c = 0;
+        if(read(0, &c, 1) == 1) return c;
+#endif
+        return '\0';
+    }
+} Input;
+
 class UI
 {
 public:
@@ -282,7 +342,8 @@ public:
         {
           const CONSOLE_CURSOR_INFO info = {100,false};
           SetConsoleCursorInfo(handle,&info);
-          CheckTetris();
+          if(!DoingInstrumentTesting)
+              CheckTetris();
           return;
         }
       #endif
@@ -482,7 +543,7 @@ public:
             return ins_colors[ins] = shuffle[ins_color_counter++ % 6];
         }
     }
-  #ifdef __WIN32__
+
     void CheckTetris()
     {
         extern UI UI;
@@ -564,27 +625,6 @@ public:
         static int gamestate=-1, curblock, currot, curx, cury, dropping;
         static int delaycounter=-1, score, lines, combo=0;
         static int scorewipe=0, focuswipe=0, shadowy=0, next1=0, next2=0;
-        static void* inhandle = GetStdHandle(STD_INPUT_HANDLE);
-        if(1)
-        {
-            DWORD nread=0;
-            INPUT_RECORD inbuf[1];
-            while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
-            {
-                ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
-                if(inbuf[0].EventType==KEY_EVENT
-                && inbuf[0].Event.KeyEvent.bKeyDown)
-                {
-                    char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
-                    switch(ch)
-                    {
-                        case 'B': case 'b':
-                            FakeDOSshell = true; //passthru
-                        case 'q': case 'Q': case 3:
-                        case 27: QuitFlag=true; break;
-            }   }   }
-            return;
-        }
         switch(gamestate)
         {
             case -1: case 53: // reset game
@@ -612,26 +652,22 @@ public:
                 for(;;)
                 {
                     int mr=currot,mx=curx,my=cury, move=0;
-                    while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
+                    for(;;)
                     {
-                        ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
-                        if(inbuf[0].EventType==KEY_EVENT
-                        && inbuf[0].Event.KeyEvent.bKeyDown)
+                        char ch = Input.PeekInput();
+                        if(!ch) break;
+                        switch(ch)
                         {
-                            char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
-                            switch(ch)
-                            {
-                                case 'B': case 'b':
-                                    FakeDOSshell = true;
-                                    //passthru
-                                case 'q': case 'Q': case 3:
-                                case 27: QuitFlag=true; break;
-                                case 'w': mr=(currot+1)%4; move=1; break;
-                                case 'a': mx=curx-1; move=1; break;
-                                case 'd': mx=curx+1; move=1; break;
-                                case 's': case ' ':
-                                    dropping = (ch == ' ') ? 2 : 1;
-                            }
+                            case 'b':
+                                FakeDOSshell = true;
+                                //passthru
+                            case 'q': case 'Q': case 3:
+                            case 27: QuitFlag=true; break;
+                            case 'w': mr=(currot+1)%4; move=1; break;
+                            case 'a': mx=curx-1; move=1; break;
+                            case 'd': mx=curx+1; move=1; break;
+                            case 's': case ' ':
+                                dropping = (ch == ' ') ? 2 : 1;
                         }
                         if(move) break;
                     }
@@ -640,9 +676,9 @@ public:
                     if(scorewipe>0 && --scorewipe==0)
                     {
                         UI.GotoXY(15,(int)NumCards*18);
-                        fprintf(stderr,"%*s",7,""); fflush(stderr);
+                        fprintf(stderr,"%*s",7,""); std::fflush(stderr);
                         UI.GotoXY(15,(int)NumCards*18+1);
-                        fprintf(stderr,"%*s",5,""); fflush(stderr);
+                        fprintf(stderr,"%*s",5,""); std::fflush(stderr);
                     }
                     if(focuswipe>0 && --focuswipe==0)
                         for(int y=0; y<24; ++y)
@@ -684,22 +720,22 @@ public:
                 if(emptycount) increment += combo++ * 50; else combo=0;
                 increment += cury*2; score += increment; lines += emptycount;
                 UI.GotoXY(2,(int)NumCards*18);
-                UI.Color(15); fprintf(stderr,"Score:"); fflush(stderr);
-                UI.Color(14); fprintf(stderr,"%6u",score); fflush(stderr);
+                UI.Color(15); fprintf(stderr,"Score:"); std::fflush(stderr);
+                UI.Color(14); fprintf(stderr,"%6u",score); std::fflush(stderr);
                 UI.GotoXY(2,(int)NumCards*18+1);
-                UI.Color(15); fprintf(stderr,"Lines:"); fflush(stderr);
-                UI.Color(14); fprintf(stderr,"%6u",lines); fflush(stderr);
+                UI.Color(15); fprintf(stderr,"Lines:"); std::fflush(stderr);
+                UI.Color(14); fprintf(stderr,"%6u",lines); std::fflush(stderr);
                 UI.GotoXY(15,(int)NumCards*18);
-                UI.Color(10); fprintf(stderr,"%+d",increment); fflush(stderr);
+                UI.Color(10); fprintf(stderr,"%+d",increment); std::fflush(stderr);
                 UI.GotoXY(15, (int)NumCards*18-5);
-                UI.Color(15); fprintf(stderr,"Next:"); fflush(stderr);
+                UI.Color(15); fprintf(stderr,"Next:"); std::fflush(stderr);
                 next2=std::rand()%7;
                 tetris.plotp(next1,0, 13,21, 0,0);
                 tetris.plotp(next2,0, 13,21, 8,0);
                 if(emptycount)
                 {
                     UI.GotoXY(15,(int)NumCards*18+1);
-                    fprintf(stderr,"%+d",emptycount); fflush(stderr);
+                    fprintf(stderr,"%+d",emptycount); std::fflush(stderr);
                 }
                 scorewipe=14;
                 // fallthru (set next state 4, state 53)
@@ -718,7 +754,7 @@ public:
                 break;
         }
     }
-  #endif
+
 } UI;
 
 class MIDIplay
@@ -1061,6 +1097,8 @@ private:
         if(CurrentPosition.began) CurrentPosition.wait += t;
 
         //if(shortest > 0) UI.PrintLn("Delay %ld (%g)", shortest,t);
+        if(CurrentPosition.track[0].ptr > 8119) loopEnd = true;
+        // ^HACK: CHRONO TRIGGER LOOP
 
         if(loopStart)
         {
@@ -1381,7 +1419,7 @@ private:
         long s = -ch[c].koff_time_until_neglible;
 
         // Same midi-instrument = some stability
-        if(c == MidCh) s += 4;
+        //if(c == MidCh) s += 4;
         for(AdlChannel::users_t::const_iterator
             j = ch[c].users.begin();
             j != ch[c].users.end();
@@ -1407,6 +1445,13 @@ private:
                 }
                 // Percussion is inferior to melody
                 s += 50 * (k->second.midiins / 128);
+
+                if(k->second.midiins >= 25
+                && k->second.midiins < 40
+                && j->second.ins != ins)
+                {
+                    s -= 14000; // HACK: Don't clobber the bass or the guitar
+                }
             }
 
             // If there is another channel to which this note
@@ -1797,12 +1842,12 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
-                3.0,  // wet_gain_dB  (-10..10)
-                .4,   // room_scale   (0..1)
-                .6,   // reverberance (0..1)
+                9,//4.0,  // wet_gain_dB  (-10..10)
+                1,//.4,   // room_scale   (0..1)
+                1,//.5,   // reverberance (0..1)
                 .8,   // hf_damping   (0..1)
-                .000, // pre_delay_s  (0.. 0.5)
-                .8,   // stereo_depth (0..1)
+                .1, // pre_delay_s  (0.. 0.5)
+                1,//.8,   // stereo_depth (0..1)
                 MaxSamplesAtTime);
     }
 } reverb_data;
@@ -1886,25 +1931,27 @@ namespace WindowsAudio
           while(buf_next == buf_read)
           {
               /*UI.Color(4);
-              UI.GotoXY(60,-5+5); fprintf(stderr, "waits\r"); UI.x=0; fflush(stderr);
+              UI.GotoXY(60,-5+5); fprintf(stderr, "waits\r"); UI.x=0; std::fflush(stderr);
               UI.Color(4);
-              UI.GotoXY(60,-4+5); fprintf(stderr, "r%u w%u n%u\r",buf_read,buf_write,buf_next); UI.x=0; fflush(stderr);
+              UI.GotoXY(60,-4+5); fprintf(stderr, "r%u w%u n%u\r",buf_read,buf_write,buf_next); UI.x=0; std::fflush(stderr);
               */
               /* Wait until at least one of the buffers is free */
               Sleep(0);
               /*UI.Color(2);
-              UI.GotoXY(60,-3+5); fprintf(stderr, "wait completed\r"); UI.x=0; fflush(stderr);*/
+              UI.GotoXY(60,-3+5); fprintf(stderr, "wait completed\r"); UI.x=0; std::fflush(stderr);*/
           }
 
           unsigned npending = (buf_write + BUFFER_COUNT - buf_read) % BUFFER_COUNT;
           static unsigned counter=0, lo=0;
           if(!counter-- || npending < lo) { lo = npending; counter=100; }
-#ifndef DO_INSTRUMENT_TESTER
-          if(UI.maxy >= 5) {
-              UI.Color(9);
-              UI.GotoXY(70,-5+6); fprintf(stderr, "%3u bufs\r", (unsigned)npending); UI.x=0; fflush(stderr);
-              UI.GotoXY(71,-4+6); fprintf(stderr, "lo:%3u\r", lo); UI.x=0; }
-#endif
+
+          if(!DoingInstrumentTesting)
+          {
+              if(UI.maxy >= 5) {
+                  UI.Color(9);
+                  UI.GotoXY(70,-5+6); fprintf(stderr, "%3u bufs\r", (unsigned)npending); UI.x=0; std::fflush(stderr);
+                  UI.GotoXY(71,-4+6); fprintf(stderr, "lo:%3u\r", lo); UI.x=0; }
+          }
 
           //unprepare the header if it is prepared
           if(Work->dwFlags & WHDR_PREPARED) waveOutUnprepareHeader(hWaveOut, Work, sizeof(WAVEHDR));
@@ -1971,28 +2018,31 @@ static void SendStereoAudio(unsigned long count, int* samples)
         prev_avg_flt[1] = (prev_avg_flt[1] + average[1]*0.04/double(count)) / 1.04
     };
     // Figure out the amplitude of both channels
-#ifndef DO_INSTRUMENT_TESTER
-    static unsigned amplitude_display_counter = 0;
-    if(!amplitude_display_counter--)
+    if(!DoingInstrumentTesting)
     {
-        amplitude_display_counter = (PCM_RATE / count) / 24;
-        double amp[2]={0,0};
-        for(unsigned w=0; w<2; ++w)
+        static unsigned amplitude_display_counter = 0;
+        if(!amplitude_display_counter--)
         {
-            average[w] /= double(count);
-            for(unsigned long p = 0; p < count; ++p)
-                amp[w] += std::fabs(samples[p*2+w] - average[w]);
-            amp[w] /= double(count);
-            // Turn into logarithmic scale
-            const double dB = std::log(amp[w]<1 ? 1 : amp[w]) * 4.328085123;
-            const double maxdB = 3*16; // = 3 * log2(65536)
-            amp[w] = dB/maxdB;
+            amplitude_display_counter = (PCM_RATE / count) / 24;
+            double amp[2]={0,0};
+            for(unsigned w=0; w<2; ++w)
+            {
+                average[w] /= double(count);
+                for(unsigned long p = 0; p < count; ++p)
+                    amp[w] += std::fabs(samples[p*2+w] - average[w]);
+                amp[w] /= double(count);
+                // Turn into logarithmic scale
+                const double dB = std::log(amp[w]<1 ? 1 : amp[w]) * 4.328085123;
+                const double maxdB = 3*16; // = 3 * log2(65536)
+                amp[w] = dB/maxdB;
+            }
+            UI.IllustrateVolumes(amp[0], amp[1]);
         }
-        UI.IllustrateVolumes(amp[0], amp[1]);
     }
-#endif
 
-#if defined(__WIN32__) && 1
+    //static unsigned counter = 0; if(++counter < 8000)  return;
+
+#if defined(__WIN32__) && 0
     // Cheat on dosbox recording: easier on the cpu load.
    {count*=2;
     std::vector<short> AudioBuffer(count);
@@ -2047,11 +2097,176 @@ static void SendStereoAudio(unsigned long count, int* samples)
 #else
     WindowsAudio::Write( (const unsigned char*) &AudioBuffer[0], 2*AudioBuffer.size());
     /* Cheat on DOSBox recording: Record audio separately on Windows. */
-    /*static FILE* fp = fopen("adlmidi.raw", "wb");
+    /*
+    static FILE* fp = fopen("adlmidi.raw", "wb");
     fwrite(&AudioBuffer[0], 2, AudioBuffer.size(), fp);
-    fflush(fp);*/
+    std::fflush(fp);
+    */
 #endif
 }
+
+class Tester
+{
+    unsigned cur_gm;
+    unsigned ins_idx;
+    std::vector<unsigned> adl_ins_list;
+    OPL3& opl;
+public:
+    Tester(OPL3& o) : opl(o)
+    {
+        cur_gm   = 0;
+        ins_idx  = 0;
+    }
+    ~Tester()
+    {
+    }
+
+    // Find list of adlib instruments that supposedly implement this GM
+    void FindAdlList()
+    {
+        const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
+
+        std::set<unsigned> adl_ins_set;
+        for(unsigned bankno=0; bankno<NumBanks; ++bankno)
+            adl_ins_set.insert(banks[bankno][cur_gm]);
+        adl_ins_list.assign( adl_ins_set.begin(), adl_ins_set.end() );
+        ins_idx = 0;
+        NextAdl(0);
+        opl.Silence();
+    }
+
+    void DoNote(int note)
+    {
+        if(adl_ins_list.empty())
+        {
+            FindAdlList();
+        }
+        int meta = adl_ins_list[ins_idx];
+        const adlinsdata& ains = adlins[meta];
+        int tone = (cur_gm & 128) ? (cur_gm & 127) : (note+50);
+        if(ains.tone)
+        {
+            if(ains.tone < 20)
+                tone += ains.tone;
+            else if(ains.tone < 128)
+                tone = ains.tone;
+            else
+                tone -= ains.tone-128;
+        }
+        int i[2] = { ains.adlno1, ains.adlno2 };
+        int adlchannel[2] = { 0, 3 };
+        if(i[0] == i[1])
+        {
+            adlchannel[1] = -1;
+            adlchannel[0] = 6; // single-op
+        }
+
+        double hertz = 172.00093 * std::exp(0.057762265 * (tone + 0.0));
+        std::printf("noteon at %d(%d) and %d(%d) for %g Hz\n",
+            adlchannel[0], i[0], adlchannel[1], i[1], hertz);
+
+        opl.NoteOff(0); opl.NoteOff(3); opl.NoteOff(6);
+        for(unsigned c=0; c<2; ++c)
+        {
+            if(adlchannel[c] < 0) continue;
+            opl.Patch(adlchannel[c], i[c]);
+            opl.Touch(adlchannel[c], 127*127*100);
+            opl.Pan(adlchannel[c], 0x30);
+            opl.NoteOn(adlchannel[c], hertz);
+        }
+    }
+
+    void NextGM(int offset)
+    {
+        cur_gm = (cur_gm + 256 + offset) & 0xFF;
+        FindAdlList();
+    }
+
+    void NextAdl(int offset)
+    {
+        const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
+        ins_idx = (ins_idx + adl_ins_list.size() + offset) % adl_ins_list.size();
+
+        UI.Color(15); std::fflush(stderr);
+        std::printf("SELECTED G%c%d\t%s\n",
+            cur_gm<128?'M':'P', cur_gm<128?cur_gm+1:cur_gm-128,
+            "<-> select GM, ^v select ins, qwe play note");
+        std::fflush(stdout);
+        UI.Color(7); std::fflush(stderr);
+        for(unsigned a=0; a<adl_ins_list.size(); ++a)
+        {
+            unsigned i = adl_ins_list[a];
+            char ToneIndication[8] = "   ";
+            if(adlins[i].tone)
+            {
+                if(adlins[i].tone < 20)
+                    sprintf(ToneIndication, "+%-2d", adlins[i].tone);
+                else if(adlins[i].tone < 128)
+                    sprintf(ToneIndication, "=%-2d", adlins[i].tone);
+                else
+                    sprintf(ToneIndication, "-%-2d", adlins[i].tone-128);
+            }
+            std::printf("%s%s%s%u\t",
+                ToneIndication,
+                adlins[i].adlno1 != adlins[i].adlno2 ? "[2]" : "   ",
+                (ins_idx == a) ? "->" : "\t",
+                i
+            );
+
+            for(unsigned bankno=0; bankno<NumBanks; ++bankno)
+                if(banks[bankno][cur_gm] == i)
+                    std::printf(" %u", bankno);
+
+            std::printf("\n");
+        }
+    }
+
+    void HandleInputChar(char ch)
+    {
+        switch(ch)
+        {
+            case 'q': DoNote(0); break;
+            case '2': DoNote(1); break;
+            case 'w': DoNote(2); break;
+            case '3': DoNote(3); break;
+            case 'e': DoNote(4); break;
+            case 'r': DoNote(5); break;
+            case '5': DoNote(6); break;
+            case 't': DoNote(7); break;
+            case '6': DoNote(8); break;
+            case 'y': DoNote(9); break;
+            case '7': DoNote(10); break;
+            case 'u': DoNote(11); break;
+            case 'i': DoNote(12); break;
+            case '9': DoNote(13); break;
+            case 'o': DoNote(14); break;
+            case '0': DoNote(15); break;
+            case 'p': DoNote(16); break;
+            case 'z': DoNote(0-12); break;
+            case 's': DoNote(1-12); break;
+            case 'x': DoNote(2-12); break;
+            case 'd': DoNote(3-12); break;
+            case 'c': DoNote(4-12); break;
+            case 'v': DoNote(5-12); break;
+            case 'g': DoNote(6-12); break;
+            case 'b': DoNote(7-12); break;
+            case 'h': DoNote(8-12); break;
+            case 'n': DoNote(9-12); break;
+            case 'j': DoNote(10-12); break;
+            case 'm': DoNote(11-12); break;
+            case '/': case 'H': case 'A': NextAdl(-1); break;
+            case '*': case 'P': case 'B': NextAdl(+1); break;
+            case '-': case 'K': case 'D': NextGM(-1); break;
+            case '+': case 'M': case 'C': NextGM(+1); break;
+            case 3: case 27: QuitFlag=true; break;
+    }   }
+
+    double Tick(double eat_delay, double mindelay)
+    {
+        HandleInputChar( Input.PeekInput() );
+        return 0.1; //eat_delay;
+    }
+};
 
 #ifdef __WIN32__
 /* Parse a command line buffer into arguments */
@@ -2097,166 +2312,6 @@ static int ParseCommandLine(char *cmdline, char **argv)
     return(argc);
 }
 
-#ifdef DO_INSTRUMENT_TESTER
-class Tester
-{
-    void* inhandle;
-    unsigned cur_gm;
-    unsigned ins_idx;
-    std::vector<unsigned> adl_ins_list;
-    OPL3& opl;
-public:
-    Tester(OPL3& o) : opl(o)
-    {
-        inhandle = GetStdHandle(STD_INPUT_HANDLE);
-        cur_gm   = 0;
-        ins_idx  = 0;
-        FindAdlList();
-    }
-
-    // Find list of adlib instruments that supposedly implement this GM
-    void FindAdlList()
-    {
-        const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
-
-        std::set<unsigned> adl_ins_set;
-        for(unsigned bankno=0; bankno<NumBanks; ++bankno)
-            adl_ins_set.insert(banks[bankno][cur_gm]);
-        adl_ins_list.assign( adl_ins_set.begin(), adl_ins_set.end() );
-        ins_idx = 0;
-        NextAdl(0);
-        opl.Silence();
-    }
-
-    void DoNote(int note)
-    {
-        int meta = adl_ins_list[ins_idx];
-        const adlinsdata& ains = adlins[meta];
-        int tone = (cur_gm & 128) ? (cur_gm & 127) : (note+50);
-        if(ains.tone)
-        {
-            if(ains.tone < 20)
-                tone += ains.tone;
-            else if(ains.tone < 128)
-                tone = ains.tone;
-            else
-                tone -= ains.tone-128;
-        }
-        int i[2] = { ains.adlno1, ains.adlno2 };
-        int adlchannel[2] = { 0, 3 };
-        if(i[0] == i[1])
-        {
-            adlchannel[1] = -1;
-            adlchannel[0] = 6; // single-op
-        }
-
-        double hertz = 172.00093 * std::exp(0.057762265 * (tone + 0.0));
-        printf("noteon at %d(%d) and %d(%d) for %g Hz\n",
-            adlchannel[0], i[0], adlchannel[1], i[1], hertz);
-
-        opl.NoteOff(0); opl.NoteOff(3); opl.NoteOff(6);
-        for(unsigned c=0; c<2; ++c)
-        {
-            if(adlchannel[c] < 0) continue;
-            opl.Patch(adlchannel[c], i[c]);
-            opl.Touch(adlchannel[c], 127*127*100);
-            opl.Pan(adlchannel[c], 0x30);
-            opl.NoteOn(adlchannel[c], hertz);
-        }
-    }
-
-    void NextGM(int offset)
-    {
-        cur_gm = (cur_gm + 256 + offset) & 0xFF;
-        FindAdlList();
-    }
-
-    void NextAdl(int offset)
-    {
-        const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
-        ins_idx = (ins_idx + adl_ins_list.size() + offset) % adl_ins_list.size();
-
-        printf("SELECTED G%c%d\t%s\n",
-            cur_gm<128?'M':'P', cur_gm<128?cur_gm+1:cur_gm-128,
-            "-+ select GM /* select ins  qwe play note");
-        for(unsigned a=0; a<adl_ins_list.size(); ++a)
-        {
-            unsigned i = adl_ins_list[a];
-            printf("%s%u%s%s\t",
-                (ins_idx == a) ? "    ->\t" : "\t",
-                i,
-                adlins[i].tone ? "[perc]" : "",
-                adlins[i].adlno1 == adlins[i].adlno2 ? "" : "[dual]"
-            );
-
-            for(unsigned bankno=0; bankno<NumBanks; ++bankno)
-                if(banks[bankno][cur_gm] == i)
-                    printf(" %u", bankno);
-
-            printf("\n");
-        }
-    }
-
-    void PeekInput()
-    {
-        UI.Color(7);
-
-        DWORD nread=0;
-        INPUT_RECORD inbuf[1];
-        while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
-        {
-            ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
-            if(inbuf[0].EventType==KEY_EVENT
-            && inbuf[0].Event.KeyEvent.bKeyDown)
-            {
-                char ch = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
-                switch(ch)
-                {
-                    case 'q': DoNote(0); break;
-                    case '2': DoNote(1); break;
-                    case 'w': DoNote(2); break;
-                    case '3': DoNote(3); break;
-                    case 'e': DoNote(4); break;
-                    case 'r': DoNote(5); break;
-                    case '5': DoNote(6); break;
-                    case 't': DoNote(7); break;
-                    case '6': DoNote(8); break;
-                    case 'y': DoNote(9); break;
-                    case '7': DoNote(10); break;
-                    case 'u': DoNote(11); break;
-                    case 'i': DoNote(12); break;
-                    case '9': DoNote(13); break;
-                    case 'o': DoNote(14); break;
-                    case '0': DoNote(15); break;
-                    case 'p': DoNote(16); break;
-                    case 'z': DoNote(0-12); break;
-                    case 's': DoNote(1-12); break;
-                    case 'x': DoNote(2-12); break;
-                    case 'd': DoNote(3-12); break;
-                    case 'c': DoNote(4-12); break;
-                    case 'v': DoNote(5-12); break;
-                    case 'g': DoNote(6-12); break;
-                    case 'b': DoNote(7-12); break;
-                    case 'h': DoNote(8-12); break;
-                    case 'n': DoNote(9-12); break;
-                    case 'j': DoNote(10-12); break;
-                    case 'm': DoNote(11-12); break;
-                    case '+': NextGM(+1); break;
-                    case '-': NextGM(-1); break;
-                    case '*': NextAdl(+1); break;
-                    case '/': NextAdl(-1); break;
-                    case 3: case 27: QuitFlag=true; break;
-        }   }   }
-    }
-
-    double Tick(double eat_delay, double mindelay)
-    {
-        PeekInput();
-        return 0.1; //eat_delay;
-    }
-};
-#endif
-
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
 {
     extern int main(int,char**);
@@ -2279,6 +2334,16 @@ int main(int argc, char** argv)
     // The lag between visual content and audio content equals
     // the sum of these two buffers.
 
+    UI.Color(15); std::fflush(stderr);
+    std::printf(
+        "ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation\n");
+    std::fflush(stdout);
+    UI.Color(3); std::fflush(stderr);
+    std::printf(
+        "(C) 2011 Joel Yliluoma -- http://bisqwit.iki.fi/source/adlmidi.html\n");
+    std::fflush(stdout);
+    UI.Color(7); std::fflush(stderr);
+
 #ifndef __WIN32__
     // Set up SDL
     static SDL_AudioSpec spec, obtained;
@@ -2300,9 +2365,11 @@ int main(int argc, char** argv)
 
     if(argc < 2)
     {
-        UI.Color(7);
+        UI.Color(7);  std::fflush(stderr);
         std::printf(
-            "Usage: midiplay <midifilename> [ <banknumber> [ <numcards> [ <numfourops>] ] ]\n");
+            "Usage: midiplay <midifilename> [ <banknumber> [ <numcards> [ <numfourops>] ] ]\n"
+            "       midiplay <midifilename> -1   To enter instrument tester\n"
+        );
         for(unsigned a=0; a<sizeof(banknames)/sizeof(*banknames); ++a)
             std::printf("%10s%2u = %s\n",
                 a?"":"Banks:",
@@ -2325,7 +2392,13 @@ int main(int argc, char** argv)
     if(argc >= 3)
     {
         const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
-        AdlBank = std::atoi(argv[2]);
+        int bankno = std::atoi(argv[2]);
+        if(bankno == -1)
+        {
+            bankno = 0;
+            DoingInstrumentTesting = true;
+        }
+        AdlBank = bankno;
         if(AdlBank >= NumBanks)
         {
             std::fprintf(stderr, "bank number may only be 0..%u.\n", NumBanks-1);
@@ -2368,7 +2441,8 @@ int main(int argc, char** argv)
     }
     else
         NumFourOps =
-            (n_fourop[0] >= n_total[0]*7/8) ? NumCards * 6
+            DoingInstrumentTesting ? 2
+          : (n_fourop[0] >= n_total[0]*7/8) ? NumCards * 6
           : (n_fourop[0] < n_total[0]*1/8) ? 0
           : (NumCards==1 ? 1 : NumCards*4);
 
@@ -2401,9 +2475,7 @@ int main(int argc, char** argv)
     SDL_PauseAudio(0);
 #endif
 
-#ifdef DO_INSTRUMENT_TESTER
     Tester InstrumentTester(player.opl);
-#endif
 
     for(double delay=0; !QuitFlag; )
     {
@@ -2457,11 +2529,11 @@ int main(int argc, char** argv)
     #endif
         //fprintf(stderr, "Exit: %u\n", (unsigned)AudioBuffer.size());
 
-    #ifndef DO_INSTRUMENT_TESTER
-        double nextdelay = player.Tick(eat_delay, mindelay);
-    #else
-        double nextdelay = InstrumentTester.Tick(eat_delay, mindelay);
-    #endif
+        double nextdelay =
+            DoingInstrumentTesting
+            ? InstrumentTester.Tick(eat_delay, mindelay)
+            : player.Tick(eat_delay, mindelay);
+
         UI.ShowCursor();
 
         delay = nextdelay;
@@ -2478,8 +2550,10 @@ int main(int argc, char** argv)
         fprintf(stderr,
             "Going TSR. Type 'EXIT' to return to ADLMIDI.\n"
             "\n"
-            "Megasoft(R) Orifices 98\n"
-            "    (C)Copyright Megasoft Corp 1981 - 1999.\n");
+          /*"Megasoft(R) Orifices 98\n"
+            "    (C)Copyright Megasoft Corp 1981 - 1999.\n"*/
+            ""
+        );
     }
     return 0;
 }
@@ -19309,7 +19383,7 @@ const unsigned short banks[52][256] =
 839,   //GM51
 50,    //GM52 no idea
 2533,  //GM53 aahs
-52,    //GM54 oohs
+1096,  //GM54 oohs
 53,    //GM55
 704,   //GM56
 55,    //GM57 trumpet
@@ -19333,7 +19407,7 @@ const unsigned short banks[52][256] =
 723,   //GM75 recorder
 2076,  //GM76 panflute
 725,   //GM77 DUAL
-76,    //GM78
+726,   //GM78 DUAL
 727,   //GM79 DUAL
 1206,  //GM80
 729,   //GM81 DUAL squarewave very good!
