@@ -666,10 +666,10 @@ public:
                             case 27:
                             #endif
                                 QuitFlag=true; break;
-                            case 'w': mr=(currot+1)%4; move=1; break;
-                            case 'a': mx=curx-1; move=1; break;
-                            case 'd': mx=curx+1; move=1; break;
-                            case 's': case ' ':
+                            case 'w':case 'H':case 'A': mr=(currot+1)%4; move=1; break;
+                            case 'a':case 'K':case 'D': mx=curx-1; move=1; break;
+                            case 'd':case 'M':case 'C': mx=curx+1; move=1; break;
+                            case 's':case 'P':case 'B': case ' ':
                                 dropping = (ch == ' ') ? 2 : 1;
                         }
                         if(move) break;
