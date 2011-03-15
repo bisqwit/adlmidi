@@ -2197,37 +2197,10 @@ public:
 
     void HandleInputChar(char ch)
     {
+        static const char notes[] = "zsxdcvgbhnjmq2w3er5t6y7ui9o0p";
+        //                           c'd'ef'g'a'bC'D'EF'G'A'Bc'd'e
         switch(ch)
         {
-            case 'q': DoNote(0); break;
-            case '2': DoNote(1); break;
-            case 'w': DoNote(2); break;
-            case '3': DoNote(3); break;
-            case 'e': DoNote(4); break;
-            case 'r': DoNote(5); break;
-            case '5': DoNote(6); break;
-            case 't': DoNote(7); break;
-            case '6': DoNote(8); break;
-            case 'y': DoNote(9); break;
-            case '7': DoNote(10); break;
-            case 'u': DoNote(11); break;
-            case 'i': DoNote(12); break;
-            case '9': DoNote(13); break;
-            case 'o': DoNote(14); break;
-            case '0': DoNote(15); break;
-            case 'p': DoNote(16); break;
-            case 'z': DoNote(0-12); break;
-            case 's': DoNote(1-12); break;
-            case 'x': DoNote(2-12); break;
-            case 'd': DoNote(3-12); break;
-            case 'c': DoNote(4-12); break;
-            case 'v': DoNote(5-12); break;
-            case 'g': DoNote(6-12); break;
-            case 'b': DoNote(7-12); break;
-            case 'h': DoNote(8-12); break;
-            case 'n': DoNote(9-12); break;
-            case 'j': DoNote(10-12); break;
-            case 'm': DoNote(11-12); break;
             case '/': case 'H': case 'A': NextAdl(-1); break;
             case '*': case 'P': case 'B': NextAdl(+1); break;
             case '-': case 'K': case 'D': NextGM(-1); break;
@@ -2237,6 +2210,9 @@ public:
             case 27:
         #endif
                 QuitFlag=true; break;
+            default:
+                const char* p = strchr(notes, ch);
+                if(p && *p) DoNote( (p - notes) - 12 );
     }   }
 
     double Tick(double eat_delay, double mindelay)
