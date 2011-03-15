@@ -660,7 +660,10 @@ public:
                                 FakeDOSshell = true;
                                 //passthru
                             case 'q': case 'Q': case 3:
-                            case 27: QuitFlag=true; break;
+                            #if !(!defined(__WIN32__) || defined(__CYGWIN__))
+                            case 27:
+                            #endif
+                                QuitFlag=true; break;
                             case 'w': mr=(currot+1)%4; move=1; break;
                             case 'a': mx=curx-1; move=1; break;
                             case 'd': mx=curx+1; move=1; break;
@@ -2256,7 +2259,11 @@ public:
             case '*': case 'P': case 'B': NextAdl(+1); break;
             case '-': case 'K': case 'D': NextGM(-1); break;
             case '+': case 'M': case 'C': NextGM(+1); break;
-            case 3: case 27: QuitFlag=true; break;
+            case 3:
+        #if !(!defined(__WIN32__) || defined(__CYGWIN__))
+            case 27:
+        #endif
+                QuitFlag=true; break;
     }   }
 
     double Tick(double eat_delay, double mindelay)
