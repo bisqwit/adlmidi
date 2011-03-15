@@ -2381,8 +2381,8 @@ int main(int argc, char** argv)
     {
         UI.Color(7);  std::fflush(stderr);
         std::printf(
-            "Usage: midiplay <midifilename> [ <banknumber> [ <numcards> [ <numfourops>] ] ]\n"
-            "       midiplay <midifilename> -1   To enter instrument tester\n"
+            "Usage: adlmidi <midifilename> [ <banknumber> [ <numcards> [ <numfourops>] ] ]\n"
+            "       adlmidi <midifilename> -1   To enter instrument tester\n"
         );
         for(unsigned a=0; a<sizeof(banknames)/sizeof(*banknames); ++a)
             std::printf("%10s%2u = %s\n",
