@@ -342,11 +342,11 @@ public:
         {
           const CONSOLE_CURSOR_INFO info = {100,false};
           SetConsoleCursorInfo(handle,&info);
-          if(!DoingInstrumentTesting)
-              CheckTetris();
           return;
         }
       #endif
+        if(!DoingInstrumentTesting)
+            CheckTetris();
         std::fprintf(stderr, "\33[?25l"); // hide cursor
     }
     void ShowCursor()
@@ -645,8 +645,6 @@ public:
             case 1: // handle input
             {
                 int level = 50 - (lines/10)/5;
-                DWORD nread=0;
-                INPUT_RECORD inbuf[1];
                 {int y=std::rand()%25, x=tetris.edge(6,y)?std::rand()%12:(std::rand()%2)*11;
                 tetris.setp(x,y,area[x][y]);}
                 for(;;)
