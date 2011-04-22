@@ -3,6 +3,9 @@
 # define WIN32_LEAN_AND_MEAN
 # include <windows.h>
 # include <mmsystem.h>
+#endif
+
+#if defined(__WIN32__) || defined(__DJGPP__)
 typedef unsigned char Uint8;
 typedef unsigned short Uint16;
 typedef unsigned Uint32;
