@@ -55,6 +55,8 @@ static bool AdlPercussionMode = false;
 static bool QuitFlag = false, FakeDOSshell = false;
 static unsigned SkipForward = 0;
 static bool DoingInstrumentTesting = false;
+static bool QuitWithoutLooping = false;
+static bool WritePCMfile = false;
 
 #include "adldata.hh"
 
@@ -177,7 +179,7 @@ public:
     void Touch_Real(unsigned c, unsigned volume)
     {
         if(volume > 63) volume = 63;
-        unsigned card = c/21, cc = c%21;
+        unsigned card = c/23, cc = c%23;
         unsigned i = ins[c], o1 = Operators[cc*2], o2 = Operators[cc*2+1];
         unsigned x = adl[i].carrier_40, y = adl[i].modulator_40;
         Poke(card, 0x40+o1, (x|63) - volume + volume*(x&63)/63);
@@ -214,7 +216,7 @@ public:
     void Pan(unsigned c, unsigned value)
     {
         unsigned card = c/23, cc = c%23;
-        if(Channels[c] != 0xFFF)
+        if(Channels[cc] != 0xFFF)
             Poke(card, 0xC0 + Channels[cc], adl[ins[c]].feedconn | value);
     }
     void Silence() // Silence all OPL channels.
@@ -230,8 +232,13 @@ public:
         ins.resize(NumChannels,     189);
         pit.resize(NumChannels,       0);
         regBD.resize(NumCards);
-        four_op_category.clear();
-        four_op_category.resize(NumChannels, 0);
+        four_op_category.resize(NumChannels);
+        for(unsigned p=0, a=0; a<NumCards; ++a)
+        {
+            for(unsigned b=0; b<18; ++b) four_op_category[p++] = 0;
+            for(unsigned b=0; b< 5; ++b) four_op_category[p++] = 8;
+        }
+
         static const short data[] =
         { 0x004,96, 0x004,128,        // Pulse timer
           0x105, 0, 0x105,1, 0x105,0, // Pulse OPL3 enable
@@ -247,38 +254,43 @@ public:
             Poke(card, 0x0BD, regBD[card] = (HighTremoloMode*0x80
                                            + HighVibratoMode*0x40
                                            + AdlPercussionMode*0x20) );
-            unsigned fours_this_card = fours > 6 ? 6 : fours;
+            unsigned fours_this_card = std::min(fours, 6u);
             Poke(card, 0x104, (1 << fours_this_card) - 1);
             //fprintf(stderr, "Card %u: %u four-ops.\n", card, fours_this_card);
             fours -= fours_this_card;
         }
 
         // Mark all channels that are reserved for four-operator function
-        unsigned nextfour = 0, perc_skip = 0;
-        for(unsigned a=0; a<NumCards; ++a)
-        {
-            for(unsigned b=0; b<5; ++b)
-                four_op_category[a*23 + 18 + b] = AdlPercussionMode ? b+3 : -1;
-            if(AdlPercussionMode)
-                for(unsigned b=0; b<3; ++b)
-                    four_op_category[a*23 + 6+b] = 8;
-        }
+        if(AdlPercussionMode)
+            for(unsigned a=0; a<NumCards; ++a)
+            {
+                for(unsigned b=0; b<5; ++b) four_op_category[a*23 + 18 + b] = b+3;
+                for(unsigned b=0; b<3; ++b) four_op_category[a*23 + 6  + b] = 8;
+            }
 
+        unsigned nextfour = 0;
         for(unsigned a=0; a<NumFourOps; ++a)
         {
-            if((four_op_category[perc_skip+nextfour]&15) >= 3) { ++perc_skip; continue; }
-            four_op_category[perc_skip+nextfour  ] = 1;
-            four_op_category[perc_skip+nextfour+3] = 2;
-            if(nextfour%3 == 2)
-                nextfour += 9-2;
-            else
-                ++nextfour;
+            four_op_category[nextfour  ] = 1;
+            four_op_category[nextfour+3] = 2;
+            switch(a % 6)
+            {
+                case 0: case 1: nextfour += 1; break;
+                case 2:         nextfour += 9-2; break;
+                case 3: case 4: nextfour += 1; break;
+                case 5:         nextfour += 23-9-2; break;
+            }
         }
 
-        /*fprintf(stdout, "Channels used as:");
+        /**/
+        fprintf(stdout, "Channels used as:\n");
         for(size_t a=0; a<four_op_category.size(); ++a)
+        {
             fprintf(stdout, " %d", four_op_category[a]);
-        fprintf(stdout, "\n");*/
+            if(a%23 == 22) fprintf(stdout, "\n");
+        }
+        fflush(stdout);
+        /**/
         /*
         In two-op mode, channels 0..8 go as follows:
                       Op1[port]  Op2[port]
@@ -589,7 +601,7 @@ public:
 
     void IllustrateVolumes(double left, double right)
     {
-        const unsigned maxy = std::min(NumCards*23, 3*23u);
+        const unsigned maxy = std::min(NumCards*23u, 3*23u);
         const unsigned white_threshold  = maxy/23;
         const unsigned red_threshold    = maxy*4/23;
         const unsigned yellow_threshold = maxy*8/23;
@@ -689,7 +701,7 @@ public:
 
     void CheckTetris()
     {
-        const unsigned MH = 17;
+        static const unsigned MH = 17;
         extern UI UI;
         static char area[12][MH]={{0}};
         static int emptycount;
@@ -708,8 +720,8 @@ public:
                 return shapes[rot][bl] & (1 << (y*4+x));
             }
             static inline bool bounds(int x,int y,bool fix=true)
-                { return x>=0 && y>=0 && (x<12 || !fix) && y<MH; }
-            static bool edge(int x,int y) { return x==0||x==11||y>=(MH-1); }
+                { return x>=0 && y>=0 && (x<12 || !fix) && y < (int)MH; }
+            static bool edge(int x,int y) { return x==0||x==11||y >= (int)(MH-1); }
             static void init_area()
                 { for(int x=12; x-->0; ) for(int y=MH; y-->0; ) area[x][y]=edge(x,y)?2:0; }
             static void plotp(int bl,int rot, int x,int y, int color, bool fix)
@@ -726,12 +738,12 @@ public:
             {
                 if(fix) area[x][y] = color;
                 static int counter=0; ++counter;
-                int c = color==2&&y<MH-1 ? (counter<700?':':'&')
-                       :color==2         ? (counter<500?'-':'&')
+                int c = color==2&&y<(int)(MH-1) ? (counter<700?':':'&')
+                       :color==2                ? (counter<500?'-':'&')
                        :color==-1? '+' // shadow
                        :color    ? '#'
                        : (x<12?empty[emptycount][x]:'.');
-                x+=2; y+=std::max(0,(int)NumCards*23-25);
+                x+=2; y+=std::max(0,(int)std::min(3u,NumCards)*23-25);
                 UI.background[x][y]=c;
                 UI.Draw(x, y, color>2?color:1, c);
             }
@@ -772,6 +784,7 @@ public:
         static long delaytime=0;
     #endif
         static int scorewipe=0, focuswipe=0, shadowy=0, next1=0, next2=0;
+        if(NumCards < 2) gamestate=1;
         switch(gamestate)
         {
             case -1: case 53: // reset game
@@ -796,8 +809,11 @@ public:
             case 1: // handle input
             {
                 int level = 50 - (lines/10)/5;
-                {int y=std::rand()%MH, x=tetris.edge(6,y)?std::rand()%12:(std::rand()%2)*11;
-                tetris.setp(x,y,area[x][y]);}
+                if(1)
+                {
+                    int y=std::rand()%MH, x=tetris.edge(6,y)?std::rand()%12:(std::rand()%2)*11;
+                    tetris.setp(x,y,area[x][y]);
+                }
                 for(;;)
                 {
                     int mr=currot,mx=curx,my=cury, move=0;
@@ -831,9 +847,9 @@ public:
                         { my=cury+1; move=1; delaycounter=0; }
                     if(scorewipe>0 && --scorewipe==0)
                     {
-                        UI.GotoXY(15,(int)NumCards*23);
+                        UI.GotoXY(15,(int)std::min(3u,NumCards)*23);
                         fprintf(stderr,"%*s",7,""); std::fflush(stderr);
-                        UI.GotoXY(15,(int)NumCards*23+1);
+                        UI.GotoXY(15,(int)std::min(3u,NumCards)*23+1);
                         fprintf(stderr,"%*s",5,""); std::fflush(stderr);
                     }
                     if(focuswipe>0 && --focuswipe==0)
@@ -845,7 +861,7 @@ public:
                     if(tetris.testp(curblock,mr,mx,my))
                     {
                         bool x_changed = curx != mx || currot != mr;
-                        if(x_changed && shadowy<MH-1)
+                        if(x_changed && shadowy < (int)(MH-1))
                         {
                             tetris.plotp(curblock,currot,curx,shadowy,0,0); // hide shadow from old location
                         }
@@ -875,22 +891,22 @@ public:
                 int increment = "\0\1\4\11\31"[emptycount]*100;
                 if(emptycount) increment += combo++ * 50; else combo=0;
                 increment += cury*2; score += increment; lines += emptycount;
-                UI.GotoXY(2,(int)NumCards*23);
+                UI.GotoXY(2,(int)std::min(3u,NumCards)*23);
                 UI.Color(15); fprintf(stderr,"Score:"); std::fflush(stderr);
                 UI.Color(14); fprintf(stderr,"%6u",score); std::fflush(stderr);
-                UI.GotoXY(2,(int)NumCards*23+1);
+                UI.GotoXY(2,(int)std::min(3u,NumCards)*23+1);
                 UI.Color(15); fprintf(stderr,"Lines:"); std::fflush(stderr);
                 UI.Color(14); fprintf(stderr,"%6u",lines); std::fflush(stderr);
-                UI.GotoXY(15,(int)NumCards*23);
+                UI.GotoXY(15,(int)std::min(3u,NumCards)*23);
                 UI.Color(10); fprintf(stderr,"%+d",increment); std::fflush(stderr);
-                UI.GotoXY(15, (int)NumCards*23-5);
+                UI.GotoXY(15, (int)std::min(3u,NumCards)*23-5);
                 UI.Color(15); fprintf(stderr,"Next:"); std::fflush(stderr);
                 next2=std::rand()%7;
                 tetris.plotp(next1,0, 13,MH-4, 0,0);
                 tetris.plotp(next2,0, 13,MH-4, 8,0);
                 if(emptycount)
                 {
-                    UI.GotoXY(15,(int)NumCards*23+1);
+                    UI.GotoXY(15,(int)std::min(3u,NumCards)*23+1);
                     fprintf(stderr,"%+d",emptycount); std::fflush(stderr);
                 }
                 scorewipe=14;
@@ -899,11 +915,11 @@ public:
             default: ++gamestate; break;
             case 12: if(emptycount) tetris.cascade_lines(); emptycount=gamestate=0; break;
             case 50:
-                if(cury < MH-1)
+                if(cury < (int)(MH-1))
                     { for(int x=1; x<=10; ++x) tetris.setp(x,cury,4); ++cury; break; }
                 cury=-4; gamestate=51; break;
             case 51:
-                if(cury < MH-1)
+                if(cury < (int)(MH-1))
                     { for(int x=1; x<=10; ++x) tetris.setp(x,cury,0); ++cury; break; }
                 emptycount=combo=score=lines=cury=0;
                 gamestate=52; // reset score display
@@ -1279,6 +1295,11 @@ private:
             loopEnd         = false;
             CurrentPosition = LoopBeginPosition;
             shortest        = 0;
+            if(QuitWithoutLooping)
+            {
+                QuitFlag = true;
+                //^ HACK: QUIT WITHOUT LOOPING
+            }
         }
     }
     void HandleEvent(size_t tk)
@@ -1598,6 +1619,7 @@ private:
             j != ch[c].users.end();
             ++j)
         {
+            s -= 4000;
             if(!j->second.sustained)
                 s -= j->second.kon_time_until_neglible;
             else
@@ -2018,12 +2040,12 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
-                4.0,  // wet_gain_dB  (-10..10)
-                .4,   // room_scale   (0..1)
-                .5,   // reverberance (0..1)
-                .8,   // hf_damping   (0..1)
-                .1, // pre_delay_s  (0.. 0.5)
-                .8,   // stereo_depth (0..1)
+                4.0,//4.0,  // wet_gain_dB  (-10..10)
+                .5,//.4,   // room_scale   (0..1)
+                .8,//.5,   // reverberance (0..1)
+                .8,//.8,   // hf_damping   (0..1)
+                .000, // pre_delay_s  (0.. 0.5)
+                1,   // stereo_depth (0..1)
                 MaxSamplesAtTime);
     }
 } reverb_data;
@@ -2271,14 +2293,16 @@ static void SendStereoAudio(unsigned long count, int* samples)
 #ifndef __WIN32__
     AudioBuffer_lock.Unlock();
 #else
-    WindowsAudio::Write( (const unsigned char*) &AudioBuffer[0], 2*AudioBuffer.size());
-    /* Cheat on DOSBox recording: Record audio separately on Windows. */
-    /*
-    static FILE* fp = fopen("adlmidi.raw", "wb");
-    fwrite(&AudioBuffer[0], 2, AudioBuffer.size(), fp);
-    std::fflush(fp);
-    */
+    if(!WritePCMfile)
+        WindowsAudio::Write( (const unsigned char*) &AudioBuffer[0], 2*AudioBuffer.size());
 #endif
+    if(WritePCMfile)
+    {
+        /* HACK: Cheat on DOSBox recording: Record audio separately on Windows. */
+        static FILE* fp = fopen("adlmidi.raw", "wb");
+        fwrite(&AudioBuffer[0], 2, AudioBuffer.size(), fp);
+        std::fflush(fp);
+    }
 }
 #endif /* not DJGPP */
 
@@ -2540,6 +2564,8 @@ int main(int argc, char** argv)
             " -p Enables adlib percussion instrument mode\n"
             " -t Enables tremolo amplification mode\n"
             " -v Enables vibrato amplification mode\n"
+            " -nl Quit without looping\n"
+            " -w Write PCM file rather than playing\n"
         );
         for(unsigned a=0; a<sizeof(banknames)/sizeof(*banknames); ++a)
             std::printf("%10s%2u = %s\n",
@@ -2563,25 +2589,21 @@ int main(int argc, char** argv)
     while(argc > 2)
     {
         if(!std::strcmp("-p", argv[2]))
-        {
             AdlPercussionMode = true;
-            for(int p=2; p<argc; ++p) argv[p] = argv[p+1];
-            --argc;
-        }
         else if(!std::strcmp("-v", argv[2]))
-        {
             HighVibratoMode = true;
-            for(int p=2; p<argc; ++p) argv[p] = argv[p+1];
-            --argc;
-        }
         else if(!std::strcmp("-t", argv[2]))
-        {
             HighTremoloMode = true;
-            for(int p=2; p<argc; ++p) argv[p] = argv[p+1];
-            --argc;
-        }
+        else if(!std::strcmp("-nl", argv[2]))
+            QuitWithoutLooping = true;
+        else if(!std::strcmp("-w", argv[2]))
+            WritePCMfile = true;
         else break;
+
+        for(int p=2; p<argc; ++p) argv[p] = argv[p+1];
+        --argc;
     }
+
     if(argc >= 3)
     {
         const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);

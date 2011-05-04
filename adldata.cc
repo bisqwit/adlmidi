@@ -16891,7 +16891,7 @@ const unsigned short banks[52][256] =
 763,   //GM115 DUAL
 1242,  //GM116
 115,   //GM117 taiko, not very convincing
-766,   //GM118 DUAL
+1364,  //GM118
 767,   //GM119 DUAL
 632,   //GM120
 1247,  //GM121 fretnoise good

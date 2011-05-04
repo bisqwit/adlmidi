@@ -128,4 +128,4 @@ dumpbank.o: dumpbank.cc
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
 
 
-include depfun.mak
+#include depfun.mak
