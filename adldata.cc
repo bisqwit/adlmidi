@@ -16833,7 +16833,7 @@ const unsigned short banks[52][256] =
 55,    //GM57 trumpet
 56,    //GM58
 707,   //GM59 DUAL tuba
-346,   //GM60  or 1650
+1650,  //GM60  or 1650
 1187,  //GM61 frhorn
 710,   //GM62 DUAL
 711,   //GM63 DUAL
