@@ -58,6 +58,13 @@ static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
 
+static unsigned WinHeight()
+{
+    if(AdlPercussionMode)
+        return std::min(2u, NumCards) * 23;
+    return std::min(3u, NumCards) * 18;
+}
+
 #include "adldata.hh"
 
 static const unsigned short Operators[23*2] =
@@ -556,7 +563,7 @@ public:
     {
         HideCursor();
         int notex = 2 + (note+55)%77;
-        int notey = 1 + adlchn % (3*23);
+        int notey = 1 + adlchn % WinHeight();
         char illustrate_char = background[notex][notey];
         if(pressure > 0)
         {
@@ -601,7 +608,7 @@ public:
 
     void IllustrateVolumes(double left, double right)
     {
-        const unsigned maxy = std::min(NumCards*23u, 3*23u);
+        const unsigned maxy = WinHeight();
         const unsigned white_threshold  = maxy/23;
         const unsigned red_threshold    = maxy*4/23;
         const unsigned yellow_threshold = maxy*8/23;
@@ -743,7 +750,7 @@ public:
                        :color==-1? '+' // shadow
                        :color    ? '#'
                        : (x<12?empty[emptycount][x]:'.');
-                x+=2; y+=std::max(0,(int)std::min(3u,NumCards)*23-25);
+                x+=2; y+=std::max(0,(int)WinHeight()-25);
                 UI.background[x][y]=c;
                 UI.Draw(x, y, color>2?color:1, c);
             }
@@ -847,9 +854,9 @@ public:
                         { my=cury+1; move=1; delaycounter=0; }
                     if(scorewipe>0 && --scorewipe==0)
                     {
-                        UI.GotoXY(15,(int)std::min(3u,NumCards)*23);
+                        UI.GotoXY(15,(int)WinHeight());
                         fprintf(stderr,"%*s",7,""); std::fflush(stderr);
-                        UI.GotoXY(15,(int)std::min(3u,NumCards)*23+1);
+                        UI.GotoXY(15,(int)WinHeight()+1);
                         fprintf(stderr,"%*s",5,""); std::fflush(stderr);
                     }
                     if(focuswipe>0 && --focuswipe==0)
@@ -891,23 +898,24 @@ public:
                 int increment = "\0\1\4\11\31"[emptycount]*100;
                 if(emptycount) increment += combo++ * 50; else combo=0;
                 increment += cury*2; score += increment; lines += emptycount;
-                UI.GotoXY(2,(int)std::min(3u,NumCards)*23);
-                UI.Color(15); fprintf(stderr,"Score:"); std::fflush(stderr);
-                UI.Color(14); fprintf(stderr,"%6u",score); std::fflush(stderr);
-                UI.GotoXY(2,(int)std::min(3u,NumCards)*23+1);
-                UI.Color(15); fprintf(stderr,"Lines:"); std::fflush(stderr);
-                UI.Color(14); fprintf(stderr,"%6u",lines); std::fflush(stderr);
-                UI.GotoXY(15,(int)std::min(3u,NumCards)*23);
-                UI.Color(10); fprintf(stderr,"%+d",increment); std::fflush(stderr);
-                UI.GotoXY(15, (int)std::min(3u,NumCards)*23-5);
-                UI.Color(15); fprintf(stderr,"Next:"); std::fflush(stderr);
+                int yb = std::max(0,(int)WinHeight()-25) + MH;
+                UI.GotoXY(2,yb);
+                UI.Color(15); prn("Score:"); std::fflush(stderr);
+                UI.Color(14); prn("%6u",score); std::fflush(stderr);
+                UI.GotoXY(2,yb+1);
+                UI.Color(15); prn("Lines:"); std::fflush(stderr);
+                UI.Color(14); prn("%6u",lines); std::fflush(stderr);
+                UI.GotoXY(15,yb);
+                UI.Color(10); prn("%+d",increment); std::fflush(stderr);
+                UI.GotoXY(15, yb-5);
+                UI.Color(15); prn("Next:"); std::fflush(stderr);
                 next2=std::rand()%7;
                 tetris.plotp(next1,0, 13,MH-4, 0,0);
                 tetris.plotp(next2,0, 13,MH-4, 8,0);
                 if(emptycount)
                 {
-                    UI.GotoXY(15,(int)std::min(3u,NumCards)*23+1);
-                    fprintf(stderr,"%+d",emptycount); std::fflush(stderr);
+                    UI.GotoXY(15,MH);
+                    prn("%+d",emptycount); std::fflush(stderr);
                 }
                 scorewipe=14;
                 // fallthru (set next state 4, state 53)
