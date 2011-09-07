@@ -147,13 +147,6 @@ enum { snes_ntsc_burst_size = snes_ntsc_entry_size / snes_ntsc_burst_count };
 	(snes_ntsc_rgb_t const*) (ktable + ((n << 9 & 0x3C00) | (n & 0x03E0) | (n >> 10 & 0x001E)) * \
 			(snes_ntsc_entry_size / 2 * sizeof (snes_ntsc_rgb_t)))
 
-#define SNES_NTSC_BGR24( ktable, n ) \
-	(snes_ntsc_rgb_t const*) (ktable + ((n >> 3 & 0x001E) | (n >> 6 & 0x03E0) | (n >> 10 & 0x3C00)) * \
-			(snes_ntsc_entry_size / 2 * sizeof (snes_ntsc_rgb_t)))
-#define SNES_NTSC_RGB24( ktable, n ) \
-	(snes_ntsc_rgb_t const*) (ktable + ((n >> 19 & 0x001E) | (n >> 6 & 0x03E0) | (n << 6 & 0x3C00)) * \
-			(snes_ntsc_entry_size / 2 * sizeof (snes_ntsc_rgb_t)))
-
 /* common 3->7 ntsc macros */
 #define SNES_NTSC_BEGIN_ROW_6_( pixel0, pixel1, pixel2, ENTRY, table ) \
 	unsigned const snes_ntsc_pixel0_ = (pixel0);\
