@@ -2334,19 +2334,20 @@ static void SendStereoAudio(unsigned long count, int* samples)
                 out<-32768.f ? -32768 :
                 out>32767.f ?  32767 : out;
         }
+    if(WritePCMfile)
+    {
+        /* HACK: Cheat on DOSBox recording: Record audio separately on Windows. */
+        static FILE* fp = fopen("adlmidi.raw", "wb");
+        for(unsigned long p = 0; p < 2*count; ++p)
+            fwrite(&AudioBuffer[pos+p], 1, 2, fp);
+        std::fflush(fp);
+    }
 #ifndef __WIN32__
     AudioBuffer_lock.Unlock();
 #else
     if(!WritePCMfile)
         WindowsAudio::Write( (const unsigned char*) &AudioBuffer[0], 2*AudioBuffer.size());
 #endif
-    if(WritePCMfile)
-    {
-        /* HACK: Cheat on DOSBox recording: Record audio separately on Windows. */
-        static FILE* fp = fopen("adlmidi.raw", "wb");
-        fwrite(&AudioBuffer[0], 2, AudioBuffer.size(), fp);
-        std::fflush(fp);
-    }
 }
 #endif /* not DJGPP */
 
@@ -2802,7 +2803,14 @@ int main(int argc, char** argv)
         #ifndef __WIN32__
             while(AudioBuffer.size() > obtained.samples + (obtained.freq*2) * OurHeadRoomLength)
             {
-                SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
+                if(!WritePCMfile)
+                    SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
+                else
+                {
+                    AudioBuffer_lock.Lock();
+                    AudioBuffer.clear();
+                    AudioBuffer_lock.Unlock();
+                }
             }
         #else
             //Sleep(1e3 * eat_delay);

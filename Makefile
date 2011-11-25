@@ -1,4 +1,4 @@
-VERSION=1.1.1
+VERSION=1.1.2
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -129,4 +129,4 @@ dumpbank.o: dumpbank.cc
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
 
 
-#include depfun.mak
+include depfun.mak
