@@ -1091,15 +1091,26 @@ public:
         std::fread(HeaderBuf, 1, 4+4+2+2+2, fp);
         if(std::memcmp(HeaderBuf, "RIFF", 4) == 0)
             { std::fseek(fp, 6, SEEK_CUR); goto riffskip; }
-        if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
-        { InvFmt:
-            std::fclose(fp);
-            std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
-            return false;
+        size_t DeltaTicks=192, TrackCount=1;
+        bool is_GMF = false;
+        if(std::memcmp(HeaderBuf, "GMF\1", 4) == 0)
+        {
+            // GMD/MUS files (ScummVM)
+            std::fseek(fp, 7-(4+4+2+2+2), SEEK_CUR);
+            is_GMF = true;
         }
-        size_t Fmt        = ReadBEInt(HeaderBuf+8,  2);
-        size_t TrackCount = ReadBEInt(HeaderBuf+10, 2);
-        size_t DeltaTicks = ReadBEInt(HeaderBuf+12, 2);
+        else
+        {
+            if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
+            { InvFmt:
+                std::fclose(fp);
+                std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
+                return false;
+            }
+            size_t Fmt = ReadBEInt(HeaderBuf+8,  2);
+            TrackCount = ReadBEInt(HeaderBuf+10, 2);
+            DeltaTicks = ReadBEInt(HeaderBuf+12, 2);
+        }
         TrackData.resize(TrackCount);
         CurrentPosition.track.resize(TrackCount);
         InvDeltaTicks = 1e-6 / DeltaTicks;
@@ -1107,12 +1118,28 @@ public:
         for(size_t tk = 0; tk < TrackCount; ++tk)
         {
             // Read track header
-            std::fread(HeaderBuf, 1, 8, fp);
-            if(std::memcmp(HeaderBuf, "MTrk", 4) != 0) goto InvFmt;
-            size_t TrackLength = ReadBEInt(HeaderBuf+4, 4);
+            size_t TrackLength;
+            if(is_GMF)
+            {
+                long pos = std::ftell(fp);
+                std::fseek(fp, 0, SEEK_END);
+                TrackLength = ftell(fp) - pos;
+                std::fseek(fp, pos, SEEK_SET);
+            }
+            else
+            {
+                std::fread(HeaderBuf, 1, 8, fp);
+                if(std::memcmp(HeaderBuf, "MTrk", 4) != 0) goto InvFmt;
+                TrackLength = ReadBEInt(HeaderBuf+4, 4);
+            }
             // Read track data
             TrackData[tk].resize(TrackLength);
             std::fread(&TrackData[tk][0], 1, TrackLength, fp);
+            if(is_GMF)
+            {
+                static const unsigned char EndTag[4] = {0xFF,0x2F,0x00,0x00};
+                TrackData[tk].insert(TrackData[tk].end(), EndTag+0, EndTag+4);
+            }
             // Read next event time
             CurrentPosition.track[tk].delay = ReadVarLen(tk);
         }
@@ -1354,6 +1381,7 @@ private:
             {
                 int note = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
+                //if(MidCh != 9) note -= 12; // HACK
                 NoteOff(MidCh, note);
                 // On Note on, Keyoff the note first, just in case keyoff
                 // was omitted; this fixes Dance of sugar-plum fairy
@@ -1364,6 +1392,14 @@ private:
 
                 unsigned midiins = Ch[MidCh].patch;
                 if(MidCh == 9) midiins = 128 + note; // Percussion instrument
+
+                /*
+                if(MidCh == 9 || (midiins != 32 && midiins != 46 && midiins != 48 && midiins != 50))
+                    break; // HACK
+                if(midiins == 46) vol = (vol*7)/10;          // HACK
+                if(midiins == 48 || midiins == 50) vol /= 4; // HACK
+                */
+                //if(midiins == 56) vol = vol*6/10; // HACK
 
                 static std::set<unsigned> bank_warnings;
                 if(Ch[MidCh].bank_msb)
@@ -2048,10 +2084,10 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
-                4.0,//4.0,  // wet_gain_dB  (-10..10)
-                .5,//.4,   // room_scale   (0..1)
-                .8,//.5,   // reverberance (0..1)
-                .8,//.8,   // hf_damping   (0..1)
+                4.0,  // wet_gain_dB  (-10..10)
+                .4,   // room_scale   (0..1)
+                .5,   // reverberance (0..1)
+                .8,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
                 1,   // stereo_depth (0..1)
                 MaxSamplesAtTime);

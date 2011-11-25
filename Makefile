@@ -75,6 +75,7 @@ ARCHFILES=\
 
 INSTALLPROGS=adlmidi
 
+#CXX=i686-pc-mingw32-g++ -static
 CXX=g++
 CXXLINK=$(CXX)
 
