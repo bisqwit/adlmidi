@@ -1,7 +1,7 @@
 # This is Bisqwit's generic depfun.mak, included from Makefile.
 # The same file is used in many different projects.
 #
-# depfun.mak version 1.6.1
+# depfun.mak version 1.6.2
 #
 # Required vars:
 #
@@ -59,7 +59,7 @@ git_release: ${ARCHFILES} ;
 	# Create the release commit
 	git commit --allow-empty -a -m 'Release version ${VERSION} (dev)' # commit in dev brach
 	git rev-parse HEAD > .git/PUSHED_HEAD
-	git checkout release || git checkout -b release
+	git checkout -f release || git checkout -b release
 	 #
 	 # Set the cache & index to exact copy of the original branch
 	 #
@@ -153,7 +153,7 @@ UNUSED_archpak: ${ARCHFILES} ;
 
 arch_finish_pak:	
 	- if [ "${NOBZIP2ARCHIVES}" = "" ]; then bzip2 -9 >${ARCHDIR}${ARCHNAME}.tar.bz2 < ${ARCHDIR}${ARCHNAME}.tar; fi
-	if [ "${NOGZIPARCHIVES}" = "" ]; then gzip -f9 ${ARCHDIR}${ARCHNAME}.tar; fi
+	if [ "${NOGZIPARCHIVES}" = "" ]; then gzip -f9 ${ARCHDIR}${ARCHNAME}.tar; wine /usr/local/bin/DeflOpt.exe ${ARCHDIR}${ARCHNAME}.tar.gz ; fi
 	rm -f ${ARCHDIR}${ARCHNAME}.tar
 
 # Makes the packages of various types...
