@@ -338,7 +338,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
     fread(&data[0], 1, data.size(), fp),
     fclose(fp);
 
-    printf("%s:\n", fn);
+    /*printf("%s:\n", fn);*/
     unsigned short version = *(short*)&data[0]; // major,minor (2 bytes)
     //                                             "ADLIB-"    (6 bytes)
     unsigned short entries_used = *(short*)&data[8];   // entries used
@@ -971,6 +971,14 @@ static DurationInfo MeasureDurations(const ins& in)
 
 int main()
 {
+    printf("\
+#include \"adldata.hh\"\n\
+\n\
+/* THIS ADLIB FM INSTRUMENT DATA IS AUTOMATICALLY GENERATED\n\
+ * FROM A NUMBER OF SOURCES, MOSTLY PC GAMES.\n\
+ * PREPROCESSED, CONVERTED, AND POSTPROCESSED OFF-SCREEN.\n\
+ */\n\
+");
     LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank!
     LoadBNK("bnk_files/melodic.bnk", 1, "HMIGM", false);
     LoadBNK("bnk_files/drum.bnk",    1, "HMIGP", false);
@@ -1090,6 +1098,7 @@ int main()
      "SB (Action Soccer)",
      "SB (3d Cyberpuck :: melodic only)",
      "SB (Simon the Sorcerer :: melodic only)",
+     "Bisqwit 51 (selection of 4op and 2op)"
     };
 
 #if 0
@@ -1222,7 +1231,8 @@ int main()
             printf(" }, // %u: %s\n\n", (unsigned)c, names.c_str());
             fflush(stdout);
         }
-    printf("};\n");
+    printf("};\n\n");
+
     //printf("static const unsigned short banks[][256] =\n");
     const unsigned bankcount = sizeof(banknames)/sizeof(*banknames);
     std::map<unsigned, std::vector<unsigned> > bank_data;
@@ -1242,6 +1252,7 @@ int main()
         bank_data[bank] = data;
     }
     std::set<unsigned> listed;
+
     printf("const char* const banknames[%u] =\n", bankcount);
     printf("{\n");
     for(unsigned bank=0; bank<bankcount; ++bank)
@@ -1252,6 +1263,252 @@ int main()
     printf("{\n");
     for(unsigned bank=0; bank<bankcount; ++bank)
     {
+        if(bank == 51)
+        {
+            // bisqwit's
+    printf("\n\
+    { // bank %d, Joel Yliluoma's selection\n\
+0,    //GM1\n\
+171,  //GM2\n\
+2,    //GM3\n\
+173,  //GM4\n\
+653,  //GM5 rhodes DUAL\n\
+654,  //GM6\n\
+655,  //GM7 harps DUAL\n\
+2616, //GM8 todo verify\n\
+657,  //GM9 DUAL\n\
+9,    //GM10\n\
+180,  //GM11\n\
+11,   //GM12 not sure\n\
+182,  //GM13\n\
+662,  //GM14\n\
+663,  //GM15 DUAL  2114 is also strong\n\
+185,  //GM16\n\
+2115,  //GM17 DUAL\n\
+2116,  //GM18 DUAL\n\
+2729,  //GM19 DUAL\n\
+1146,  //GM20\n\
+20,    //GM21 no idea\n\
+670,   //GM22 DUAL accordion\n\
+671,   //GM23 DUAL\n\
+672,   //GM24 DUAL no idea\n\
+673,   //GM25 DUAL (ac guitar 1)\n\
+674,   //GM26 DUAL\n\
+675,   //GM27 DUAL\n\
+676,   //GM28 DUAL\n\
+677,   //GM29 DUAL (no idea)\n\
+2224,  //GM30 DUAL (overdrive guitar)\n\
+1497,  //GM31      (2122, 679 also strong, 2129 too)\n\
+680,   //GM32 DUAL\n\
+681,   //GM33 DUAL\n\
+682,   //GM34 DUAL\n\
+683,   //GM35 DUAL\n\
+35,    //GM36\n\
+2297,  //GM37 DUAL slapbass interesting\n\
+34,    //GM38 no idea\n\
+2130,  //GM39 synth bass\n\
+688,   //GM40 DUAL synth bass 2\n\
+1082,  //GM41\n\
+1401,  //GM42 no idea\n\
+691,   //GM43 DUAL cello\n\
+692,   //GM44 DUAL slightly more contrabass-like than 42\n\
+693,   //GM45 DUAL prominent sound\n\
+694,   //GM46 DUAL. 2526 is strong but little too quiet on low sounds\n\
+695,   //GM47 DUAL harp\n\
+696,   //GM48 DUAL timpani\n\
+697,   //GM49 DUAL strings1\n\
+698,   //GM50 DUAL slowattack strings\n\
+839,   //GM51\n\
+50,    //GM52 no idea\n\
+2533,  //GM53 aahs\n\
+1096,  //GM54 oohs\n\
+53,    //GM55\n\
+704,   //GM56\n\
+55,    //GM57 trumpet\n\
+56,    //GM58\n\
+707,   //GM59 DUAL tuba\n\
+1650,  //GM60  or 1650\n\
+1187,  //GM61 frhorn\n\
+710,   //GM62 DUAL\n\
+711,   //GM63 DUAL\n\
+712,   //GM64 DUAL\n\
+713,   //GM65 DUAL sopsax\n\
+714,   //GM66 DUAL altosax\n\
+715,   //GM67 DUAL tenosax\n\
+716,   //GM68 DUAL bassax\n\
+2152,  //GM69 DUAL\n\
+718,   //GM70 DUAL noidea\n\
+719,   //GM71 DUAL noidea\n\
+720,   //GM72 DUAL clarinet\n\
+71,    //GM73\n\
+72,    //GM74\n\
+723,   //GM75 recorder\n\
+2076,  //GM76 panflute\n\
+725,   //GM77 DUAL\n\
+726,   //GM78 DUAL\n\
+727,   //GM79 DUAL\n\
+1206,  //GM80\n\
+729,   //GM81 DUAL squarewave very good!\n\
+730,   //GM82 DUAL sawtooth\n\
+351,   //GM83\n\
+82,    //GM84\n\
+733,   //GM85 DUAL\n\
+734,   //GM86 DUAL\n\
+735,   //GM87 DUAL\n\
+86,    //GM88\n\
+737,   //GM89 DUAL pad new age\n\
+738,   //GM90 DUAL nice adsr\n\
+739,   //GM91 DUAL\n\
+740,   //GM92 DUAL no idea\n\
+91,    //GM93\n\
+92,    //GM94\n\
+868,   //GM95\n\
+869,   //GM96\n\
+1802,  //GM97 raindrop interesting\n\
+746,   //GM98 no idea\n\
+1707,  //GM99 crystal maybe like this.\n\
+98,    //GM100\n\
+99,    //GM101 no idea\n\
+3000,  //GM102 goblins. huh??\n\
+874,   //GM103\n\
+875,   //GM104\n\
+753,   //GM105 DUAL sitar: might work\n\
+754,   //GM106 DUAL\n\
+755,   //GM107 DUAL shamisen\n\
+756,   //GM108 DUAL koto\n\
+757,   //GM109 DUAL\n\
+758,   //GM110 DUAL\n\
+759,   //GM111 DUAL\n\
+760,   //GM112 DUAL no idea\n\
+111,   //GM113\n\
+762,   //GM114 DUAL\n\
+763,   //GM115 DUAL\n\
+1242,  //GM116\n\
+115,   //GM117 taiko, not very convincing\n\
+1364,  //GM118\n\
+767,   //GM119 DUAL\n\
+632,   //GM120\n\
+1247,  //GM121 fretnoise good\n\
+120,   //GM122\n\
+1807,  //GM123 seashore\n\
+955,   //GM124 birdtweet\n\
+1808,  //GM125 telephone\n\
+1693,  //GM126 helicopter\n\
+775,   //GM127\n\
+776,   //GM128 gunshot\n\
+377,   //GP0, bd. 2903=snare\n\
+367,   //GP1\n\
+2905,  //GP2\n\
+1759,  //GP3\n\
+377,   //GP4\n\
+2908,  //GP5\n\
+2909,  //GP6\n\
+2087,  //GP7\n\
+1760,  //GP8\n\
+375,   //GP9\n\
+376,   //GP10\n\
+377,   //GP11\n\
+377,   //GP12\n\
+411,   //GP13\n\
+1767,  //GP14\n\
+1386,  //GP15\n\
+2087,  //GP16\n\
+412,   //GP17\n\
+413,   //GP18\n\
+412,   //GP19\n\
+413,   //GP20\n\
+414,   //GP21\n\
+415,   //GP22\n\
+416,   //GP23\n\
+417,   //GP24\n\
+418,   //GP25\n\
+419,   //GP26\n\
+281,   //GP27\n\
+2473,  //GP28 slap\n\
+2474,  //GP29\n\
+2475,  //GP30\n\
+200,   //GP31 sticks\n\
+2013,  //GP32 square click\n\
+2419,  //GP33 metronome click\n\
+2477,  //GP34 metronome bell\n\
+557,   //GP35\n\
+127,   //GP36\n\
+777,   //GP37 DUAL sidestick\n\
+1815,  //GP38\n\
+2776,  //GP39 DUAL handclap not good\n\
+129,   //GP40\n\
+1031,  //GP41 low-floor tom\n\
+564,   //GP42 closed hihat\n\
+1031,  //GP43 high-floor tom\n\
+566,   //GP44 pedal hihat\n\
+1031,  //GP45 low tom\n\
+568,   //GP46 open hihat\n\
+1031,  //GP47 low-mid tom\n\
+1031,  //GP48 high-mid tom\n\
+135,   //GP49 crash cymbal 1\n\
+1031,  //GP50 high tom\n\
+2202,  //GP51 ride cymbal 1\n\
+787,   //GP52 DUAL chinese cymbal\n\
+2435,  //GP53 ride bell\n\
+1543,  //GP54 tamb\n\
+877,   //GP55 crash cymbal\n\
+1269,  //GP56 cowbell\n\
+2777,  //GP57 crash cymbal 2\n\
+216,   //GP58 vibraslap\n\
+2209,  //GP59 ride cymbal 2\n\
+580,   //GP60 hi bongo\n\
+581,   //GP61 lo bongo\n\
+582,   //GP62 no idea\n\
+583,   //GP63\n\
+584,   //GP64\n\
+1275,  //GP65\n\
+1275,  //GP66\n\
+587,   //GP67\n\
+588,   //GP68\n\
+566,   //GP69\n\
+2449,  //GP70\n\
+229,   //GP71\n\
+230,   //GP72\n\
+2773,  //GP73 short guiro\n\
+2774,  //GP74 long guiro\n\
+329,   //GP75\n\
+1284,  //GP76\n\
+1284,  //GP77\n\
+2718,  //GP78\n\
+2719,  //GP79\n\
+595,   //GP80\n\
+596,   //GP81 open triangle\n\
+2798,  //GP82 shaker\n\
+816,   //GP83 DUAL jingle bell\n\
+241,   //GP84 bell tree?\n\
+1291,  //GP85 castanets\n\
+169,   //GP86 mute surdu\n\
+131,   //GP87 open surdu\n\
+342,   //GP88\n\
+343,   //GP89\n\
+344,   //GP90\n\
+345,   //GP91\n\
+346,   //GP92\n\
+420,   //GP93\n\
+421,   //GP94\n\
+383,   //GP95\n\
+422,   //GP96\n\
+423,   //GP97\n\
+374,   //GP98\n\
+424,   //GP99\n\
+376,   //GP100\n\
+425,   //GP101\n\
+426,   //GP102\n\
+427,   //GP103\n\
+428,   //GP104\n\
+429,   //GP105\n\
+198,198,198,198,198, 198,198,198,198,198, //GP106..GP115\n\
+198,198,198,198,198, 198,198,198,198,198, //GP116..GP125\n\
+198,198 //GP126,GP127\n\
+    },\n\
+", bank);
+            continue;
+        }
         printf("    { // bank %u, %s\n", bank, banknames[bank]);
         bool redundant = true;
         for(unsigned p=0; p<256; ++p)
@@ -1285,5 +1542,6 @@ int main()
             }
         }
     }
+
     printf("};\n");
 }

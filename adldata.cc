@@ -9218,7 +9218,7 @@ const struct adlinsdata adlins[3141] =
 
     // Amplitude begins at 1084.9, peaks 1360.7 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    { 1593,1593, 12,  40000,     0 }, // 1497: b41M62; f21GM62; f27GM30; f41GM62; Distorton Guitar; Synth Brass 1; elecgtr.
+    { 1593,1593,  0,  40000,     0 }, // 1497: b41M62; f21GM62; f27GM30; f41GM62; Distorton Guitar; Synth Brass 1; elecgtr.
 
     // Amplitude begins at   75.0, peaks 1773.3 at 31.6s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.5s.
@@ -12278,7 +12278,7 @@ const struct adlinsdata adlins[3141] =
 
     // Amplitude begins at 1453.2, peaks 1465.8 at 0.0s,
     // fades to 20% at 1.6s, keyoff fades to 20% in 1.6s.
-    { 2416,2417, 12,   1586,  1586 }, // 2262: f53GM1; BrightAcouGrand
+    { 2416,2417,  0,   1586,  1586 }, // 2262: f53GM1; BrightAcouGrand
 
     // Amplitude begins at 3156.7, peaks 3727.4 at 0.0s,
     // fades to 20% at 8.6s, keyoff fades to 20% in 0.0s.
@@ -15847,9 +15847,8 @@ const char* const banknames[52] =
     "SB (Action Soccer)",
     "SB (3d Cyberpuck :: melodic only)",
     "SB (Simon the Sorcerer :: melodic only)",
-    "Bisqwit 51 (selection of 4op and 2op)"
+    "Bisqwit 51 (selection of 4op and 2op)",
 };
-
 const unsigned short banks[52][256] =
 {
     { // bank 0, AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)
@@ -16005,7 +16004,6 @@ const unsigned short banks[52][256] =
 729,730,731,732,733,734,735,736,737,738,739,740,741,742,743,744,
 745,746,747,748,749,750,751,752,753,754,755,756,757,758,759,760,
 761,762,763,764,765,766,767,768,769,770,771,772,773,774,775,776,
-
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,127,127,777,778,779,780,781,782,781,783,781,784,781,
@@ -16511,7 +16509,6 @@ const unsigned short banks[52][256] =
 2160,2161,2162,732,733,2163,2164,2165,737,2166,2167,740,2168,2169,2170,744,
 2171,2172,747,2173,749,2174,2175,752,753,754,2176,2177,757,758,759,760,
 761,762,763,2178,2179,2180,767,2181,2182,2183,2184,2185,2186,2187,2188,2189,
-
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,2190,2191,2192,2193,2194,2195,2196,2197,2196,2198,2199,2200,2199,
@@ -16773,6 +16770,7 @@ const unsigned short banks[52][256] =
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
 198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,198,
     },
+
     { // bank 51, Joel Yliluoma's selection
 0,    //GM1
 171,  //GM2
