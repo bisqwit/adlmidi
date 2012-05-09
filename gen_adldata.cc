@@ -338,21 +338,23 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
     fread(&data[0], 1, data.size(), fp),
     fclose(fp);
 
-    //printf("%s:\n", fn);
-    unsigned short version = *(short*)&data[0];
-    unsigned short sig1 = *(short*)&data[8];
-    unsigned short sig2 = *(short*)&data[10];
-    unsigned       sig3 = *(unsigned*)&data[12];
-    unsigned       sig4 = *(unsigned*)&data[16];
-    //printf("%u %u %u %u\n", sig1,sig2,sig3,sig4);
+    printf("%s:\n", fn);
+    unsigned short version = *(short*)&data[0]; // major,minor (2 bytes)
+    //                                             "ADLIB-"    (6 bytes)
+    unsigned short entries_used = *(short*)&data[8];   // entries used
+    unsigned short total_entries = *(short*)&data[10]; // total entries
+    unsigned       name_offset = *(unsigned*)&data[12];// name_offset
+    unsigned       data_offset = *(unsigned*)&data[16];// data_offset
+    // 16..23: 8 byte sof filler
+    /*printf("version=%u %u %u %u %u\n",
+        version, entries_used,total_entries,name_offset,data_offset);*/
 
-    for(unsigned n=0; n<sig1; ++n)
+    for(unsigned n=0; n<entries_used; ++n)
     {
-        const size_t offset1 = sig3 + n*12;
+        const size_t offset1 = name_offset + n*12;
 
-        unsigned char a = data[offset1+0];
-        unsigned char b = data[offset1+1];
-        unsigned char c = data[offset1+2];
+        unsigned short data_index = data[offset1+0] + data[offset1+1]*256;
+        unsigned char usage_flag = data[offset1+2];
         std::string name;
         for(unsigned p=0; p<9; ++p)
         {
@@ -360,15 +362,20 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             name += char(data[offset1+3+p]);
         }
 
-        //printf("%3d %3d %3d %8s: ", a,b,c, name.c_str());
-
-        const size_t offset2 = sig4 + (a + b*256) * 30;
-        const unsigned char* op1 = &data[offset2+2];
+        const size_t offset2 = data_offset + data_index * 30;
+        const unsigned char mode      = data[offset2+0];
+        const unsigned char voice_num = data[offset2+1];
+        const unsigned char* op1 = &data[offset2+2];  // 13 bytes 
         const unsigned char* op2 = &data[offset2+15];
+        const unsigned char waveform_mod = data[offset2+28];
+        const unsigned char waveform_car = data[offset2+29];
+
+        /*printf("%5d %3d %8s mode=%02X voice=%02X: ", data_index,usage_flag, name.c_str(),
+            mode,voice_num);*/
 
         bool percussive = is_fat
-            ?   name[1] == 'P' /* data[offset2] == 1 */
-            :   (c >= 16);
+            ?   name[1] == 'P' /* mode == 1 */
+            :   (usage_flag >= 16);
 
         int gmno = is_fat
             ?   ((n & 127) + percussive*128)
@@ -404,15 +411,15 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         tmp.data[3] = op2[3]*0x10 + op2[6];
         tmp.data[4] = op1[4]*0x10 + op1[7]; // SUSTAIN, RELEASE
         tmp.data[5] = op2[4]*0x10 + op2[7];
-        tmp.data[6] = data[offset2+28];
-        tmp.data[7] = data[offset2+29];
+        tmp.data[6] = waveform_mod;
+        tmp.data[7] = waveform_car;
         tmp.data[8] = op1[0]*0x40 + op1[8]; // KSL , LEVEL
         tmp.data[9] = op2[0]*0x40 + op2[8]; // KSL , LEVEL
         tmp.data[10] = op1[2]*2 + op1[12]; // FEEDBACK, ADDITIVEFLAG
         tmp.finetune = 0;
         // Note: op2[2] and op2[12] are unused and contain garbage.
         ins tmp2;
-        tmp2.notenum = is_fat ? data[offset2+1] : (percussive ? c : 0);
+        tmp2.notenum = is_fat ? voice_num : (percussive ? usage_flag : 0);
 
         if(is_fat) tmp.data[10] ^= 1;
 
@@ -428,43 +435,17 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             if(name[2] == 'S' || name[1] == 'M') SetBank(bank+1, gmno, resno);
         }
 
-        /*for(unsigned p=0; p<30; ++p)
+        /*
+        for(unsigned p=0; p<30; ++p)
         {
             unsigned char value = data[offset2+p];
             if(value > maxvalues[p]) maxvalues[p] = value;
 
-            if(0 && midi_index < 182)
-            {
-                for(unsigned valuebit=0; valuebit<8; ++valuebit)
-                {
-                    unsigned v = (value >> valuebit) & 1;
-                    for(unsigned adlbyte=0; adlbyte<11; ++adlbyte)
-                    {
-                        const unsigned adlbits =
-                            (adlbyte==6 || adlbyte==7) ? 2
-                          : (adlbyte==10) ? 4
-                          : 8;
-                        for(unsigned adlbit=0; adlbit<adlbits; ++adlbit)
-                        {
-                            if((adlbyte == 9 || adlbyte == 8) && (adlbit==5||adlbit==4))
-                                continue;
-                            unsigned a = (adl[midi_index][adlbyte] >> adlbit) & 1;
-                            if(v == a)
-                            {
-                                Correlate[p*8+valuebit]
-                                    [adlbyte*8+adlbit] += 1;
-                            }
-                        }
-                    }
-                }
-            }
-
             #define dot(maxval) if(value<=maxval) printf("."); else printf("?[%u]%X",p,value);
 
           {
-            
             //if(p==6 || p==7 || p==19||p==20) value=15-value;
-            
+
             if(p==4 || p==10 || p==17 || p==23)// || p==25)
                 printf(" %2X", value);
             else
@@ -474,7 +455,8 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             //if(p == 12) printf("\n%*s", 22, "");
             //if(p == 25) printf("\n%*s", 22, "");
         }
-        printf("\n");*/
+        printf("\n");
+        */
     }
 }
 
@@ -1052,6 +1034,9 @@ int main()
     LoadIBK("ibk_files/soccer-percs.ibk",   48, "b48", true);
     LoadIBK("ibk_files/game.ibk",           49, "b49", false);
     LoadIBK("ibk_files/mt_fm.ibk",          50, "b50", false);
+
+    //LoadBNK("bnk_files/grassman1.bnk", 53, "b53", false);
+    //LoadBNK("bnk_files/grassman2.bnk", 52, "b52", false);
 
     static const char* const banknames[] =
     {"AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
