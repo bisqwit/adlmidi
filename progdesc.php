@@ -49,6 +49,7 @@ using software OPL3 emulation (FM synthesis).
  <li>MIDI and RMI file support</li>
  <li>loopStart / loopEnd tag support (Final Fantasy VII)</li>
  <li>Use automatic arpeggio with chords to relieve channel pressure</li>
+ <li>Support for multiple concurrent MIDI synthesizers (per-track device/port select FF 09 message), can be used to overcome 16 channel limit</li>
 </ul>
 
 <hr>
