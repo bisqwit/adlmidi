@@ -1266,11 +1266,15 @@ private:
             if(props_mask & Upd_Pitch)
             {
                 AdlChannel::LocationData& d = ch[c].users[my_loc];
-                double bend = Ch[MidCh].bend + adl[ins].finetune;
-                if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
-                    bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
-                opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
-                UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
+                // Don't bend a sustained note
+                if(!d.sustained)
+                {
+                    double bend = Ch[MidCh].bend + adl[ins].finetune;
+                    if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
+                        bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
+                    opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
+                    UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
+                }
             }
         }
         if(info.phys.empty())
