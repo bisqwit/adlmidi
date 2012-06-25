@@ -338,21 +338,23 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
     fread(&data[0], 1, data.size(), fp),
     fclose(fp);
 
-    //printf("%s:\n", fn);
-    unsigned short version = *(short*)&data[0];
-    unsigned short sig1 = *(short*)&data[8];
-    unsigned short sig2 = *(short*)&data[10];
-    unsigned       sig3 = *(unsigned*)&data[12];
-    unsigned       sig4 = *(unsigned*)&data[16];
-    //printf("%u %u %u %u\n", sig1,sig2,sig3,sig4);
+    /*printf("%s:\n", fn);*/
+    unsigned short version = *(short*)&data[0]; // major,minor (2 bytes)
+    //                                             "ADLIB-"    (6 bytes)
+    unsigned short entries_used = *(short*)&data[8];   // entries used
+    unsigned short total_entries = *(short*)&data[10]; // total entries
+    unsigned       name_offset = *(unsigned*)&data[12];// name_offset
+    unsigned       data_offset = *(unsigned*)&data[16];// data_offset
+    // 16..23: 8 byte sof filler
+    /*printf("version=%u %u %u %u %u\n",
+        version, entries_used,total_entries,name_offset,data_offset);*/
 
-    for(unsigned n=0; n<sig1; ++n)
+    for(unsigned n=0; n<entries_used; ++n)
     {
-        const size_t offset1 = sig3 + n*12;
+        const size_t offset1 = name_offset + n*12;
 
-        unsigned char a = data[offset1+0];
-        unsigned char b = data[offset1+1];
-        unsigned char c = data[offset1+2];
+        unsigned short data_index = data[offset1+0] + data[offset1+1]*256;
+        unsigned char usage_flag = data[offset1+2];
         std::string name;
         for(unsigned p=0; p<9; ++p)
         {
@@ -360,15 +362,20 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             name += char(data[offset1+3+p]);
         }
 
-        //printf("%3d %3d %3d %8s: ", a,b,c, name.c_str());
-
-        const size_t offset2 = sig4 + (a + b*256) * 30;
-        const unsigned char* op1 = &data[offset2+2];
+        const size_t offset2 = data_offset + data_index * 30;
+        const unsigned char mode      = data[offset2+0];
+        const unsigned char voice_num = data[offset2+1];
+        const unsigned char* op1 = &data[offset2+2];  // 13 bytes 
         const unsigned char* op2 = &data[offset2+15];
+        const unsigned char waveform_mod = data[offset2+28];
+        const unsigned char waveform_car = data[offset2+29];
+
+        /*printf("%5d %3d %8s mode=%02X voice=%02X: ", data_index,usage_flag, name.c_str(),
+            mode,voice_num);*/
 
         bool percussive = is_fat
-            ?   name[1] == 'P' /* data[offset2] == 1 */
-            :   (c >= 16);
+            ?   name[1] == 'P' /* mode == 1 */
+            :   (usage_flag >= 16);
 
         int gmno = is_fat
             ?   ((n & 127) + percussive*128)
@@ -404,15 +411,15 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         tmp.data[3] = op2[3]*0x10 + op2[6];
         tmp.data[4] = op1[4]*0x10 + op1[7]; // SUSTAIN, RELEASE
         tmp.data[5] = op2[4]*0x10 + op2[7];
-        tmp.data[6] = data[offset2+28];
-        tmp.data[7] = data[offset2+29];
+        tmp.data[6] = waveform_mod;
+        tmp.data[7] = waveform_car;
         tmp.data[8] = op1[0]*0x40 + op1[8]; // KSL , LEVEL
         tmp.data[9] = op2[0]*0x40 + op2[8]; // KSL , LEVEL
         tmp.data[10] = op1[2]*2 + op1[12]; // FEEDBACK, ADDITIVEFLAG
         tmp.finetune = 0;
         // Note: op2[2] and op2[12] are unused and contain garbage.
         ins tmp2;
-        tmp2.notenum = is_fat ? data[offset2+1] : (percussive ? c : 0);
+        tmp2.notenum = is_fat ? voice_num : (percussive ? usage_flag : 0);
 
         if(is_fat) tmp.data[10] ^= 1;
 
@@ -428,43 +435,17 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             if(name[2] == 'S' || name[1] == 'M') SetBank(bank+1, gmno, resno);
         }
 
-        /*for(unsigned p=0; p<30; ++p)
+        /*
+        for(unsigned p=0; p<30; ++p)
         {
             unsigned char value = data[offset2+p];
             if(value > maxvalues[p]) maxvalues[p] = value;
 
-            if(0 && midi_index < 182)
-            {
-                for(unsigned valuebit=0; valuebit<8; ++valuebit)
-                {
-                    unsigned v = (value >> valuebit) & 1;
-                    for(unsigned adlbyte=0; adlbyte<11; ++adlbyte)
-                    {
-                        const unsigned adlbits =
-                            (adlbyte==6 || adlbyte==7) ? 2
-                          : (adlbyte==10) ? 4
-                          : 8;
-                        for(unsigned adlbit=0; adlbit<adlbits; ++adlbit)
-                        {
-                            if((adlbyte == 9 || adlbyte == 8) && (adlbit==5||adlbit==4))
-                                continue;
-                            unsigned a = (adl[midi_index][adlbyte] >> adlbit) & 1;
-                            if(v == a)
-                            {
-                                Correlate[p*8+valuebit]
-                                    [adlbyte*8+adlbit] += 1;
-                            }
-                        }
-                    }
-                }
-            }
-
             #define dot(maxval) if(value<=maxval) printf("."); else printf("?[%u]%X",p,value);
 
           {
-            
             //if(p==6 || p==7 || p==19||p==20) value=15-value;
-            
+
             if(p==4 || p==10 || p==17 || p==23)// || p==25)
                 printf(" %2X", value);
             else
@@ -474,7 +455,8 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             //if(p == 12) printf("\n%*s", 22, "");
             //if(p == 25) printf("\n%*s", 22, "");
         }
-        printf("\n");*/
+        printf("\n");
+        */
     }
 }
 
@@ -989,6 +971,14 @@ static DurationInfo MeasureDurations(const ins& in)
 
 int main()
 {
+    printf("\
+#include \"adldata.hh\"\n\
+\n\
+/* THIS ADLIB FM INSTRUMENT DATA IS AUTOMATICALLY GENERATED\n\
+ * FROM A NUMBER OF SOURCES, MOSTLY PC GAMES.\n\
+ * PREPROCESSED, CONVERTED, AND POSTPROCESSED OFF-SCREEN.\n\
+ */\n\
+");
     LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank!
     LoadBNK("bnk_files/melodic.bnk", 1, "HMIGM", false);
     LoadBNK("bnk_files/drum.bnk",    1, "HMIGP", false);
@@ -1053,6 +1043,9 @@ int main()
     LoadIBK("ibk_files/game.ibk",           49, "b49", false);
     LoadIBK("ibk_files/mt_fm.ibk",          50, "b50", false);
 
+    //LoadBNK("bnk_files/grassman1.bnk", 53, "b53", false);
+    //LoadBNK("bnk_files/grassman2.bnk", 52, "b52", false);
+
     static const char* const banknames[] =
     {"AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
      "HMI (Descent, Asterix)",
@@ -1105,6 +1098,7 @@ int main()
      "SB (Action Soccer)",
      "SB (3d Cyberpuck :: melodic only)",
      "SB (Simon the Sorcerer :: melodic only)",
+     "Bisqwit 51 (selection of 4op and 2op)"
     };
 
 #if 0
@@ -1237,7 +1231,8 @@ int main()
             printf(" }, // %u: %s\n\n", (unsigned)c, names.c_str());
             fflush(stdout);
         }
-    printf("};\n");
+    printf("};\n\n");
+
     //printf("static const unsigned short banks[][256] =\n");
     const unsigned bankcount = sizeof(banknames)/sizeof(*banknames);
     std::map<unsigned, std::vector<unsigned> > bank_data;
@@ -1257,6 +1252,7 @@ int main()
         bank_data[bank] = data;
     }
     std::set<unsigned> listed;
+
     printf("const char* const banknames[%u] =\n", bankcount);
     printf("{\n");
     for(unsigned bank=0; bank<bankcount; ++bank)
@@ -1267,6 +1263,252 @@ int main()
     printf("{\n");
     for(unsigned bank=0; bank<bankcount; ++bank)
     {
+        if(bank == 51)
+        {
+            // bisqwit's
+    printf("\n\
+    { // bank %d, Joel Yliluoma's selection\n\
+0,    //GM1\n\
+171,  //GM2\n\
+2,    //GM3\n\
+173,  //GM4\n\
+653,  //GM5 rhodes DUAL\n\
+654,  //GM6\n\
+655,  //GM7 harps DUAL\n\
+2616, //GM8 todo verify\n\
+657,  //GM9 DUAL\n\
+9,    //GM10\n\
+180,  //GM11\n\
+11,   //GM12 not sure\n\
+182,  //GM13\n\
+662,  //GM14\n\
+663,  //GM15 DUAL  2114 is also strong\n\
+185,  //GM16\n\
+2115,  //GM17 DUAL\n\
+2116,  //GM18 DUAL\n\
+2729,  //GM19 DUAL\n\
+1146,  //GM20\n\
+20,    //GM21 no idea\n\
+670,   //GM22 DUAL accordion\n\
+671,   //GM23 DUAL\n\
+672,   //GM24 DUAL no idea\n\
+673,   //GM25 DUAL (ac guitar 1)\n\
+674,   //GM26 DUAL\n\
+675,   //GM27 DUAL\n\
+676,   //GM28 DUAL\n\
+677,   //GM29 DUAL (no idea)\n\
+2224,  //GM30 DUAL (overdrive guitar)\n\
+1497,  //GM31      (2122, 679 also strong, 2129 too)\n\
+680,   //GM32 DUAL\n\
+681,   //GM33 DUAL\n\
+682,   //GM34 DUAL\n\
+683,   //GM35 DUAL\n\
+35,    //GM36\n\
+2297,  //GM37 DUAL slapbass interesting\n\
+34,    //GM38 no idea\n\
+2130,  //GM39 synth bass\n\
+688,   //GM40 DUAL synth bass 2\n\
+1082,  //GM41\n\
+1401,  //GM42 no idea\n\
+691,   //GM43 DUAL cello\n\
+692,   //GM44 DUAL slightly more contrabass-like than 42\n\
+693,   //GM45 DUAL prominent sound\n\
+694,   //GM46 DUAL. 2526 is strong but little too quiet on low sounds\n\
+695,   //GM47 DUAL harp\n\
+696,   //GM48 DUAL timpani\n\
+697,   //GM49 DUAL strings1\n\
+698,   //GM50 DUAL slowattack strings\n\
+839,   //GM51\n\
+50,    //GM52 no idea\n\
+2533,  //GM53 aahs\n\
+1096,  //GM54 oohs\n\
+53,    //GM55\n\
+704,   //GM56\n\
+55,    //GM57 trumpet\n\
+56,    //GM58\n\
+707,   //GM59 DUAL tuba\n\
+1650,  //GM60  or 1650\n\
+1187,  //GM61 frhorn\n\
+710,   //GM62 DUAL\n\
+711,   //GM63 DUAL\n\
+712,   //GM64 DUAL\n\
+713,   //GM65 DUAL sopsax\n\
+714,   //GM66 DUAL altosax\n\
+715,   //GM67 DUAL tenosax\n\
+716,   //GM68 DUAL bassax\n\
+2152,  //GM69 DUAL\n\
+718,   //GM70 DUAL noidea\n\
+719,   //GM71 DUAL noidea\n\
+720,   //GM72 DUAL clarinet\n\
+71,    //GM73\n\
+72,    //GM74\n\
+723,   //GM75 recorder\n\
+2076,  //GM76 panflute\n\
+725,   //GM77 DUAL\n\
+726,   //GM78 DUAL\n\
+727,   //GM79 DUAL\n\
+1206,  //GM80\n\
+729,   //GM81 DUAL squarewave very good!\n\
+730,   //GM82 DUAL sawtooth\n\
+351,   //GM83\n\
+82,    //GM84\n\
+733,   //GM85 DUAL\n\
+734,   //GM86 DUAL\n\
+735,   //GM87 DUAL\n\
+86,    //GM88\n\
+737,   //GM89 DUAL pad new age\n\
+738,   //GM90 DUAL nice adsr\n\
+739,   //GM91 DUAL\n\
+740,   //GM92 DUAL no idea\n\
+91,    //GM93\n\
+92,    //GM94\n\
+868,   //GM95\n\
+869,   //GM96\n\
+1802,  //GM97 raindrop interesting\n\
+746,   //GM98 no idea\n\
+1707,  //GM99 crystal maybe like this.\n\
+98,    //GM100\n\
+99,    //GM101 no idea\n\
+3000,  //GM102 goblins. huh??\n\
+874,   //GM103\n\
+875,   //GM104\n\
+753,   //GM105 DUAL sitar: might work\n\
+754,   //GM106 DUAL\n\
+755,   //GM107 DUAL shamisen\n\
+756,   //GM108 DUAL koto\n\
+757,   //GM109 DUAL\n\
+758,   //GM110 DUAL\n\
+759,   //GM111 DUAL\n\
+760,   //GM112 DUAL no idea\n\
+111,   //GM113\n\
+762,   //GM114 DUAL\n\
+763,   //GM115 DUAL\n\
+1242,  //GM116\n\
+115,   //GM117 taiko, not very convincing\n\
+1364,  //GM118\n\
+767,   //GM119 DUAL\n\
+632,   //GM120\n\
+1247,  //GM121 fretnoise good\n\
+120,   //GM122\n\
+1807,  //GM123 seashore\n\
+955,   //GM124 birdtweet\n\
+1808,  //GM125 telephone\n\
+1693,  //GM126 helicopter\n\
+775,   //GM127\n\
+776,   //GM128 gunshot\n\
+377,   //GP0, bd. 2903=snare\n\
+367,   //GP1\n\
+2905,  //GP2\n\
+1759,  //GP3\n\
+377,   //GP4\n\
+2908,  //GP5\n\
+2909,  //GP6\n\
+2087,  //GP7\n\
+1760,  //GP8\n\
+375,   //GP9\n\
+376,   //GP10\n\
+377,   //GP11\n\
+377,   //GP12\n\
+411,   //GP13\n\
+1767,  //GP14\n\
+1386,  //GP15\n\
+2087,  //GP16\n\
+412,   //GP17\n\
+413,   //GP18\n\
+412,   //GP19\n\
+413,   //GP20\n\
+414,   //GP21\n\
+415,   //GP22\n\
+416,   //GP23\n\
+417,   //GP24\n\
+418,   //GP25\n\
+419,   //GP26\n\
+281,   //GP27\n\
+2473,  //GP28 slap\n\
+2474,  //GP29\n\
+2475,  //GP30\n\
+200,   //GP31 sticks\n\
+2013,  //GP32 square click\n\
+2419,  //GP33 metronome click\n\
+2477,  //GP34 metronome bell\n\
+557,   //GP35\n\
+127,   //GP36\n\
+777,   //GP37 DUAL sidestick\n\
+1815,  //GP38\n\
+2776,  //GP39 DUAL handclap not good\n\
+129,   //GP40\n\
+1031,  //GP41 low-floor tom\n\
+564,   //GP42 closed hihat\n\
+1031,  //GP43 high-floor tom\n\
+566,   //GP44 pedal hihat\n\
+1031,  //GP45 low tom\n\
+568,   //GP46 open hihat\n\
+1031,  //GP47 low-mid tom\n\
+1031,  //GP48 high-mid tom\n\
+135,   //GP49 crash cymbal 1\n\
+1031,  //GP50 high tom\n\
+2202,  //GP51 ride cymbal 1\n\
+787,   //GP52 DUAL chinese cymbal\n\
+2435,  //GP53 ride bell\n\
+1543,  //GP54 tamb\n\
+877,   //GP55 crash cymbal\n\
+1269,  //GP56 cowbell\n\
+2777,  //GP57 crash cymbal 2\n\
+216,   //GP58 vibraslap\n\
+2209,  //GP59 ride cymbal 2\n\
+580,   //GP60 hi bongo\n\
+581,   //GP61 lo bongo\n\
+582,   //GP62 no idea\n\
+583,   //GP63\n\
+584,   //GP64\n\
+1275,  //GP65\n\
+1275,  //GP66\n\
+587,   //GP67\n\
+588,   //GP68\n\
+566,   //GP69\n\
+2449,  //GP70\n\
+229,   //GP71\n\
+230,   //GP72\n\
+2773,  //GP73 short guiro\n\
+2774,  //GP74 long guiro\n\
+329,   //GP75\n\
+1284,  //GP76\n\
+1284,  //GP77\n\
+2718,  //GP78\n\
+2719,  //GP79\n\
+595,   //GP80\n\
+596,   //GP81 open triangle\n\
+2798,  //GP82 shaker\n\
+816,   //GP83 DUAL jingle bell\n\
+241,   //GP84 bell tree?\n\
+1291,  //GP85 castanets\n\
+169,   //GP86 mute surdu\n\
+131,   //GP87 open surdu\n\
+342,   //GP88\n\
+343,   //GP89\n\
+344,   //GP90\n\
+345,   //GP91\n\
+346,   //GP92\n\
+420,   //GP93\n\
+421,   //GP94\n\
+383,   //GP95\n\
+422,   //GP96\n\
+423,   //GP97\n\
+374,   //GP98\n\
+424,   //GP99\n\
+376,   //GP100\n\
+425,   //GP101\n\
+426,   //GP102\n\
+427,   //GP103\n\
+428,   //GP104\n\
+429,   //GP105\n\
+198,198,198,198,198, 198,198,198,198,198, //GP106..GP115\n\
+198,198,198,198,198, 198,198,198,198,198, //GP116..GP125\n\
+198,198 //GP126,GP127\n\
+    },\n\
+", bank);
+            continue;
+        }
         printf("    { // bank %u, %s\n", bank, banknames[bank]);
         bool redundant = true;
         for(unsigned p=0; p<256; ++p)
@@ -1300,5 +1542,6 @@ int main()
             }
         }
     }
+
     printf("};\n");
 }

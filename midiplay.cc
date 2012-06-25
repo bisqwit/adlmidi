@@ -141,7 +141,7 @@ public:
 
     void Poke(unsigned card, unsigned index, unsigned value)
     {
-#ifdef __DJGPP_
+#ifdef __DJGPP__
         unsigned o = index >> 8;
         unsigned port = OPLBase + o * 2;
         outportb(port, index);
@@ -254,7 +254,9 @@ public:
         unsigned fours = NumFourOps;
         for(unsigned card=0; card<NumCards; ++card)
         {
+#ifndef __DJGPP__
             cards[card].Init(PCM_RATE);
+#endif
             for(unsigned a=0; a< 18; ++a) Poke(card, 0xB0+Channels[a], 0x00);
             for(unsigned a=0; a< sizeof(data)/sizeof(*data); a+=2)
                 Poke(card, data[a], data[a+1]);
@@ -966,6 +968,9 @@ class MIDIplay
         Position(): began(false), wait(0.0), track() { }
     } CurrentPosition, LoopBeginPosition;
 
+    std::map<std::string, unsigned> devices;
+    std::map<unsigned/*track*/, unsigned/*channel begin index*/> current_device;
+
     // Persistent settings for each MIDI channel
     struct MIDIchannel
     {
@@ -1007,7 +1012,8 @@ class MIDIplay
               vibdepth(0.5/127), vibdelay(0),
               lastlrpn(0),lastmrpn(0),nrpn(false),
               activenotes() { }
-    } Ch[16];
+    };
+    std::vector<MIDIchannel> Ch;
 
     // Additional information about AdLib channels
     struct AdlChannel
@@ -1015,8 +1021,8 @@ class MIDIplay
         // For collisions
         struct Location
         {
-            unsigned char MidCh;
-            unsigned char note;
+            unsigned short MidCh;
+            unsigned char  note;
             bool operator==(const Location&b) const
                 { return MidCh==b.MidCh && note==b.note; }
             bool operator< (const Location&b) const
@@ -1264,11 +1270,15 @@ private:
             if(props_mask & Upd_Pitch)
             {
                 AdlChannel::LocationData& d = ch[c].users[my_loc];
-                double bend = Ch[MidCh].bend + adl[ins].finetune;
-                if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
-                    bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
-                opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
-                UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
+                // Don't bend a sustained note
+                if(!d.sustained)
+                {
+                    double bend = Ch[MidCh].bend + adl[ins].finetune;
+                    if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
+                        bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
+                    opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
+                    UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
+                }
             }
         }
         if(info.phys.empty())
@@ -1359,6 +1369,7 @@ private:
             if(evtype == 0x51) { Tempo = ReadBEInt(data.data(), data.size()) * InvDeltaTicks; return; }
             if(evtype == 6 && data == "loopStart") loopStart = true;
             if(evtype == 6 && data == "loopEnd"  ) loopEnd   = true;
+            if(evtype == 9) current_device[tk] = ChooseDevice(data);
             if(evtype >= 1 && evtype <= 6)
                 UI.PrintLn("Meta %d: %s", evtype, data.c_str());
             return;
@@ -1373,6 +1384,8 @@ private:
             CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte,
             TrackData[tk][CurrentPosition.track[tk].ptr]);*/
         unsigned MidCh = byte & 0x0F, EvType = byte >> 4;
+        MidCh += current_device[tk];
+
         CurrentPosition.track[tk].status = byte;
         switch(EvType)
         {
@@ -1391,10 +1404,10 @@ private:
                 if(vol == 0 || EvType == 0x8) break;
 
                 unsigned midiins = Ch[MidCh].patch;
-                if(MidCh == 9) midiins = 128 + note; // Percussion instrument
+                if(MidCh%16 == 9) midiins = 128 + note; // Percussion instrument
 
                 /*
-                if(MidCh == 9 || (midiins != 32 && midiins != 46 && midiins != 48 && midiins != 50))
+                if(MidCh%16 == 9 || (midiins != 32 && midiins != 46 && midiins != 48 && midiins != 50))
                     break; // HACK
                 if(midiins == 46) vol = (vol*7)/10;          // HACK
                 if(midiins == 48 || midiins == 50) vol /= 4; // HACK
@@ -1917,7 +1930,7 @@ private:
 
     void UpdateVibrato(double amount)
     {
-        for(unsigned a=0; a<16; ++a)
+        for(unsigned a=0, b=Ch.size(); a<b; ++a)
             if(Ch[a].vibrato && !Ch[a].activenotes.empty())
             {
                 NoteUpdate_All(a, Upd_Pitch);
@@ -1987,6 +2000,17 @@ private:
                 }
             }
         }
+    }
+
+public:
+    unsigned ChooseDevice(const std::string& name)
+    {
+        std::map<std::string, unsigned>::iterator i = devices.find(name);
+        if(i != devices.end()) return i->second;
+        size_t n = devices.size() * 16;
+        devices.insert( std::make_pair(name, n) );
+        Ch.resize(n+16);
+        return n;
     }
 };
 
@@ -2717,6 +2741,7 @@ int main(int argc, char** argv)
     std::fflush(stdout);
 
     MIDIplay player;
+    player.ChooseDevice("");
     if(!player.LoadMIDI(argv[1]))
         return 2;
 
@@ -2841,7 +2866,7 @@ int main(int argc, char** argv)
         delay = nextdelay;
     }
 
-#ifdef __DJGPP_
+#ifdef __DJGPP__
 
     // Fix the skewed clock and reset BIOS tick rate
     _farpokel(_dos_ds, 0x46C, BIOStimer_begin +
@@ -2855,7 +2880,7 @@ int main(int argc, char** argv)
 
 #else
 
-#ifdef __WIN32
+#ifdef __WIN32__
     WindowsAudio::Close();
 #else
     SDL_CloseAudio();

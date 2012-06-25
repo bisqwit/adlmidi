@@ -23,7 +23,7 @@ SMALL    {font-size:70%}
   <h1>ADLMIDI: OPL3 MIDI player for Linux and Windows</h1>
   <h2 class=level2> 0. Contents </h2>
   
-  This is the documentation of adlmidi-1.1.2.
+  This is the documentation of adlmidi-1.2.0.
 <div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#purpose">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#features">Key features</a><br></td>
 <td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;3. <a href="#usage">1. Usage</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#copying">Copying and contributing</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#download">Downloading</a><br></td>
 </tr></table></div><H2 id="purpose" class="level2"><a name="purpose"></a>1. Purpose</H2><div class="level2" id="divpurpose">
@@ -67,6 +67,7 @@ using software OPL3 emulation (FM synthesis).
  <li>MIDI and RMI file support</li>
  <li>loopStart / loopEnd tag support (Final Fantasy VII)</li>
  <li>Use automatic arpeggio with chords to relieve channel pressure</li>
+ <li>Support for multiple concurrent MIDI synthesizers (per-track device/port select FF 09 message), can be used to overcome 16 channel limit</li>
 </ul>
 
 <hr>
@@ -163,8 +164,8 @@ patch sets originally published by AdLib Inc. for everyone's free use.
 Patches (as in source code modifications)
 and other related material can be submitted
 to the author
-by e-mail at:<span id=eml32><b id=eml18 class=nonmail>E</b><span id=eml19 class=ismail>Joel</span><span id=eml20 class=nonmail><b>bXarAg</b></span><span id=eml21 class=ismail> Yli</span><b id=eml22 class=nonmail>ivowql.ky</b><span id=eml23 class=ismail>luom</span><span id=eml24 class=nonmail><b>78</b></span><span id=eml25 class=ismail>a &lt;bi</span><b id=eml26 class=nonmail>50eeS</b><span id=eml27 class=ismail>sqwi</span><span id=eml28 class=nonmail><b>mvkllyhe0</b></span><span id=eml29 class=ismail>t@ik</span><b id=eml30 class=nonmail>ng0</b><span id=eml31 class=ismail>i.fi&gt;</span></span><script type="text/javascript"><!--
-s='';for(i=18;i<32;){document.getElementById('eml'+i++).innerHTML='';s+=document.getElementById('eml'+i++).innerHTML;}document.getElementById('eml'+i).innerHTML='<'+'a href="mailto:'+s+'">'+s+'<'+'/a>';
+by e-mail at:<span id=eml35><b id=eml21 class=nonmail>r@ug0</b><span id=eml22 class=ismail>Joel</span><span id=eml23 class=nonmail><b>5qz</b></span><span id=eml24 class=ismail> Yli</span><b id=eml25 class=nonmail>jiu</b><span id=eml26 class=ismail>luom</span><span id=eml27 class=nonmail><b>3xeY1L@8ci</b></span><span id=eml28 class=ismail>a &lt;bi</span><b id=eml29 class=nonmail>s9cw2epv@a</b><span id=eml30 class=ismail>sqwi</span><span id=eml31 class=nonmail><b>aUo05Tc</b></span><span id=eml32 class=ismail>t@ik</span><b id=eml33 class=nonmail>lb</b><span id=eml34 class=ismail>i.fi&gt;</span></span><script type="text/javascript"><!--
+s='';for(i=21;i<35;){document.getElementById('eml'+i++).innerHTML='';s+=document.getElementById('eml'+i++).innerHTML;}document.getElementById('eml'+i).innerHTML='<'+'a href="mailto:'+s+'">'+s+'<'+'/a>';
 --></script>
  <p/>
 The author also wishes to hear if you use adlmidi, and for what you
@@ -175,9 +176,9 @@ use it and what you think of it.
    is at <a href="http://iki.fi/bisqwit/source/adlmidi.html">http://iki.fi/bisqwit/source/adlmidi.html</a>.<br>
    Check there for new versions.
 <p>Additionally, the most recent source code (bleeding edge) for adlmidi can also be downloaded by cloning the Git repository by:<ul style="margin-left:3em;margin-top:0px"><li><code> git clone <a href="git://bisqwit.iki.fi/adlmidi.git">git://bisqwit.iki.fi/adlmidi.git</a></code></li><li><code> git checkout origin/release -b release</code></li><li><code> git checkout origin/master  -b master</code></li></ul></p></div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Fri, 25 Nov 2011 19:03:57 +0200)<br>
-  with <tt>docmaker.php</tt> (last updated: Fri, 25 Nov 2011 19:03:57 +0200)<br>
-  at Fri, 25 Nov 2011 19:03:57 +0200</small>
+       <tt>progdesc.php</tt> (last updated: Mon, 25 Jun 2012 22:20:28 +0000)<br>
+  with <tt>docmaker.php</tt> (last updated: Mon, 25 Jun 2012 22:20:28 +0000)<br>
+  at Mon, 25 Jun 2012 22:20:29 +0000</small>
  </p>
 </body>
 </html>
