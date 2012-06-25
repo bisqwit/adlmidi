@@ -968,6 +968,9 @@ class MIDIplay
         Position(): began(false), wait(0.0), track() { }
     } CurrentPosition, LoopBeginPosition;
 
+    std::map<std::string, unsigned> devices;
+    std::map<unsigned/*track*/, unsigned/*channel begin index*/> current_device;
+
     // Persistent settings for each MIDI channel
     struct MIDIchannel
     {
@@ -1009,7 +1012,8 @@ class MIDIplay
               vibdepth(0.5/127), vibdelay(0),
               lastlrpn(0),lastmrpn(0),nrpn(false),
               activenotes() { }
-    } Ch[16];
+    };
+    std::vector<MIDIchannel> Ch;
 
     // Additional information about AdLib channels
     struct AdlChannel
@@ -1017,8 +1021,8 @@ class MIDIplay
         // For collisions
         struct Location
         {
-            unsigned char MidCh;
-            unsigned char note;
+            unsigned short MidCh;
+            unsigned char  note;
             bool operator==(const Location&b) const
                 { return MidCh==b.MidCh && note==b.note; }
             bool operator< (const Location&b) const
@@ -1365,6 +1369,7 @@ private:
             if(evtype == 0x51) { Tempo = ReadBEInt(data.data(), data.size()) * InvDeltaTicks; return; }
             if(evtype == 6 && data == "loopStart") loopStart = true;
             if(evtype == 6 && data == "loopEnd"  ) loopEnd   = true;
+            if(evtype == 9) current_device[tk] = ChooseDevice(data);
             if(evtype >= 1 && evtype <= 6)
                 UI.PrintLn("Meta %d: %s", evtype, data.c_str());
             return;
@@ -1379,6 +1384,8 @@ private:
             CurrentPosition.track[tk].ptr-1, (unsigned)tk, byte,
             TrackData[tk][CurrentPosition.track[tk].ptr]);*/
         unsigned MidCh = byte & 0x0F, EvType = byte >> 4;
+        MidCh += current_device[tk];
+
         CurrentPosition.track[tk].status = byte;
         switch(EvType)
         {
@@ -1397,10 +1404,10 @@ private:
                 if(vol == 0 || EvType == 0x8) break;
 
                 unsigned midiins = Ch[MidCh].patch;
-                if(MidCh == 9) midiins = 128 + note; // Percussion instrument
+                if(MidCh%16 == 9) midiins = 128 + note; // Percussion instrument
 
                 /*
-                if(MidCh == 9 || (midiins != 32 && midiins != 46 && midiins != 48 && midiins != 50))
+                if(MidCh%16 == 9 || (midiins != 32 && midiins != 46 && midiins != 48 && midiins != 50))
                     break; // HACK
                 if(midiins == 46) vol = (vol*7)/10;          // HACK
                 if(midiins == 48 || midiins == 50) vol /= 4; // HACK
@@ -1923,7 +1930,7 @@ private:
 
     void UpdateVibrato(double amount)
     {
-        for(unsigned a=0; a<16; ++a)
+        for(unsigned a=0, b=Ch.size(); a<b; ++a)
             if(Ch[a].vibrato && !Ch[a].activenotes.empty())
             {
                 NoteUpdate_All(a, Upd_Pitch);
@@ -1993,6 +2000,17 @@ private:
                 }
             }
         }
+    }
+
+public:
+    unsigned ChooseDevice(const std::string& name)
+    {
+        std::map<std::string, unsigned>::iterator i = devices.find(name);
+        if(i != devices.end()) return i->second;
+        size_t n = devices.size() * 16;
+        devices.insert( std::make_pair(name, n) );
+        Ch.resize(n+16);
+        return n;
     }
 };
 
@@ -2723,6 +2741,7 @@ int main(int argc, char** argv)
     std::fflush(stdout);
 
     MIDIplay player;
+    player.ChooseDevice("");
     if(!player.LoadMIDI(argv[1]))
         return 2;
 
