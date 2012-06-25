@@ -141,7 +141,7 @@ public:
 
     void Poke(unsigned card, unsigned index, unsigned value)
     {
-#ifdef __DJGPP_
+#ifdef __DJGPP__
         unsigned o = index >> 8;
         unsigned port = OPLBase + o * 2;
         outportb(port, index);
@@ -254,7 +254,9 @@ public:
         unsigned fours = NumFourOps;
         for(unsigned card=0; card<NumCards; ++card)
         {
+#ifndef __DJGPP__
             cards[card].Init(PCM_RATE);
+#endif
             for(unsigned a=0; a< 18; ++a) Poke(card, 0xB0+Channels[a], 0x00);
             for(unsigned a=0; a< sizeof(data)/sizeof(*data); a+=2)
                 Poke(card, data[a], data[a+1]);
@@ -2841,7 +2843,7 @@ int main(int argc, char** argv)
         delay = nextdelay;
     }
 
-#ifdef __DJGPP_
+#ifdef __DJGPP__
 
     // Fix the skewed clock and reset BIOS tick rate
     _farpokel(_dos_ds, 0x46C, BIOStimer_begin +
@@ -2855,7 +2857,7 @@ int main(int argc, char** argv)
 
 #else
 
-#ifdef __WIN32
+#ifdef __WIN32__
     WindowsAudio::Close();
 #else
     SDL_CloseAudio();
