@@ -924,6 +924,12 @@ static void AddMonoAudio(unsigned long count, int* samples)
     sampleBuf.insert(sampleBuf.end(), samples, samples+count);
 }
 
+static void AddStereoAudio(unsigned long count, int* samples)
+{
+    for (unsigned long i = 0; i < count; i++)
+        sampleBuf.insert(sampleBuf.end(), samples + i * 2, samples + i * 2 + 1);
+}
+
 struct DurationInfo
 {
     long ms_sound_kon;
@@ -961,11 +967,19 @@ static DurationInfo MeasureDurations(const ins& in)
 
     const unsigned n_notes = in.insno1 == in.insno2 ? 1 : 2;
     unsigned x[2];
+
+    if (n_notes == 2 && !in.pseudo4op)
+    {
+        opl.WriteReg(0x105, 1);
+        opl.WriteReg(0x104, 1);
+    }
+
     for(unsigned n=0; n<n_notes; ++n)
     {
         static const unsigned char patchdata[11] =
             {0x20,0x23,0x60,0x63,0x80,0x83,0xE0,0xE3,0x40,0x43,0xC0};
-        for(unsigned a=0; a<11; ++a) opl.WriteReg(patchdata[a]+n, id[n].data[a]);
+        for(unsigned a=0; a<10; ++a) opl.WriteReg(patchdata[a]+n*8, id[n].data[a]);
+        opl.WriteReg(patchdata[10]+n*8, id[n].data[10] | 0x30);
         double hertz = 172.00093 * std::exp(0.057762265 * (notenum + id[n].finetune));
         if(hertz > 131071)
         {
@@ -978,10 +992,10 @@ static DurationInfo MeasureDurations(const ins& in)
         x[n] += (int)(hertz + 0.5);
 
         // Keyon the note
-        opl.WriteReg(0xA0+n, x[n]&0xFF);
-        opl.WriteReg(0xB0+n, x[n]>>8);
+        opl.WriteReg(0xA0+n*3, x[n]&0xFF);
+        opl.WriteReg(0xB0+n*3, x[n]>>8);
     }
-    
+
     const unsigned max_on = 40;
     const unsigned max_off = 60;
 
@@ -993,8 +1007,8 @@ static DurationInfo MeasureDurations(const ins& in)
         sampleBuf.clear();
         unsigned n = samples_per_interval;
         while(n > 512)
-            {opl.Generate(AddMonoAudio, 0, 512); n-=512;}
-        if(n)opl.Generate(AddMonoAudio, 0, n);
+            {opl.Generate(AddMonoAudio, AddStereoAudio, 512); n-=512;}
+        if(n)opl.Generate(AddMonoAudio, AddStereoAudio, n);
         unsigned long count = sampleBuf.size();
 
         double mean = 0.0;
@@ -1027,8 +1041,8 @@ static DurationInfo MeasureDurations(const ins& in)
         sampleBuf.clear();
         unsigned n = samples_per_interval;
         while(n > 512)
-            {opl.Generate(AddMonoAudio, 0, 512); n-=512;}
-        if(n)opl.Generate(AddMonoAudio, 0, n);
+            {opl.Generate(AddMonoAudio, AddStereoAudio, 512); n-=512;}
+        if(n)opl.Generate(AddMonoAudio, AddStereoAudio, n);
         unsigned long count = sampleBuf.size();
 
         double mean = 0.0;
