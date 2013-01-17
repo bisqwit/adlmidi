@@ -37,6 +37,10 @@ ARCHFILES=\
 	ibk_files/mt_fm.ibk \
 	ibk_files/soccer-genmidi.ibk \
 	ibk_files/soccer-percs.ibk \
+	op3_files/fat2.op3 \
+	op3_files/fat4.op3 \
+	op3_files/jv_2op.op3 \
+	op3_files/wallace.op3 \
 	opl_files/file12.opl \
 	opl_files/file13.opl \
 	opl_files/file15.opl \
