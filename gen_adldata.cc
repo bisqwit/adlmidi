@@ -814,7 +814,10 @@ static DurationInfo MeasureDurations(const ins& in)
     const unsigned rate = 22050;
     const unsigned interval             = 150;
     const unsigned samples_per_interval = rate / interval;
-    const unsigned notenum = in.notenum ? in.notenum : 44;
+    const int notenum =
+        in.notenum < 20   ? (44 + in.notenum)
+      : in.notenum >= 128 ? (44 + 128 - in.notenum)
+      : in.notenum;
 
     DBOPL::Handler opl;
     static const short initdata[(2+3+2+2)*2] =
