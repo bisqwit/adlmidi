@@ -1274,9 +1274,16 @@ private:
                 if(!d.sustained)
                 {
                     double bend = Ch[MidCh].bend + adl[ins].finetune;
+                    double phase = 0.0;
+
+                    if((adlins[insmeta].flags & adlinsdata::Flag_Pseudo4op) && ins == adlins[insmeta].adlno2)
+                    {
+                        phase = 0.125; // Detune the note slightly (this is what Doom does)
+                    }
+
                     if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
                         bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
-                    opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend)));
+                    opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend + phase)));
                     UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
                 }
             }
@@ -1455,6 +1462,7 @@ private:
                         tone -= adlins[meta].tone-128;
                 }
                 int i[2] = { adlins[meta].adlno1, adlins[meta].adlno2 };
+                bool pseudo_4op = adlins[meta].flags & adlinsdata::Flag_Pseudo4op;
 
                 if(AdlPercussionMode && PercussionMap[midiins & 0xFF]) i[1] = i[0];
 
@@ -1475,7 +1483,7 @@ private:
                         if(ccount == 1 && a == adlchannel[0]) continue;
                         // ^ Don't use the same channel for primary&secondary
 
-                        if(i[0] == i[1])
+                        if(i[0] == i[1] || pseudo_4op)
                         {
                             // Only use regular channels
                             int expected_mode = 0;

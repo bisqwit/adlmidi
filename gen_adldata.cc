@@ -216,18 +216,21 @@ struct ins
 {
     size_t insno1, insno2;
     unsigned char notenum;
+    bool pseudo4op;
 
     bool operator==(const ins& b) const
     {
         return notenum == b.notenum
         && insno1 == b.insno1
-        && insno2 == b.insno2;
+        && insno2 == b.insno2
+        && pseudo4op == b.pseudo4op;
     }
     bool operator< (const ins& b) const
     {
         if(insno1 != b.insno1) return insno1 < b.insno1;
         if(insno2 != b.insno2) return insno2 < b.insno2;
         if(notenum != b.notenum) return notenum < b.notenum;
+        if(pseudo4op != b.pseudo4op) return pseudo4op < b.pseudo4op;
         return 0;
     }
     bool operator!=(const ins& b) const { return !operator==(b); }
@@ -632,6 +635,7 @@ static void LoadDoom(const char* fn, unsigned bank, const char* prefix)
         }
         else // Double instrument
         {
+            tmp2.pseudo4op = true;
             size_t resno = InsertIns(tmp[0],tmp[1],tmp2, std::string(1,'\377')+name, name2);
             SetBank(bank, gmno, resno);
         }
@@ -1361,6 +1365,7 @@ int main()
            "{\n"
            "    unsigned short adlno1, adlno2;\n"
            "    unsigned char tone;\n"
+           "    unsigned char flags;\n"
            "    long ms_sound_kon;  // Number of milliseconds it produces sound;\n"
            "    long ms_sound_koff;\n"
            "} adlins[] =\n");*/
@@ -1378,10 +1383,11 @@ int main()
             DurationInfo info = MeasureDurations(i->first);
 
             printf("    { ");
-            printf("%3d,%3d,%3d, %6ld,%6ld",
+            printf("%3d,%3d,%3d, %1d, %6ld,%6ld",
                 (unsigned) i->first.insno1,
                 (unsigned) i->first.insno2,
                 i->first.notenum,
+                i->first.pseudo4op ? 1 : 0,
                 info.ms_sound_kon,
                 info.ms_sound_koff);
             std::string names;
