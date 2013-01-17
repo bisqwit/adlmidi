@@ -865,6 +865,53 @@ static void LoadJunglevision(const char* fn, unsigned bank, const char* prefix)
     }
 }
 
+static void LoadTMB(const char* fn, unsigned bank, const char* prefix)
+{
+    FILE* fp = fopen(fn, "rb");
+    fseek(fp, 0, SEEK_END);
+    std::vector<unsigned char> data(ftell(fp));
+    rewind(fp);
+    fread(&data[0], 1, data.size(), fp);
+    fclose(fp);
+
+    for ( unsigned a = 0; a < 256; ++a )
+    {
+        unsigned offset = a * 0x0D;
+        unsigned gmno = a;
+        int midi_index = gmno < 128 ? gmno
+                       : gmno < 128+35 ? -1
+                       : gmno < 128+88 ? gmno-35
+                       : -1;
+
+        insdata tmp;
+
+        tmp.data[0] = data[offset + 0];
+        tmp.data[1] = data[offset + 1];
+        tmp.data[2] = data[offset + 4];
+        tmp.data[3] = data[offset + 5];
+        tmp.data[4] = data[offset + 6];
+        tmp.data[5] = data[offset + 7];
+        tmp.data[6] = data[offset + 8];
+        tmp.data[7] = data[offset + 9];
+        tmp.data[8] = data[offset + 2];
+        tmp.data[9] = data[offset + 3];
+        tmp.data[10] = data[offset + 10];
+        tmp.finetune = 0; //data[offset + 12];
+
+        struct ins tmp2;
+        tmp2.notenum  = data[offset + 11];
+
+        std::string name;
+        if(midi_index >= 0) name = std::string(1,'\377')+MidiInsName[midi_index];
+
+        char name2[512]; sprintf(name2, "%s%c%u", prefix,
+            (gmno<128?'M':'P'), gmno&127);
+
+        size_t resno = InsertIns(tmp,tmp,tmp2, name, name2);
+        SetBank(bank, gmno, resno);
+    }
+}
+
 #include "dbopl.h"
 
 std::vector<int> sampleBuf;
@@ -1137,6 +1184,9 @@ int main()
     LoadJunglevision("op3_files/jv_2op.op3", 54, "b54");
     LoadJunglevision("op3_files/wallace.op3", 55, "b55");
 
+    LoadTMB("tmb_files/d3dtimbr.tmb", 56, "b56");
+    LoadTMB("tmb_files/swtimbr.tmb", 57, "b57");
+
     //LoadBNK("bnk_files/grassman1.bnk", 53, "b53", false);
     //LoadBNK("bnk_files/grassman2.bnk", 52, "b52", false);
 
@@ -1197,6 +1247,8 @@ int main()
      "OP3 (The Fat Man 4op set)",
      "OP3 (JungleVision 2op set :: melodic only)",
      "OP3 (Wallace 2op set :: melodic only)",
+     "TMB (Duke Nukem 3D)",
+     "TMB (Shadow Warrior)"
     };
 
 #if 0

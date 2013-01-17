@@ -75,7 +75,9 @@ ARCHFILES=\
 	opl_files/sc3.opl \
 	opl_files/simfarm.ad \
 	opl_files/simfarm.opl \
-	opl_files/warcraft.ad
+	opl_files/warcraft.ad \
+	tmb_files/d3dtimbr.tmb \
+	tmb_files/swtimbr.tmb
 
 INSTALLPROGS=adlmidi
 
