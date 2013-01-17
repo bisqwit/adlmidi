@@ -618,6 +618,12 @@ static void LoadDoom(const char* fn, unsigned bank, const char* prefix)
         }
         struct ins tmp2;
         tmp2.notenum  = ins.note;
+        while(tmp2.notenum && tmp2.notenum < 20)
+        {
+            tmp2.notenum += 12;
+            tmp[0].finetune -= 12;
+            tmp[1].finetune -= 12;
+        }
 
         if(!(ins.flags&4))
         {
