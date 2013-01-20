@@ -1187,6 +1187,18 @@ int main()
     LoadTMB("tmb_files/d3dtimbr.tmb", 56, "b56");
     LoadTMB("tmb_files/swtimbr.tmb", 57, "b57");
 
+    LoadBNK("bnk_files/d2melo.bnk", 58, "b58M", false);
+    LoadBNK("bnk_files/d2drum.bnk", 58, "b58P", false);
+    LoadBNK("bnk_files/normmelo.bnk", 59, "b59M", false);
+    LoadBNK("bnk_files/normdrum.bnk", 59, "b59P", false);
+    LoadBNK("bnk_files/ssmelo.bnk", 60, "b60M", false);
+    LoadBNK("bnk_files/ssdrum.bnk", 60, "b60P", false);
+
+    LoadDoom("doom2/default.op2", 61, "b61");
+
+    LoadMiles("opl_files/nemesis.opl", 62, "b62");
+    LoadMiles("opl_files/nhlpa.opl", 63, "b63");
+
     //LoadBNK("bnk_files/grassman1.bnk", 53, "b53", false);
     //LoadBNK("bnk_files/grassman2.bnk", 52, "b52", false);
 
@@ -1248,7 +1260,13 @@ int main()
      "OP3 (JungleVision 2op set :: melodic only)",
      "OP3 (Wallace 2op set :: melodic only)",
      "TMB (Duke Nukem 3D)",
-     "TMB (Shadow Warrior)"
+     "TMB (Shadow Warrior)",
+     "HMI (Descent 2)",
+     "HMI (Normality)",
+     "HMI (Shattered Steel)",
+     "DMX (MUS Play :: partially pseudo 4op)",
+     "AIL (Nemesis)",
+     "AIL (National Hockey League PA)"
     };
 
 #if 0

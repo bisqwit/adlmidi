@@ -31,8 +31,15 @@ ARCHFILES=\
 	bnk_files/melodic.bnk \
 	bnk_files/rickdrum.bnk \
 	bnk_files/rickmelo.bnk \
+	bnk_files/d2drum.bnk \
+	bnk_files/d2melo.bnk \
+	bnk_files/normdrum.bnk \
+	bnk_files/normmelo.bnk \
+	bnk_files/ssdrum.bnk \
+	bnk_files/sssmelo.bnk \
 	doom2/genmidi.htc \
 	doom2/genmidi.op2 \
+	doom2/default.op2 \
 	ibk_files/game.ibk \
 	ibk_files/mt_fm.ibk \
 	ibk_files/soccer-genmidi.ibk \
@@ -76,6 +83,8 @@ ARCHFILES=\
 	opl_files/simfarm.ad \
 	opl_files/simfarm.opl \
 	opl_files/warcraft.ad \
+	opl_files/nemesis.opl \
+	opl_files/nhlpa.opl \
 	tmb_files/d3dtimbr.tmb \
 	tmb_files/swtimbr.tmb
 
