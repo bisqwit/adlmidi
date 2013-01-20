@@ -1363,8 +1363,8 @@ int main()
         /*
         "static const struct\n"
         "{\n"
-        "    unsigned carrier_E862, modulator_E862;  // See below\n"
-        "    unsigned char carrier_40, modulator_40; // KSL/attenuation settings\n"
+        "    unsigned modulator_E862, carrier_E862;  // See below\n"
+        "    unsigned char modulator_40, carrier_40; // KSL/attenuation settings\n"
         "    unsigned char feedconn; // Feedback/connection bits for the channel\n"
         "    signed char finetune;   // Finetune\n"
         "} adl[] =\n"*/
