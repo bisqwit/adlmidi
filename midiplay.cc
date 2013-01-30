@@ -1142,12 +1142,23 @@ public:
         if(std::memcmp(HeaderBuf, "RIFF", 4) == 0)
             { std::fseek(fp, 6, SEEK_CUR); goto riffskip; }
         size_t DeltaTicks=192, TrackCount=1;
-        bool is_GMF = false;
+
+        bool is_GMF = false, is_MUS = false;
+        std::vector<unsigned char> MUS_instrumentList;
+
         if(std::memcmp(HeaderBuf, "GMF\1", 4) == 0)
         {
             // GMD/MUS files (ScummVM)
             std::fseek(fp, 7-(4+4+2+2+2), SEEK_CUR);
             is_GMF = true;
+        }
+        else if(std::memcmp(HeaderBuf, "MUS\1x1A", 4) == 0)
+        {
+            // MUS/DMX files (Doom)
+            std::fseek(fp, 8-(4+4+2+2+2), SEEK_CUR);
+            is_MUS = true;
+            unsigned start = std::fgetc(fp); start += (std::fgetc(fp) << 8);
+            std::fseek(fp, -8+start, SEEK_CUR);
         }
         else
         {
@@ -1177,6 +1188,13 @@ public:
                 TrackLength = ftell(fp) - pos;
                 std::fseek(fp, pos, SEEK_SET);
             }
+            else if(is_MUS)
+            {
+                long pos = std::ftell(fp);
+                std::fseek(fp, 4, SEEK_SET);
+                TrackLength = std::fgetc(fp); TrackLength += (std::fgetc(fp) << 8);
+                std::fseek(fp, pos, SEEK_SET);
+            }
             else
             {
                 std::fread(HeaderBuf, 1, 8, fp);
@@ -1186,7 +1204,7 @@ public:
             // Read track data
             TrackData[tk].resize(TrackLength);
             std::fread(&TrackData[tk][0], 1, TrackLength, fp);
-            if(is_GMF)
+            if(is_GMF || is_MUS)
             {
                 static const unsigned char EndTag[4] = {0xFF,0x2F,0x00,0x00};
                 TrackData[tk].insert(TrackData[tk].end(), EndTag+0, EndTag+4);

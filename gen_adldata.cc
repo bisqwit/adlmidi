@@ -1180,11 +1180,11 @@ int main()
  * PREPROCESSED, CONVERTED, AND POSTPROCESSED OFF-SCREEN.\n\
  */\n\
 ");
-    LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank!
+    LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank! Same as file22.opl
 
     LoadBisqwit("op3_files/bisqwit.adlraw", 1, "Bisq");
 
-    LoadBNK("bnk_files/melodic.bnk", 2, "HMIGM", false);
+    LoadBNK("bnk_files/melodic.bnk", 2, "HMIGM", false); // same as file156.bnk
     LoadBNK("bnk_files/drum.bnk",    2, "HMIGP", false);
     LoadBNK("bnk_files/intmelo.bnk", 3, "intM", false);
     LoadBNK("bnk_files/intdrum.bnk", 3, "intP", false);
@@ -1196,7 +1196,7 @@ int main()
     LoadBNK("bnk_files/d2melo.bnk",  6, "b6M", false);
     LoadBNK("bnk_files/d2drum.bnk",  6, "b6P", false);
     LoadBNK("bnk_files/normmelo.bnk", 7, "b7M", false);
-    LoadBNK("bnk_files/normdrum.bnk", 7, "b7P", false);
+    LoadBNK("bnk_files/normdrum.bnk", 7, "b7P", false); // same as file122.bnk
     LoadBNK("bnk_files/ssmelo.bnk",  8, "b8M", false);
     LoadBNK("bnk_files/ssdrum.bnk",  8, "b8P", false);
 
@@ -1212,11 +1212,11 @@ int main()
     LoadBNK("bnk_files/file168.bnk", 13, "b13M", false);
 
     LoadDoom("doom2/genmidi.op2", 14, "dM");
-    LoadDoom("doom2/genmidi.htc", 15, "hxM");
+    LoadDoom("doom2/genmidi.htc", 15, "hxM"); // same as genmidi.hxn
     LoadDoom("doom2/default.op2", 16, "mus");
 
     LoadMiles("opl_files/file17.opl", 17, "f17G");
-    LoadMiles("opl_files/warcraft.ad", 18, "sG");
+    LoadMiles("opl_files/warcraft.ad", 18, "sG"); // same as file44, warcraft.opl
     LoadMiles("opl_files/file19.opl", 19, "f19G");
     LoadMiles("opl_files/file20.opl", 20, "f20G");
     LoadMiles("opl_files/file21.opl", 21, "f21G");
@@ -1237,7 +1237,7 @@ int main()
     LoadMiles("opl_files/file36.opl", 36, "f36G");
     LoadMiles("opl_files/file37.opl", 37, "f37G");
     LoadMiles("opl_files/simfarm.opl", 38, "qG");
-    LoadMiles("opl_files/simfarm.ad", 39, "mG");
+    LoadMiles("opl_files/simfarm.ad", 39, "mG"); // same as file18.opl
     LoadMiles("opl_files/file12.opl", 40, "f12G");
     LoadMiles("opl_files/file41.opl", 41, "f41G");
     LoadMiles("opl_files/file42.opl", 42, "f42G");
@@ -1248,12 +1248,12 @@ int main()
     LoadMiles("opl_files/file53.opl", 47, "f53G");
     LoadMiles("opl_files/file54.opl", 48, "f54G");
 
-    LoadMiles("opl_files/sample.ad",  49, "MG");
-    LoadMiles("opl_files/sample.opl", 50, "oG");
+    LoadMiles("opl_files/sample.ad",  49, "MG"); // same as file51.opl
+    LoadMiles("opl_files/sample.opl", 50, "oG"); // same as file40.opl
     LoadMiles("opl_files/file15.opl", 51, "f15G");
     LoadMiles("opl_files/file16.opl", 52, "f16G");
 
-    LoadBNK2("bnk_files/file159.bnk", 53, "b50", "gm","gps");
+    LoadBNK2("bnk_files/file159.bnk", 53, "b50", "gm","gps"); // fat-opl3
     LoadBNK2("bnk_files/file159.bnk", 54, "b51", "gm","gpo");
 
     LoadIBK("ibk_files/soccer-genmidi.ibk", 55, "b55M", false);
