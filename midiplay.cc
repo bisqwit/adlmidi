@@ -59,6 +59,7 @@ static unsigned SkipForward = 0;
 static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
+static bool ScaleModulators = false;
 
 static unsigned WinHeight()
 {
@@ -229,12 +230,12 @@ public:
             { true,  true  }  /* 4 op AM-AM ops 3&4 */
           };
 
-        do_modulator = do_ops[ mode ][ 0 ];
-        do_carrier   = do_ops[ mode ][ 1 ];
+        do_modulator = ScaleModulators ? true : do_ops[ mode ][ 0 ];
+        do_carrier   = ScaleModulators ? true : do_ops[ mode ][ 1 ];
 
         Poke(card, 0x40+o1, do_modulator ? (x|63) - volume + volume*(x&63)/63 : x);
         if(o2 != 0xFFF)
-        Poke(card, 0x40+o2, do_carrier ? (y|63) - volume + volume*(y&63)/63 : y);
+        Poke(card, 0x40+o2, do_carrier   ? (y|63) - volume + volume*(y&63)/63 : y);
         // Correct formula (ST3, AdPlug):
         //   63-((63-(instrvol))/63)*chanvol
         // Reduces to (tested identical):
@@ -2685,6 +2686,7 @@ int main(int argc, char** argv)
             " -p Enables adlib percussion instrument mode\n"
             " -t Enables tremolo amplification mode\n"
             " -v Enables vibrato amplification mode\n"
+            " -s Enables scaling of modulator volumes\n"
             " -nl Quit without looping\n"
             " -w Write PCM file rather than playing\n"
         );
@@ -2719,6 +2721,8 @@ int main(int argc, char** argv)
             QuitWithoutLooping = true;
         else if(!std::strcmp("-w", argv[2]))
             WritePCMfile = true;
+        else if(!std::strcmp("-s", argv[2]))
+            ScaleModulators = true;
         else break;
 
         for(int p=2; p<argc; ++p) argv[p] = argv[p+1];

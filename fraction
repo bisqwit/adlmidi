@@ -11,12 +11,17 @@ class fraction
     inttype num1, num2;
     typedef fraction<inttype> self;
     void Optim();
+
+  #if 1
+    inline void Debug(char, const self &) { }
+  #else
     inline void Debug(char op, const self &b)
-    {/*
+    {
         cerr << nom() << '/' << denom() << ' ' << op
              << ' ' << b.nom() << '/' << denom()
-             << ":\n";*/
+             << ":\n";
     }
+  #endif
 public:
     void set(inttype n, inttype d) { num1=n; num2=d; Optim(); }
     
