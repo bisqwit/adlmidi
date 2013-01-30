@@ -1438,7 +1438,7 @@ int main()
 198,198 //GP126,GP127
     };
 
-    FILE* BisqFP = fopen("Bisqwit.jungle", "wb");
+    FILE* BisqFP = fopen("Bisqwit.adlraw", "wb");
 
     std::map<unsigned, insdata> ins_idx;
     for(std::map<insdata,std::pair<size_t,std::set<std::string> > >
@@ -1450,11 +1450,7 @@ int main()
         ins_idx[i->second.first] = i->first;
     }
 
-    fseek(BisqFP, 0x20, SEEK_SET);
-    fputc(128, BisqFP); fputc(0, BisqFP);
-    fputc(128, BisqFP); fputc(0, BisqFP);
-    fputc(0,   BisqFP); fputc(0, BisqFP);
-    fputc(128, BisqFP); fputc(0, BisqFP);
+    fseek(BisqFP, 0, SEEK_SET);
 
     printf("const struct adlinsdata adlins[%u] =\n", (unsigned)instab.size());
     printf("{\n");
@@ -1492,41 +1488,21 @@ int main()
             for(unsigned a=0; a<256; ++a)
                 if(c == Bisqwit[a])
                 {
-                    fseek(BisqFP, 0x28 + a*0x18, SEEK_SET);
+                    fseek(BisqFP, a * (1 + 2 * 12), SEEK_SET);
                     fprintf(stderr, "[%u] note=%d, ft=%d, ft=%d\n",
                         a,
                         i->first.notenum,
                         ins_idx[i->first.insno1].finetune,
                         ins_idx[i->first.insno2].finetune);
-                    unsigned char Data[24] =
+
+                    fputc(i->first.notenum, BisqFP);
+                    insdata ii[2] = { ins_idx[i->first.insno1],
+                                      ins_idx[i->first.insno2] };
+                    for(int side=0; side<2; ++side)
                     {
-                        i->first.insno1 == i->first.insno2 ? 0x00 : 0x01,
-                        i->first.notenum + (ins_idx[i->first.insno1].finetune +
-                                            ins_idx[i->first.insno2].finetune) / 2,
-                        ins_idx[i->first.insno1].data[0],
-                        ins_idx[i->first.insno1].data[8],
-                        ins_idx[i->first.insno1].data[2],
-                        ins_idx[i->first.insno1].data[4],
-                        ins_idx[i->first.insno1].data[6],
-                        ins_idx[i->first.insno1].data[10],
-                        ins_idx[i->first.insno1].data[1],
-                        ins_idx[i->first.insno1].data[9],
-                        ins_idx[i->first.insno1].data[3],
-                        ins_idx[i->first.insno1].data[5],
-                        ins_idx[i->first.insno1].data[7],
-                        ins_idx[i->first.insno2].data[0],
-                        ins_idx[i->first.insno2].data[8],
-                        ins_idx[i->first.insno2].data[2],
-                        ins_idx[i->first.insno2].data[4],
-                        ins_idx[i->first.insno2].data[6],
-                        ins_idx[i->first.insno2].data[10],
-                        ins_idx[i->first.insno2].data[1],
-                        ins_idx[i->first.insno2].data[9],
-                        ins_idx[i->first.insno2].data[3],
-                        ins_idx[i->first.insno2].data[5],
-                        ins_idx[i->first.insno2].data[7],
-                    };
-                    fwrite(Data, 1, 0x18, BisqFP);
+                        fputc(ii[side].finetune, BisqFP);
+                        fwrite(ii[side].data, 1, 11, BisqFP);
+                    }
                 }
             fflush(stdout);
         }
