@@ -423,6 +423,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         // Note: op2[2] and op2[12] are unused and contain garbage.
         ins tmp2;
         tmp2.notenum = is_fat ? voice_num : (percussive ? usage_flag : 0);
+        tmp2.pseudo4op = false;
 
         if(is_fat) tmp.data[10] ^= 1;
 
@@ -530,6 +531,7 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
 
         ins tmp2;
         tmp2.notenum = (gmno & 128) ? 35 : 0;
+        tmp2.pseudo4op = false;
 
         if(xxP24NNN & 8)
         {
@@ -621,6 +623,7 @@ static void LoadDoom(const char* fn, unsigned bank, const char* prefix)
         }
         struct ins tmp2;
         tmp2.notenum  = ins.note;
+        tmp2.pseudo4op = false;
         while(tmp2.notenum && tmp2.notenum < 20)
         {
             tmp2.notenum += 12;
@@ -729,6 +732,7 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
         {
             struct ins tmp2;
             tmp2.notenum  = gmno < 128 ? 0 : data[offset+3];
+            tmp2.pseudo4op = false;
             std::string name;
             if(midi_index >= 0) name = std::string(1,'\377')+MidiInsName[midi_index];
             size_t resno = InsertIns(tmp[0], tmp[1], tmp2, name, name2);
@@ -783,6 +787,7 @@ static void LoadIBK(const char* fn, unsigned bank, const char* prefix, bool perc
         tmp.finetune = 0;
         struct ins tmp2;
         tmp2.notenum  = gmno < 128 ? 0 : 35;
+        tmp2.pseudo4op = false;
 
         size_t resno = InsertIns(tmp,tmp, tmp2, std::string(1,'\377')+name, name2);
         SetBank(bank, gmno, resno);
@@ -827,6 +832,7 @@ static void LoadJunglevision(const char* fn, unsigned bank, const char* prefix)
         tmp[0].data[8] = data[offset + 3];
         tmp[0].data[9] = data[offset + 9];
         tmp[0].data[10] = data[offset + 7] & ~0x30;
+        tmp[0].finetune = 0;
 
         tmp[1].data[0] = data[offset + 2 + 11];
         tmp[1].data[1] = data[offset + 8 + 11];
@@ -839,11 +845,13 @@ static void LoadJunglevision(const char* fn, unsigned bank, const char* prefix)
         tmp[1].data[8] = data[offset + 3 + 11];
         tmp[1].data[9] = data[offset + 9 + 11];
         tmp[1].data[10] = data[offset + 7 + 11] & ~0x30;
+        tmp[1].finetune = 0;
 
         struct ins tmp2;
         tmp2.notenum  = data[offset + 1];
-        if(tmp2.notenum)
-        while(tmp2.notenum < 20)
+        tmp2.pseudo4op = false;
+
+        while(tmp2.notenum && tmp2.notenum < 20)
         {
             tmp2.notenum += 12;
             tmp[0].finetune -= 12;
@@ -903,7 +911,8 @@ static void LoadTMB(const char* fn, unsigned bank, const char* prefix)
         tmp.finetune = 0; //data[offset + 12];
 
         struct ins tmp2;
-        tmp2.notenum  = data[offset + 11];
+        tmp2.notenum   = data[offset + 11];
+        tmp2.pseudo4op = false;
 
         std::string name;
         if(midi_index >= 0) name = std::string(1,'\377')+MidiInsName[midi_index];
@@ -930,6 +939,8 @@ static void LoadBisqwit(const char* fn, unsigned bank, const char* prefix)
 
         struct ins tmp2;
         tmp2.notenum = std::fgetc(fp);
+        tmp2.pseudo4op = false;
+
         insdata tmp[2];
         for(int side=0; side<2; ++side)
         {
@@ -1441,12 +1452,12 @@ int main()
 
             DurationInfo info = MeasureDurations(i->first);
 
-            printf("    { ");
-            printf("%3d,%3d,%3d, %1d, %6ld,%6ld",
+            printf("    {");
+            printf("%4d,%4d,%3d, %d, %6ld,%6ld",
                 (unsigned) i->first.insno1,
                 (unsigned) i->first.insno2,
-                i->first.notenum,
-                i->first.pseudo4op ? 1 : 0,
+                (int)(i->first.notenum),
+                (int)(i->first.pseudo4op ? 1 : 0),
                 info.ms_sound_kon,
                 info.ms_sound_koff);
             std::string names;
