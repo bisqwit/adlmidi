@@ -1196,6 +1196,266 @@ int main()
            "    long ms_sound_kon;  // Number of milliseconds it produces sound;\n"
            "    long ms_sound_koff;\n"
            "} adlins[] =\n");*/
+
+    static unsigned Bisqwit[256] =
+    {
+0,    //GM1
+171,  //GM2
+2,    //GM3
+173,  //GM4
+653,  //GM5 rhodes DUAL
+654,  //GM6
+655,  //GM7 harps DUAL
+2616, //GM8 todo verify
+657,  //GM9 DUAL
+9,    //GM10
+180,  //GM11
+11,   //GM12 not sure
+182,  //GM13
+662,  //GM14
+663,  //GM15 DUAL  2114 is also strong
+185,  //GM16
+2115,  //GM17 DUAL
+2116,  //GM18 DUAL
+2729,  //GM19 DUAL
+1146,  //GM20
+20,    //GM21 no idea
+670,   //GM22 DUAL accordion
+671,   //GM23 DUAL
+672,   //GM24 DUAL no idea
+673,   //GM25 DUAL (ac guitar 1)
+674,   //GM26 DUAL
+675,   //GM27 DUAL
+676,   //GM28 DUAL
+677,   //GM29 DUAL (no idea)
+2224,  //GM30 DUAL (overdrive guitar)
+1497,  //GM31      (2122, 679 also strong, 2129 too)
+680,   //GM32 DUAL
+681,   //GM33 DUAL
+682,   //GM34 DUAL
+683,   //GM35 DUAL
+35,    //GM36
+2297,  //GM37 DUAL slapbass interesting
+34,    //GM38 no idea
+2130,  //GM39 synth bass
+688,   //GM40 DUAL synth bass 2
+1082,  //GM41
+1401,  //GM42 no idea
+691,   //GM43 DUAL cello
+692,   //GM44 DUAL slightly more contrabass-like than 42
+693,   //GM45 DUAL prominent sound
+694,   //GM46 DUAL. 2526 is strong but little too quiet on low sounds
+695,   //GM47 DUAL harp
+696,   //GM48 DUAL timpani
+697,   //GM49 DUAL strings1
+698,   //GM50 DUAL slowattack strings
+839,   //GM51
+50,    //GM52 no idea
+2533,  //GM53 aahs
+1096,  //GM54 oohs
+53,    //GM55
+704,   //GM56
+55,    //GM57 trumpet
+56,    //GM58
+707,   //GM59 DUAL tuba
+1650,  //GM60  or 1650
+1187,  //GM61 frhorn
+710,   //GM62 DUAL
+711,   //GM63 DUAL
+712,   //GM64 DUAL
+713,   //GM65 DUAL sopsax
+714,   //GM66 DUAL altosax
+715,   //GM67 DUAL tenosax
+716,   //GM68 DUAL bassax
+2152,  //GM69 DUAL
+718,   //GM70 DUAL noidea
+719,   //GM71 DUAL noidea
+720,   //GM72 DUAL clarinet
+71,    //GM73
+72,    //GM74
+723,   //GM75 recorder
+2076,  //GM76 panflute
+725,   //GM77 DUAL
+726,   //GM78 DUAL
+727,   //GM79 DUAL
+1206,  //GM80
+729,   //GM81 DUAL squarewave very good!
+730,   //GM82 DUAL sawtooth
+351,   //GM83
+82,    //GM84
+733,   //GM85 DUAL
+734,   //GM86 DUAL
+735,   //GM87 DUAL
+86,    //GM88
+737,   //GM89 DUAL pad new age
+738,   //GM90 DUAL nice adsr
+739,   //GM91 DUAL
+740,   //GM92 DUAL no idea
+91,    //GM93
+92,    //GM94
+868,   //GM95
+869,   //GM96
+1802,  //GM97 raindrop interesting
+746,   //GM98 no idea
+1707,  //GM99 crystal maybe like this.
+98,    //GM100
+99,    //GM101 no idea
+3000,  //GM102 goblins. huh??
+874,   //GM103
+875,   //GM104
+753,   //GM105 DUAL sitar: might work
+754,   //GM106 DUAL
+755,   //GM107 DUAL shamisen
+756,   //GM108 DUAL koto
+757,   //GM109 DUAL
+758,   //GM110 DUAL
+759,   //GM111 DUAL
+760,   //GM112 DUAL no idea
+111,   //GM113
+762,   //GM114 DUAL
+763,   //GM115 DUAL
+1242,  //GM116
+115,   //GM117 taiko, not very convincing
+1364,  //GM118
+767,   //GM119 DUAL
+632,   //GM120
+1247,  //GM121 fretnoise good
+120,   //GM122
+1807,  //GM123 seashore
+955,   //GM124 birdtweet
+1808,  //GM125 telephone
+1693,  //GM126 helicopter
+775,   //GM127
+776,   //GM128 gunshot
+377,   //GP0, bd. 2903=snare
+367,   //GP1
+2905,  //GP2
+1759,  //GP3
+377,   //GP4
+2908,  //GP5
+2909,  //GP6
+2087,  //GP7
+1760,  //GP8
+375,   //GP9
+376,   //GP10
+377,   //GP11
+377,   //GP12
+411,   //GP13
+1767,  //GP14
+1386,  //GP15
+2087,  //GP16
+412,   //GP17
+413,   //GP18
+412,   //GP19
+413,   //GP20
+414,   //GP21
+415,   //GP22
+416,   //GP23
+417,   //GP24
+418,   //GP25
+419,   //GP26
+281,   //GP27
+2473,  //GP28 slap
+2474,  //GP29
+2475,  //GP30
+200,   //GP31 sticks
+2013,  //GP32 square click
+2419,  //GP33 metronome click
+2477,  //GP34 metronome bell
+557,   //GP35
+127,   //GP36
+777,   //GP37 DUAL sidestick
+1815,  //GP38
+2776,  //GP39 DUAL handclap not good
+129,   //GP40
+1031,  //GP41 low-floor tom
+564,   //GP42 closed hihat
+1031,  //GP43 high-floor tom
+566,   //GP44 pedal hihat
+1031,  //GP45 low tom
+568,   //GP46 open hihat
+1031,  //GP47 low-mid tom
+1031,  //GP48 high-mid tom
+135,   //GP49 crash cymbal 1
+1031,  //GP50 high tom
+2202,  //GP51 ride cymbal 1
+787,   //GP52 DUAL chinese cymbal
+2435,  //GP53 ride bell
+1543,  //GP54 tamb
+877,   //GP55 crash cymbal
+1269,  //GP56 cowbell
+2777,  //GP57 crash cymbal 2
+216,   //GP58 vibraslap
+2209,  //GP59 ride cymbal 2
+580,   //GP60 hi bongo
+581,   //GP61 lo bongo
+582,   //GP62 no idea
+583,   //GP63
+584,   //GP64
+1275,  //GP65
+1275,  //GP66
+587,   //GP67
+588,   //GP68
+566,   //GP69
+2449,  //GP70
+229,   //GP71
+230,   //GP72
+2773,  //GP73 short guiro
+2774,  //GP74 long guiro
+329,   //GP75
+1284,  //GP76
+1284,  //GP77
+2718,  //GP78
+2719,  //GP79
+595,   //GP80
+596,   //GP81 open triangle
+2798,  //GP82 shaker
+816,   //GP83 DUAL jingle bell
+241,   //GP84 bell tree?
+1291,  //GP85 castanets
+169,   //GP86 mute surdu
+131,   //GP87 open surdu
+342,   //GP88
+343,   //GP89
+344,   //GP90
+345,   //GP91
+346,   //GP92
+420,   //GP93
+421,   //GP94
+383,   //GP95
+422,   //GP96
+423,   //GP97
+374,   //GP98
+424,   //GP99
+376,   //GP100
+425,   //GP101
+426,   //GP102
+427,   //GP103
+428,   //GP104
+429,   //GP105
+198,198,198,198,198, 198,198,198,198,198, //GP106..GP115
+198,198,198,198,198, 198,198,198,198,198, //GP116..GP125
+198,198 //GP126,GP127
+    };
+
+    FILE* BisqFP = fopen("Bisqwit.jungle", "wb");
+
+    std::map<unsigned, insdata> ins_idx;
+    for(std::map<insdata,std::pair<size_t,std::set<std::string> > >
+        ::const_iterator
+        i = insdatatab.begin();
+        i != insdatatab.end();
+        ++i)
+    {
+        ins_idx[i->second.first] = i->first;
+    }
+
+    fseek(BisqFP, 0x20, SEEK_SET);
+    fputc(128, BisqFP); fputc(0, BisqFP);
+    fputc(128, BisqFP); fputc(0, BisqFP);
+    fputc(0,   BisqFP); fputc(0, BisqFP);
+    fputc(128, BisqFP); fputc(0, BisqFP);
+
     printf("const struct adlinsdata adlins[%u] =\n", (unsigned)instab.size());
     printf("{\n");
     for(size_t b=instab.size(), c=0; c<b; ++c)
@@ -1207,7 +1467,7 @@ int main()
         {
             if(i->second.first != c) continue;
 
-            DurationInfo info = MeasureDurations(i->first);
+            DurationInfo info = {};//MeasureDurations(i->first);
 
             printf("    { ");
             printf("%3d,%3d,%3d, %6ld,%6ld",
@@ -1229,9 +1489,49 @@ int main()
                     names += *j;
             }
             printf(" }, // %u: %s\n\n", (unsigned)c, names.c_str());
+            for(unsigned a=0; a<256; ++a)
+                if(c == Bisqwit[a])
+                {
+                    fseek(BisqFP, 0x28 + a*0x18, SEEK_SET);
+                    fprintf(stderr, "[%u] note=%d, ft=%d, ft=%d\n",
+                        a,
+                        i->first.notenum,
+                        ins_idx[i->first.insno1].finetune,
+                        ins_idx[i->first.insno2].finetune);
+                    unsigned char Data[24] =
+                    {
+                        i->first.insno1 == i->first.insno2 ? 0x00 : 0x01,
+                        i->first.notenum + (ins_idx[i->first.insno1].finetune +
+                                            ins_idx[i->first.insno2].finetune) / 2,
+                        ins_idx[i->first.insno1].data[0],
+                        ins_idx[i->first.insno1].data[8],
+                        ins_idx[i->first.insno1].data[2],
+                        ins_idx[i->first.insno1].data[4],
+                        ins_idx[i->first.insno1].data[6],
+                        ins_idx[i->first.insno1].data[10],
+                        ins_idx[i->first.insno1].data[1],
+                        ins_idx[i->first.insno1].data[9],
+                        ins_idx[i->first.insno1].data[3],
+                        ins_idx[i->first.insno1].data[5],
+                        ins_idx[i->first.insno1].data[7],
+                        ins_idx[i->first.insno2].data[0],
+                        ins_idx[i->first.insno2].data[8],
+                        ins_idx[i->first.insno2].data[2],
+                        ins_idx[i->first.insno2].data[4],
+                        ins_idx[i->first.insno2].data[6],
+                        ins_idx[i->first.insno2].data[10],
+                        ins_idx[i->first.insno2].data[1],
+                        ins_idx[i->first.insno2].data[9],
+                        ins_idx[i->first.insno2].data[3],
+                        ins_idx[i->first.insno2].data[5],
+                        ins_idx[i->first.insno2].data[7],
+                    };
+                    fwrite(Data, 1, 0x18, BisqFP);
+                }
             fflush(stdout);
         }
     printf("};\n\n");
+    fclose(BisqFP);
 
     //printf("static const unsigned short banks[][256] =\n");
     const unsigned bankcount = sizeof(banknames)/sizeof(*banknames);
