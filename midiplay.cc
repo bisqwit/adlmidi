@@ -1259,6 +1259,26 @@ private:
             int ins = j->second;
             if(select_adlchn >= 0 && c != select_adlchn) continue;
 
+            if(props_mask & Upd_Patch)
+            {
+                opl.Patch(c, ins);
+                AdlChannel::LocationData& d = ch[c].users[my_loc];
+                d.sustained = false; // inserts if necessary
+                d.vibdelay  = 0;
+                d.kon_time_until_neglible = adlins[insmeta].ms_sound_kon;
+                d.ins       = ins;
+            }
+        }
+        for(std::map<unsigned short,unsigned short>::iterator
+            jnext = info.phys.begin();
+            jnext != info.phys.end();
+           )
+        {
+            std::map<unsigned short,unsigned short>::iterator j(jnext++);
+            int c   = j->first;
+            int ins = j->second;
+            if(select_adlchn >= 0 && c != select_adlchn) continue;
+
             if(props_mask & Upd_Off) // note off
             {
                 if(Ch[MidCh].sustain == 0)
@@ -1285,15 +1305,6 @@ private:
                 }
                 info.phys.erase(j);
                 continue;
-            }
-            if(props_mask & Upd_Patch)
-            {
-                opl.Patch(c, ins);
-                AdlChannel::LocationData& d = ch[c].users[my_loc];
-                d.sustained = false; // inserts if necessary
-                d.vibdelay  = 0;
-                d.kon_time_until_neglible = adlins[insmeta].ms_sound_kon;
-                d.ins       = ins;
             }
             if(props_mask & Upd_Pan)
             {

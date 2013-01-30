@@ -1024,6 +1024,9 @@ static DurationInfo MeasureDurations(const ins& in)
             {0x20,0x23,0x60,0x63,0x80,0x83,0xE0,0xE3,0x40,0x43,0xC0};
         for(unsigned a=0; a<10; ++a) opl.WriteReg(patchdata[a]+n*8, id[n].data[a]);
         opl.WriteReg(patchdata[10]+n*8, id[n].data[10] | 0x30);
+    }
+    for(unsigned n=0; n<n_notes; ++n)
+    {
         double hertz = 172.00093 * std::exp(0.057762265 * (notenum + id[n].finetune));
         if(hertz > 131071)
         {
