@@ -36,6 +36,8 @@ static const unsigned NewTimerFreq = 209;
 #include <deque>
 #include <algorithm>
 
+#include "fraction"
+
 #ifndef __DJGPP__
 #include "dbopl.h"
 
@@ -1064,7 +1066,7 @@ class MIDIplay
 
     std::vector< std::vector<unsigned char> > TrackData;
 public:
-    double InvDeltaTicks, Tempo;
+    fraction<long> InvDeltaTicks, Tempo;
     bool loopStart, loopEnd;
     OPL3 opl;
 public:
@@ -1119,8 +1121,9 @@ public:
         }
         TrackData.resize(TrackCount);
         CurrentPosition.track.resize(TrackCount);
-        InvDeltaTicks = 1e-6 / DeltaTicks;
-        Tempo         = 1e6 * InvDeltaTicks;
+        InvDeltaTicks = fraction<long>(1, 1000000l * DeltaTicks);
+        //Tempo       = 1000000l * InvDeltaTicks;
+        Tempo         = fraction<long>(1,            DeltaTicks);
         for(size_t tk = 0; tk < TrackCount; ++tk)
         {
             // Read track header
@@ -1166,7 +1169,7 @@ public:
     double Tick(double s, double granularity)
     {
         if(CurrentPosition.began) CurrentPosition.wait -= s;
-        while(CurrentPosition.wait <= granularity/2)
+        while(CurrentPosition.wait <= granularity * 0.5)
         {
             //std::fprintf(stderr, "wait = %g...\n", CurrentPosition.wait);
             ProcessEvents();
@@ -1326,8 +1329,8 @@ private:
         for(size_t tk=0; tk<TrackCount; ++tk)
             CurrentPosition.track[tk].delay -= shortest;
 
-        double t = shortest * Tempo;
-        if(CurrentPosition.began) CurrentPosition.wait += t;
+        fraction<long> t = shortest * Tempo;
+        if(CurrentPosition.began) CurrentPosition.wait += t.valuel();
 
         //if(shortest > 0) UI.PrintLn("Delay %ld (%g)", shortest,t);
 
@@ -1373,7 +1376,7 @@ private:
             std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
             CurrentPosition.track[tk].ptr += length;
             if(evtype == 0x2F) { CurrentPosition.track[tk].status = -1; return; }
-            if(evtype == 0x51) { Tempo = ReadBEInt(data.data(), data.size()) * InvDeltaTicks; return; }
+            if(evtype == 0x51) { Tempo = InvDeltaTicks * fraction<long>( (long) ReadBEInt(data.data(), data.size())); return; }
             if(evtype == 6 && data == "loopStart") loopStart = true;
             if(evtype == 6 && data == "loopEnd"  ) loopEnd   = true;
             if(evtype == 9) current_device[tk] = ChooseDevice(data);
