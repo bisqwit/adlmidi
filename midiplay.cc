@@ -36,6 +36,8 @@ static const unsigned NewTimerFreq = 209;
 #include <deque>
 #include <algorithm>
 
+#include <signal.h>
+
 #include "fraction"
 
 #ifndef __DJGPP__
@@ -2681,6 +2683,15 @@ public:
     }
 };
 
+static void TidyupAndExit(int)
+{
+    UI.ShowCursor();
+    UI.Color(7);
+    std::fflush(stderr);
+    signal(SIGINT, SIG_DFL);
+    raise(SIGINT);
+}
+
 #ifdef __WIN32__
 /* Parse a command line buffer into arguments */
 static void UnEscapeQuotes( char *arg )
@@ -2734,6 +2745,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
     ParseCommandLine(cmdline, argv);
 #else
 #undef main
+
 int main(int argc, char** argv)
 {
 #endif
@@ -2761,6 +2773,8 @@ int main(int argc, char** argv)
         "(C) 2011 Joel Yliluoma -- http://bisqwit.iki.fi/source/adlmidi.html\n");
     std::fflush(stdout);
     UI.Color(7); std::fflush(stderr);
+
+    signal(SIGINT, TidyupAndExit);
 
 #ifndef __DJGPP__
 
