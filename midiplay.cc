@@ -1143,7 +1143,7 @@ public:
             { std::fseek(fp, 6, SEEK_CUR); goto riffskip; }
         size_t DeltaTicks=192, TrackCount=1;
 
-        bool is_GMF = false, is_MUS = false;
+        bool is_GMF = false, is_MUS = false, is_IMF = false;
         std::vector<unsigned char> MUS_instrumentList;
 
         if(std::memcmp(HeaderBuf, "GMF\1", 4) == 0)
@@ -1162,55 +1162,125 @@ public:
         }
         else
         {
-            if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
-            { InvFmt:
-                std::fclose(fp);
-                std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
-                return false;
+            // Try parsing as an IMF file
+           {
+            unsigned end = (unsigned char)HeaderBuf[0] + 256*(unsigned char)HeaderBuf[1];
+            if(!end || (end & 3)) goto not_imf;
+
+            long backup_pos = std::ftell(fp);
+            unsigned sum1 = 0, sum2 = 0;
+            std::fseek(fp, 2, SEEK_SET);
+            for(unsigned n=0; n<42; ++n)
+            {
+                unsigned value1 = std::fgetc(fp); value1 += std::fgetc(fp) << 8; sum1 += value1;
+                unsigned value2 = std::fgetc(fp); value2 += std::fgetc(fp) << 8; sum2 += value2;
             }
-            size_t Fmt = ReadBEInt(HeaderBuf+8,  2);
-            TrackCount = ReadBEInt(HeaderBuf+10, 2);
-            DeltaTicks = ReadBEInt(HeaderBuf+12, 2);
+            std::fseek(fp, backup_pos, SEEK_SET);
+            if(sum1 > sum2)
+            {
+                is_IMF = true;
+                DeltaTicks = 1;
+            }
+           }
+
+            if(!is_IMF)
+            {
+            not_imf:
+                if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
+                { InvFmt:
+                    std::fclose(fp);
+                    std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
+                    return false;
+                }
+                size_t Fmt = ReadBEInt(HeaderBuf+8,  2);
+                TrackCount = ReadBEInt(HeaderBuf+10, 2);
+                DeltaTicks = ReadBEInt(HeaderBuf+12, 2);
+            }
         }
         TrackData.resize(TrackCount);
         CurrentPosition.track.resize(TrackCount);
         InvDeltaTicks = fraction<long>(1, 1000000l * DeltaTicks);
         //Tempo       = 1000000l * InvDeltaTicks;
         Tempo         = fraction<long>(1,            DeltaTicks);
+
+        static const unsigned char EndTag[4] = {0xFF,0x2F,0x00,0x00};
+
         for(size_t tk = 0; tk < TrackCount; ++tk)
         {
             // Read track header
             size_t TrackLength;
-            if(is_GMF)
+            if(is_IMF)
             {
-                long pos = std::ftell(fp);
-                std::fseek(fp, 0, SEEK_END);
-                TrackLength = ftell(fp) - pos;
-                std::fseek(fp, pos, SEEK_SET);
-            }
-            else if(is_MUS)
-            {
-                long pos = std::ftell(fp);
-                std::fseek(fp, 4, SEEK_SET);
-                TrackLength = std::fgetc(fp); TrackLength += (std::fgetc(fp) << 8);
-                std::fseek(fp, pos, SEEK_SET);
+                //std::fprintf(stderr, "Reading IMF file...\n");
+                long end = (unsigned char)HeaderBuf[0] + 256*(unsigned char)HeaderBuf[1];
+
+                unsigned IMF_tempo = 1428;
+                static const unsigned char imf_tempo[] = {0xFF,0x51,0x4,
+                    (unsigned char)(IMF_tempo>>24),
+                    (unsigned char)(IMF_tempo>>16),
+                    (unsigned char)(IMF_tempo>>8),
+                    (unsigned char)(IMF_tempo)};
+                TrackData[tk].insert(TrackData[tk].end(), imf_tempo, imf_tempo + sizeof(imf_tempo));
+                TrackData[tk].push_back(0x00);
+
+                std::fseek(fp, 2, SEEK_SET);
+                while(std::ftell(fp) < end)
+                {
+                    unsigned char special_event_buf[5];
+                    special_event_buf[0] = 0xFF;
+                    special_event_buf[1] = 0xE3;
+                    special_event_buf[2] = 0x02;
+                    special_event_buf[3] = std::fgetc(fp); // port index
+                    special_event_buf[4] = std::fgetc(fp); // port value
+                    unsigned delay = std::fgetc(fp); delay += 256 * std::fgetc(fp);
+
+                    if(special_event_buf[3] <= 8) continue;
+
+                    //fprintf(stderr, "Put %02X <- %02X, plus %04X delay\n", special_event_buf[3],special_event_buf[4], delay);
+
+                    TrackData[tk].insert(TrackData[tk].end(), special_event_buf, special_event_buf+5);
+                    //if(delay>>21) TrackData[tk].push_back( 0x80 | ((delay>>21) & 0x7F ) );
+                    if(delay>>14) TrackData[tk].push_back( 0x80 | ((delay>>14) & 0x7F ) );
+                    if(delay>> 7) TrackData[tk].push_back( 0x80 | ((delay>> 7) & 0x7F ) );
+                    TrackData[tk].push_back( ((delay>>0) & 0x7F ) );
+                }
+                TrackData[tk].insert(TrackData[tk].end(), EndTag+0, EndTag+4);
+                CurrentPosition.track[tk].delay = 0;
+                CurrentPosition.began = true;
+                //std::fprintf(stderr, "Done reading IMF file\n");
             }
             else
             {
-                std::fread(HeaderBuf, 1, 8, fp);
-                if(std::memcmp(HeaderBuf, "MTrk", 4) != 0) goto InvFmt;
-                TrackLength = ReadBEInt(HeaderBuf+4, 4);
+                if(is_GMF)
+                {
+                    long pos = std::ftell(fp);
+                    std::fseek(fp, 0, SEEK_END);
+                    TrackLength = ftell(fp) - pos;
+                    std::fseek(fp, pos, SEEK_SET);
+                }
+                else if(is_MUS)
+                {
+                    long pos = std::ftell(fp);
+                    std::fseek(fp, 4, SEEK_SET);
+                    TrackLength = std::fgetc(fp); TrackLength += (std::fgetc(fp) << 8);
+                    std::fseek(fp, pos, SEEK_SET);
+                }
+                else
+                {
+                    std::fread(HeaderBuf, 1, 8, fp);
+                    if(std::memcmp(HeaderBuf, "MTrk", 4) != 0) goto InvFmt;
+                    TrackLength = ReadBEInt(HeaderBuf+4, 4);
+                }
+                // Read track data
+                TrackData[tk].resize(TrackLength);
+                std::fread(&TrackData[tk][0], 1, TrackLength, fp);
+                if(is_GMF || is_MUS)
+                {
+                    TrackData[tk].insert(TrackData[tk].end(), EndTag+0, EndTag+4);
+                }
+                // Read next event time
+                CurrentPosition.track[tk].delay = ReadVarLen(tk);
             }
-            // Read track data
-            TrackData[tk].resize(TrackLength);
-            std::fread(&TrackData[tk][0], 1, TrackLength, fp);
-            if(is_GMF || is_MUS)
-            {
-                static const unsigned char EndTag[4] = {0xFF,0x2F,0x00,0x00};
-                TrackData[tk].insert(TrackData[tk].end(), EndTag+0, EndTag+4);
-            }
-            // Read next event time
-            CurrentPosition.track[tk].delay = ReadVarLen(tk);
         }
         loopStart = true;
 
@@ -1403,7 +1473,7 @@ private:
         fraction<long> t = shortest * Tempo;
         if(CurrentPosition.began) CurrentPosition.wait += t.valuel();
 
-        //if(shortest > 0) UI.PrintLn("Delay %ld (%g)", shortest,t);
+        //if(shortest > 0) UI.PrintLn("Delay %ld (%g)", shortest, (double)t.valuel());
 
         /*
         if(CurrentPosition.track[0].ptr > 8119) loopEnd = true;
@@ -1453,6 +1523,14 @@ private:
             if(evtype == 9) current_device[tk] = ChooseDevice(data);
             if(evtype >= 1 && evtype <= 6)
                 UI.PrintLn("Meta %d: %s", evtype, data.c_str());
+
+            if(evtype == 0xE3) // Special non-spec ADLMIDI special for IMF playback: Direct poke to AdLib
+            {
+                unsigned char i = data[0], v = data[1];
+                if( (i&0xF0) == 0xC0 ) v |= 0x30;
+                //fprintf(stderr, "OPL poke %02X, %02X\n", i,v);
+                opl.Poke(0, i,v);
+            }
             return;
         }
         // Any normal event (80..EF)
@@ -1973,6 +2051,7 @@ private:
                 Ch[MidCh].vibdelay =
                     value ? long(0.2092 * std::exp(0.0795 * value)) : 0.0;
                 break;
+
             default: UI.PrintLn("%s %04X <- %d (%cSB) (ch %u)",
                 "NRPN"+!nrpn, addr, value, "LM"[MSB], MidCh);
         }
