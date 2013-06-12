@@ -1,4 +1,4 @@
-VERSION=1.2.0
+VERSION=1.2.1
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -36,7 +36,7 @@ ARCHFILES=\
 	bnk_files/normdrum.bnk \
 	bnk_files/normmelo.bnk \
 	bnk_files/ssdrum.bnk \
-	bnk_files/sssmelo.bnk \
+	bnk_files/ssmelo.bnk \
 	doom2/genmidi.htc \
 	doom2/genmidi.op2 \
 	doom2/default.op2 \

@@ -1236,7 +1236,7 @@ public:
                     special_event_buf[4] = std::fgetc(fp); // port value
                     unsigned delay = std::fgetc(fp); delay += 256 * std::fgetc(fp);
 
-                    if(special_event_buf[3] <= 8) continue;
+                    //if(special_event_buf[3] <= 8) continue;
 
                     //fprintf(stderr, "Put %02X <- %02X, plus %04X delay\n", special_event_buf[3],special_event_buf[4], delay);
 
@@ -2271,9 +2271,9 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
-                4.0,  // wet_gain_dB  (-10..10)
-                .4,   // room_scale   (0..1)
-                .5,   // reverberance (0..1)
+                7.0,  // wet_gain_dB  (-10..10)
+                .7,   // room_scale   (0..1)
+                .6,   // reverberance (0..1)
                 .8,   // hf_damping   (0..1)
                 .000, // pre_delay_s  (0.. 0.5)
                 1,   // stereo_depth (0..1)
@@ -2528,6 +2528,9 @@ static void SendStereoAudio(unsigned long count, int* samples)
         for(unsigned long p = 0; p < 2*count; ++p)
             fwrite(&AudioBuffer[pos+p], 1, 2, fp);
         std::fflush(fp);
+
+        if(std::ftell(fp) >= 48000*4*10*60)
+            raise(SIGINT);
     }
 #ifndef __WIN32__
     AudioBuffer_lock.Unlock();
