@@ -1,4 +1,4 @@
-VERSION=1.2.0
+VERSION=1.2.1
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -31,12 +31,23 @@ ARCHFILES=\
 	bnk_files/melodic.bnk \
 	bnk_files/rickdrum.bnk \
 	bnk_files/rickmelo.bnk \
+	bnk_files/d2drum.bnk \
+	bnk_files/d2melo.bnk \
+	bnk_files/normdrum.bnk \
+	bnk_files/normmelo.bnk \
+	bnk_files/ssdrum.bnk \
+	bnk_files/ssmelo.bnk \
 	doom2/genmidi.htc \
 	doom2/genmidi.op2 \
+	doom2/default.op2 \
 	ibk_files/game.ibk \
 	ibk_files/mt_fm.ibk \
 	ibk_files/soccer-genmidi.ibk \
 	ibk_files/soccer-percs.ibk \
+	op3_files/fat2.op3 \
+	op3_files/fat4.op3 \
+	op3_files/jv_2op.op3 \
+	op3_files/wallace.op3 \
 	opl_files/file12.opl \
 	opl_files/file13.opl \
 	opl_files/file15.opl \
@@ -71,7 +82,11 @@ ARCHFILES=\
 	opl_files/sc3.opl \
 	opl_files/simfarm.ad \
 	opl_files/simfarm.opl \
-	opl_files/warcraft.ad
+	opl_files/warcraft.ad \
+	opl_files/nemesis.opl \
+	opl_files/nhlpa.opl \
+	tmb_files/d3dtimbr.tmb \
+	tmb_files/swtimbr.tmb
 
 INSTALLPROGS=adlmidi
 

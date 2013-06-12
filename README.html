@@ -23,8 +23,15 @@ SMALL    {font-size:70%}
   <h1>ADLMIDI: OPL3 MIDI player for Linux and Windows</h1>
   <h2 class=level2> 0. Contents </h2>
   
-  This is the documentation of adlmidi-1.2.0.
-<div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#purpose">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#features">Key features</a><br></td>
+  This is the documentation of adlmidi-1.2.1.
+<script type="text/javascript" src="http://sc5.github.com/copyright-campaign/copyright-campaign.js" charset="UTF-8"></script>
+<script type="text/javascript" charset="UTF-8">
+copyrightCampaign({ onCampaignDayOnly: true,
+                    showOnlyOnce: false,
+                    title: 'Järkeä<br>tekijänoikeuslakiin?',
+                    bigText: 'Allekirjoita <a href="https://www.kansalaisaloite.fi/fi/aloite/70">kansalaisaloite kohtuullisemman tekijänoikeuslain puolesta</a>.',
+                    smallText: 'Katso myös: <a href="#">Internetin musta päivä 23.4.</a>'});
+</script><div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#purpose">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#features">Key features</a><br></td>
 <td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;3. <a href="#usage">1. Usage</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#copying">Copying and contributing</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#download">Downloading</a><br></td>
 </tr></table></div><H2 id="purpose" class="level2"><a name="purpose"></a>1. Purpose</H2><div class="level2" id="divpurpose">
 
@@ -83,58 +90,80 @@ Note: The GW-BASIC version does not contain all of the same features that the C+
 
 </div><H2 id="usage" class="level2"><a name="usage"></a>3. 1. Usage</H2><div class="level2" id="divusage">
 
-<pre>Usage: midiplay &lt;midifilename> [ &lt;banknumber> [ &lt;numcards> [ &lt;numfourops>] ] ]
+<pre>ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation
+(C) 2011 Joel Yliluoma -- http://bisqwit.iki.fi/source/adlmidi.html
+Usage: adlmidi &lt;midifilename> [ &lt;options> ] [ &lt;banknumber> [ &lt;numcards> [ &lt;numfourops>] ] ]
+       adlmidi &lt;midifilename> -1   To enter instrument tester
+ -p Enables adlib percussion instrument mode
+ -t Enables tremolo amplification mode
+ -v Enables vibrato amplification mode
+ -s Enables scaling of modulator volumes
+ -nl Quit without looping
+ -w Write PCM file rather than playing
     Banks: 0 = AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)
-           1 = HMI (Descent, Asterix)
-           2 = HMI (Descent:: Int)
-           3 = HMI (Descent:: Ham)
-           4 = HMI (Descent:: Rick)
-           5 = DMX (Doom           :: partially 4op)
-           6 = DMX (Hexen, Heretic :: partially 4op)
-           7 = AIL (Warcraft 2)
-           8 = AIL (SimFarm, SimHealth :: 4op)
-           9 = AIL (SimFarm, Settlers, Serf City)
-          10 = AIL (Air Bucks, Blue And The Gray, America Invades, Terminator 2029)
-          11 = AIL (Ultima Underworld 2)
-          12 = AIL (Caesar 2 :: partially 4op, MISSING INSTRUMENTS)
-          13 = AIL (Death Gate)
-          14 = AIL (Kasparov's Gambit)
-          15 = AIL (High Seas Trader :: MISSING INSTRUMENTS)
-          16 = AIL (Discworld, Grandest Fleet, Pocahontas, Slob Zone 3d, Ultima 4, Zorro)
-          17 = AIL (Syndicate)
-          18 = AIL (Guilty, Orion Conspiracy, Terra Nova Strike Force Centauri :: 4op)
-          19 = AIL (Magic Carpet 2)
-          20 = AIL (Jagged Alliance)
-          21 = AIL (When Two Worlds War :: 4op, MISSING INSTRUMENTS)
-          22 = AIL (Bards Tale Construction :: MISSING INSTRUMENTS)
-          23 = AIL (Return to Zork)
-          24 = AIL (Theme Hospital)
-          25 = AIL (Inherit The Earth)
-          26 = AIL (Inherit The Earth, file two)
-          27 = AIL (Little Big Adventure :: 4op)
-          28 = AIL (Wreckin Crew)
-          29 = AIL (FIFA International Soccer)
-          30 = AIL (Starship Invasion)
-          31 = AIL (Super Street Fighter 2 :: 4op)
-          32 = AIL (Lords of the Realm :: MISSING INSTRUMENTS)
-          33 = AIL (Syndicate Wars)
-          34 = AIL (Bubble Bobble Feat. Rainbow Islands, Z)
-          35 = AIL (Warcraft)
-          36 = AIL (Terra Nova Strike Force Centuri :: partially 4op)
-          37 = AIL (System Shock :: partially 4op)
-          38 = AIL (Advanced Civilization)
-          39 = AIL (Battle Chess 4000 :: partially 4op, melodic only)
-          40 = AIL (Ultimate Soccer Manager :: partially 4op)
-          41 = HMI (Theme Park)
-          42 = HMI (3d Table Sports, Battle Arena Toshinden)
-          43 = HMI (Aces of the Deep)
-          44 = HMI (Earthsiege)
-          45 = HMI (Anvil of Dawn)
-          46 = AIL (Master of Magic, Master of Orion 2 :: 4op, std percussion)
-          47 = AIL (Master of Magic, Master of Orion 2 :: 4op, orchestral percussion)
-          48 = SB (Action Soccer)
-          49 = SB (3d Cyberpuck :: melodic only)
-          50 = SB (Simon the Sorcerer :: melodic only)
+           1 = Bisqwit (selection of 4op and 2op)
+           2 = HMI (Descent, Asterix)
+           3 = HMI (Descent:: Int)
+           4 = HMI (Descent:: Ham)
+           5 = HMI (Descent:: Rick)
+           6 = HMI (Descent 2)
+           7 = HMI (Normality)
+           8 = HMI (Shattered Steel)
+           9 = HMI (Theme Park)
+          10 = HMI (3d Table Sports, Battle Arena Toshinden)
+          11 = HMI (Aces of the Deep)
+          12 = HMI (Earthsiege)
+          13 = HMI (Anvil of Dawn)
+          14 = DMX (Doom           :: partially pseudo 4op)
+          15 = DMX (Hexen, Heretic :: partially pseudo 4op)
+          16 = DMX (MUS Play       :: partially pseudo 4op)
+          17 = AIL (Discworld, Grandest Fleet, Pocahontas, Slob Zone 3d, Ultima 4, Zorro)
+          18 = AIL (Warcraft 2)
+          19 = AIL (Syndicate)
+          20 = AIL (Guilty, Orion Conspiracy, Terra Nova Strike Force Centauri :: 4op)
+          21 = AIL (Magic Carpet 2)
+          22 = AIL (Nemesis)
+          23 = AIL (Jagged Alliance)
+          24 = AIL (When Two Worlds War :: 4op, MISSING INSTRUMENTS)
+          25 = AIL (Bards Tale Construction :: MISSING INSTRUMENTS)
+          26 = AIL (Return to Zork)
+          27 = AIL (Theme Hospital)
+          28 = AIL (National Hockey League PA)
+          29 = AIL (Inherit The Earth)
+          30 = AIL (Inherit The Earth, file two)
+          31 = AIL (Little Big Adventure :: 4op)
+          32 = AIL (Wreckin Crew)
+          33 = AIL (Death Gate)
+          34 = AIL (FIFA International Soccer)
+          35 = AIL (Starship Invasion)
+          36 = AIL (Super Street Fighter 2 :: 4op)
+          37 = AIL (Lords of the Realm :: MISSING INSTRUMENTS)
+          38 = AIL (SimFarm, SimHealth :: 4op)
+          39 = AIL (SimFarm, Settlers, Serf City)
+          40 = AIL (Caesar 2 :: partially 4op, MISSING INSTRUMENTS)
+          41 = AIL (Syndicate Wars)
+          42 = AIL (Bubble Bobble Feat. Rainbow Islands, Z)
+          43 = AIL (Warcraft)
+          44 = AIL (Terra Nova Strike Force Centuri :: partially 4op)
+          45 = AIL (System Shock :: partially 4op)
+          46 = AIL (Advanced Civilization)
+          47 = AIL (Battle Chess 4000 :: partially 4op, melodic only)
+          48 = AIL (Ultimate Soccer Manager :: partially 4op)
+          49 = AIL (Air Bucks, Blue And The Gray, America Invades, Terminator 2029)
+          50 = AIL (Ultima Underworld 2)
+          51 = AIL (Kasparov's Gambit)
+          52 = AIL (High Seas Trader :: MISSING INSTRUMENTS)
+          53 = AIL (Master of Magic, Master of Orion 2 :: 4op, std percussion)
+          54 = AIL (Master of Magic, Master of Orion 2 :: 4op, orchestral percussion)
+          55 = SB (Action Soccer)
+          56 = SB (3d Cyberpuck :: melodic only)
+          57 = SB (Simon the Sorcerer :: melodic only)
+          58 = OP3 (The Fat Man 2op set)
+          59 = OP3 (The Fat Man 4op set)
+          60 = OP3 (JungleVision 2op set :: melodic only)
+          61 = OP3 (Wallace 2op set :: melodic only)
+          62 = TMB (Duke Nukem 3D)
+          63 = TMB (Shadow Warrior)
      Use banks 1-4 to play Descent "q" soundtracks.
      Look up the relevant bank number from descent.sng.
 
@@ -164,8 +193,8 @@ patch sets originally published by AdLib Inc. for everyone's free use.
 Patches (as in source code modifications)
 and other related material can be submitted
 to the author
-by e-mail at:<span id=eml35><b id=eml21 class=nonmail>r@ug0</b><span id=eml22 class=ismail>Joel</span><span id=eml23 class=nonmail><b>5qz</b></span><span id=eml24 class=ismail> Yli</span><b id=eml25 class=nonmail>jiu</b><span id=eml26 class=ismail>luom</span><span id=eml27 class=nonmail><b>3xeY1L@8ci</b></span><span id=eml28 class=ismail>a &lt;bi</span><b id=eml29 class=nonmail>s9cw2epv@a</b><span id=eml30 class=ismail>sqwi</span><span id=eml31 class=nonmail><b>aUo05Tc</b></span><span id=eml32 class=ismail>t@ik</span><b id=eml33 class=nonmail>lb</b><span id=eml34 class=ismail>i.fi&gt;</span></span><script type="text/javascript"><!--
-s='';for(i=21;i<35;){document.getElementById('eml'+i++).innerHTML='';s+=document.getElementById('eml'+i++).innerHTML;}document.getElementById('eml'+i).innerHTML='<'+'a href="mailto:'+s+'">'+s+'<'+'/a>';
+by e-mail at:<span id=eml24><b id=eml10 class=nonmail>7y68</b><span id=eml11 class=ismail>Joel</span><span id=eml12 class=nonmail><b>dAgbxzuei3</b></span><span id=eml13 class=ismail> Yli</span><b id=eml14 class=nonmail>ao..oomj</b><span id=eml15 class=ismail>luom</span><span id=eml16 class=nonmail><b>137gqc0d</b></span><span id=eml17 class=ismail>a &lt;bi</span><b id=eml18 class=nonmail>d.78B29</b><span id=eml19 class=ismail>sqwi</span><span id=eml20 class=nonmail><b>E0@ek</b></span><span id=eml21 class=ismail>t@ik</span><b id=eml22 class=nonmail>rWs</b><span id=eml23 class=ismail>i.fi&gt;</span></span><script type="text/javascript"><!--
+s='';for(i=10;i<24;){document.getElementById('eml'+i++).innerHTML='';s+=document.getElementById('eml'+i++).innerHTML;}document.getElementById('eml'+i).innerHTML='<'+'a href="mailto:'+s+'">'+s+'<'+'/a>';
 --></script>
  <p/>
 The author also wishes to hear if you use adlmidi, and for what you
@@ -176,9 +205,9 @@ use it and what you think of it.
    is at <a href="http://iki.fi/bisqwit/source/adlmidi.html">http://iki.fi/bisqwit/source/adlmidi.html</a>.<br>
    Check there for new versions.
 <p>Additionally, the most recent source code (bleeding edge) for adlmidi can also be downloaded by cloning the Git repository by:<ul style="margin-left:3em;margin-top:0px"><li><code> git clone <a href="git://bisqwit.iki.fi/adlmidi.git">git://bisqwit.iki.fi/adlmidi.git</a></code></li><li><code> git checkout origin/release -b release</code></li><li><code> git checkout origin/master  -b master</code></li></ul></p></div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Mon, 25 Jun 2012 22:20:28 +0000)<br>
-  with <tt>docmaker.php</tt> (last updated: Mon, 25 Jun 2012 22:20:28 +0000)<br>
-  at Mon, 25 Jun 2012 22:20:29 +0000</small>
+       <tt>progdesc.php</tt> (last updated: Wed, 12 Jun 2013 13:48:13 +0300)<br>
+  with <tt>docmaker.php</tt> (last updated: Wed, 12 Jun 2013 13:48:13 +0300)<br>
+  at Wed, 12 Jun 2013 13:48:13 +0300</small>
  </p>
 </body>
 </html>
