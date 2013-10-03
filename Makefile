@@ -1,4 +1,4 @@
-VERSION=1.2.1
+VERSION=1.2.1.1
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -11,6 +11,7 @@ ARCHFILES=\
 	gen_adldata.cc \
 	midiplay.bas \
 	progdesc.php \
+	fraction \
 	\
 	bnk_files/drum.bnk \
 	bnk_files/file131.bnk \
