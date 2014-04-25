@@ -1272,6 +1272,8 @@ int main()
     //LoadBNK("bnk_files/grassman1.bnk", 63, "b63", false);
     //LoadBNK("bnk_files/grassman2.bnk", 64, "b64", false);
 
+    //LoadIBK("ibk_files/nitemare_3d.ibk",  65, "b65G", false); // Seems to be identical to wallace.op3 despite different format!
+
     static const char* const banknames[] =
     {// 0
      "AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
@@ -1343,7 +1345,7 @@ int main()
      "OP3 (JungleVision 2op set :: melodic only)",
      "OP3 (Wallace 2op set :: melodic only)",
      "TMB (Duke Nukem 3D)",
-     "TMB (Shadow Warrior)",
+     "TMB (Shadow Warrior)"
     };
 
 #if 0

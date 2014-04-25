@@ -908,7 +908,7 @@ public:
                         fprintf(stderr,"%*s",5,""); std::fflush(stderr);
                     }
                     if(focuswipe>0 && --focuswipe==0)
-                        for(int y=0; y<24; ++y)
+                        for(unsigned y=0; y<24 && y<MH; ++y)
                             for(int x=1; x<=10; ++x)
                                 if(area[x][y]==11)
                                     tetris.setp(x,y,3); // Color of affixed blocks
@@ -1194,7 +1194,7 @@ public:
                     std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
                     return false;
                 }
-                size_t Fmt = ReadBEInt(HeaderBuf+8,  2);
+                /*size_t  Fmt =*/ ReadBEInt(HeaderBuf+8,  2);
                 TrackCount = ReadBEInt(HeaderBuf+10, 2);
                 DeltaTicks = ReadBEInt(HeaderBuf+12, 2);
             }
@@ -1827,7 +1827,7 @@ private:
     // Determine how good a candidate this adlchannel
     // would be for playing a note from this instrument.
     long CalculateAdlChannelGoodness
-        (unsigned c, unsigned ins, unsigned MidCh) const
+        (unsigned c, unsigned ins, unsigned /*MidCh*/) const
     {
         long s = -ch[c].koff_time_until_neglible;
 
@@ -1900,7 +1900,7 @@ private:
     void PrepareAdlChannelForNewNote(int c, int ins)
     {
         if(ch[c].users.empty()) return; // Nothing to do
-        bool doing_arpeggio = false;
+        //bool doing_arpeggio = false;
         for(AdlChannel::users_t::iterator
             jnext = ch[c].users.begin();
             jnext != ch[c].users.end();
@@ -1921,7 +1921,7 @@ private:
                 && j->second.ins == ins)
                 {
                     // Do arpeggio together with this note.
-                    doing_arpeggio = true;
+                    //doing_arpeggio = true;
                     continue;
                 }
 
@@ -2103,13 +2103,13 @@ private:
                 Ch[a].vibpos = 0.0;
     }
 
-    void UpdateArpeggio(double amount)
+    void UpdateArpeggio(double /*amount*/) // amount = amount of time passed
     {
         // If there is an adlib channel that has multiple notes
         // simulated on the same channel, arpeggio them.
+    #if 0
         const unsigned desired_arpeggio_rate = 40; // Hz (upper limit)
-        /*
-      #if 1
+       #if 1
         static unsigned cache=0;
         amount=amount; // Ignore amount. Assume we get a constant rate.
         cache += MaxSamplesAtTime * desired_arpeggio_rate;
@@ -2121,7 +2121,7 @@ private:
         if(arpeggio_cache < 1.0) return;
         arpeggio_cache = 0.0;
       #endif
-      */
+    #endif
         static unsigned arpeggio_counter = 0;
         ++arpeggio_counter;
 
@@ -2271,7 +2271,7 @@ static struct MyReverbData
     {
         for(size_t i=0; i<2; ++i)
             chan[i].Create(PCM_RATE,
-                7.0,  // wet_gain_dB  (-10..10)
+                6.0,  // wet_gain_dB  (-10..10)
                 .7,   // room_scale   (0..1)
                 .6,   // reverberance (0..1)
                 .8,   // hf_damping   (0..1)
@@ -2423,6 +2423,21 @@ static void SDL_AudioCallback(void*, Uint8* stream, int len)
 }
 #endif // WIN32
 
+struct FourChars
+{
+    char ret[4];
+
+    FourChars(const char* s)
+    {
+        for(unsigned c=0; c<4; ++c) ret[c] = s[c];
+    }
+    FourChars(unsigned w) // Little-endian
+    {
+        for(unsigned c=0; c<4; ++c) ret[c] = (w >> (c*8)) & 0xFF;
+    }
+};
+
+
 static void SendStereoAudio(unsigned long count, int* samples)
 {
     if(count % 2 == 1)
@@ -2524,13 +2539,51 @@ static void SendStereoAudio(unsigned long count, int* samples)
     if(WritePCMfile)
     {
         /* HACK: Cheat on DOSBox recording: Record audio separately on Windows. */
-        static FILE* fp = fopen("adlmidi.raw", "wb");
+        static FILE* fp = 0;
+        if(!fp)
+        {
+            fp = fopen("adlmidi.wav", "wb");
+            if(fp)
+            {
+                FourChars Bufs[] = {
+                    "RIFF", (0x24u),  // RIFF type, file length - 8
+                    "WAVE",           // WAVE file
+                    "fmt ", (0x10u),  // fmt subchunk, which is 16 bytes:
+                      "\1\0\2\0",     // PCM (1) & stereo (2)
+                      (48000u    ), // sampling rate
+                      (48000u*2*2), // byte rate
+                      "\2\0\20\0",    // block align & bits per sample
+                    "data", (0x00u)  //  data subchunk, which is so far 0 bytes.
+                };
+                for(unsigned c=0; c<sizeof(Bufs)/sizeof(*Bufs); ++c)
+                    std::fwrite(Bufs[c].ret, 1, 4, fp);
+            }
+        }
+
+        // Using a loop, because our data type is a deque, and
+        // the data might not be contiguously stored in memory.
         for(unsigned long p = 0; p < 2*count; ++p)
-            fwrite(&AudioBuffer[pos+p], 1, 2, fp);
+            std::fwrite(&AudioBuffer[pos+p], 1, 2, fp);
+
+        /* Update the WAV header */
+        if(true)
+        {
+            long pos = std::ftell(fp);
+            if(pos != -1)
+            {
+                long datasize = pos - 0x2C;
+                if(std::fseek(fp, 4,  SEEK_SET) == 0) // Patch the RIFF length
+                    std::fwrite( FourChars(0x24u+datasize).ret, 1,4, fp);
+                if(std::fseek(fp, 40, SEEK_SET) == 0) // Patch the data length
+                    std::fwrite( FourChars(datasize).ret, 1,4, fp);
+                std::fseek(fp, pos, SEEK_SET);
+            }
+        }
+
         std::fflush(fp);
 
-        if(std::ftell(fp) >= 48000*4*10*60)
-            raise(SIGINT);
+        //if(std::ftell(fp) >= 48000*4*10*60)
+        //    raise(SIGINT);
     }
 #ifndef __WIN32__
     AudioBuffer_lock.Unlock();
@@ -2792,7 +2845,7 @@ int main(int argc, char** argv)
     if(SDL_OpenAudio(&spec, &obtained) < 0)
     {
         std::fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
-        return 1;
+        //return 1;
     }
     if(spec.samples != obtained.samples)
         std::fprintf(stderr, "Wanted (samples=%u,rate=%u,channels=%u); obtained (samples=%u,rate=%u,channels=%u)\n",
@@ -2813,7 +2866,7 @@ int main(int argc, char** argv)
             " -v Enables vibrato amplification mode\n"
             " -s Enables scaling of modulator volumes\n"
             " -nl Quit without looping\n"
-            " -w Write PCM file rather than playing\n"
+            " -w Write WAV file rather than playing\n"
         );
         for(unsigned a=0; a<sizeof(banknames)/sizeof(*banknames); ++a)
             std::printf("%10s%2u = %s\n",
