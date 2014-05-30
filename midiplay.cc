@@ -2874,7 +2874,7 @@ int main(int argc, char** argv)
                 a,
                 banknames[a]);
         std::printf(
-            "     Use banks 1-4 to play Descent \"q\" soundtracks.\n"
+            "     Use banks 2-5 to play Descent \"q\" soundtracks.\n"
             "     Look up the relevant bank number from descent.sng.\n"
             "\n"
             "     The fourth parameter can be used to specify the number\n"
