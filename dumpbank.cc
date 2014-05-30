@@ -1,6 +1,6 @@
-#ifdef __MINGW32__
-typedef struct vswprintf {} swprintf;
-#endif
+//#ifdef __MINGW32__
+//typedef struct vswprintf {} swprintf;
+//#endif
 #include <stdio.h>
 #include <vector>
 #include <cstring>

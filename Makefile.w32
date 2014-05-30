@@ -1,5 +1,5 @@
-#CXX=i686-w64-mingw32-g++ -static
-CXX=g++
+CXX=i686-w64-mingw32-g++ -static
+#CXX=g++
 CXXLINK=$(CXX)
 
 #DEBUG=-O0 -fno-inline -D_GLIBCXX_DEBUG -g -fstack-protector-all -fdata-sections
@@ -10,9 +10,9 @@ DEBUG=-Ofast -g
 
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
-CPPFLAGS+=$$(pkg-config --cflags sdl)
-LDLIBS+=$$(pkg-config --libs sdl)
-CPPFLAGS += $(SDL)
+CXX += -mwin32 -mconsole
+CPPFLAGS += -I/usr/include/mingw -I/usr/include/w32api
+LDLIBS += -L/usr/local/lib -L/usr/lib/w32api -lwinmm
 
 CPPFLAGS += -std=c++11 -pedantic -Wall -Wextra
 

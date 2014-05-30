@@ -1,6 +1,6 @@
-#ifdef __MINGW32__
-typedef struct vswprintf {} swprintf;
-#endif
+//#ifdef __MINGW32__
+//typedef struct vswprintf {} swprintf;
+//#endif
 #include <cstdio>
 #include <vector>
 #include <string>
@@ -1343,7 +1343,7 @@ int main()
      "OP3 (The Fat Man 4op set)",
      // 60
      "OP3 (JungleVision 2op set :: melodic only)",
-     "OP3 (Wallace 2op set :: melodic only)",
+     "OP3 (Wallace 2op set, Nitemare 3D :: melodic only)",
      "TMB (Duke Nukem 3D)",
      "TMB (Shadow Warrior)"
     };
