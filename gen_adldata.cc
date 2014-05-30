@@ -1269,6 +1269,7 @@ int main()
     LoadTMB("tmb_files/d3dtimbr.tmb", 62, "duke");
     LoadTMB("tmb_files/swtimbr.tmb",  63, "sw");
 
+    LoadDoom("raptor/genmidi.op2", 64, "rapt");
     //LoadBNK("bnk_files/grassman1.bnk", 63, "b63", false);
     //LoadBNK("bnk_files/grassman2.bnk", 64, "b64", false);
 
@@ -1345,7 +1346,8 @@ int main()
      "OP3 (JungleVision 2op set :: melodic only)",
      "OP3 (Wallace 2op set, Nitemare 3D :: melodic only)",
      "TMB (Duke Nukem 3D)",
-     "TMB (Shadow Warrior)"
+     "TMB (Shadow Warrior)",
+     "DMX (Raptor)"
     };
 
 #if 0

@@ -88,7 +88,8 @@ ARCHFILES=\
 	opl_files/nemesis.opl \
 	opl_files/nhlpa.opl \
 	tmb_files/d3dtimbr.tmb \
-	tmb_files/swtimbr.tmb
+	tmb_files/swtimbr.tmb \
+	raptor/genmidi.op2
 
 INSTALLPROGS=adlmidi
 
