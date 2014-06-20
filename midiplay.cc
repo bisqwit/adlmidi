@@ -199,6 +199,8 @@ public:
     {
         unsigned card = c/23, cc = c%23;
         unsigned x = 0x2000;
+        if(hertz < 0 || hertz > 131071) // Avoid infinite loop
+            return;
         while(hertz >= 1023.5) { hertz /= 2.0; x += 0x400; } // Calculate octave
         x += (int)(hertz + 0.5);
         unsigned chn = Channels[cc];
@@ -1065,7 +1067,7 @@ class MIDIplay
             // Current pressure
             unsigned char  vol;
             // Tone selected on noteon:
-            unsigned short tone;
+            short tone;
             // Patch selected on noteon; index to banks[AdlBank][]
             unsigned char midiins;
             // Index to physical adlib data structure, adlins[]
