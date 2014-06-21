@@ -601,11 +601,7 @@ public:
         }
         std::fflush(stderr);
 
-        unsigned n_textlines = 23*NumCards;
-      #ifdef __WIN32__
-        //if(n_textlines > 26) n_textlines -= 26; /* Reserved for tetris */
-      #endif
-        txtline=1 + (txtline) % n_textlines;
+        txtline=(1 + txtline) % WinHeight();
     }
     void IllustrateNote(int adlchn, int note, int ins, int pressure, double bend)
     {
