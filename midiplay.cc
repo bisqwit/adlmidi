@@ -31,6 +31,7 @@ static const unsigned NewTimerFreq = 209;
 # include <termio.h>
 # include <fcntl.h>
 # include <sys/ioctl.h>
+# include <csignal>
 #endif
 
 #include <deque>
@@ -62,12 +63,36 @@ static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
 static bool ScaleModulators = false;
+static unsigned WindowLines = 0;
 
 static unsigned WinHeight()
 {
-    if(AdlPercussionMode)
-        return std::min(2u, NumCards) * 23;
-    return std::min(3u, NumCards) * 18;
+    unsigned result =
+        AdlPercussionMode
+        ? std::min(2u, NumCards) * 23
+        : std::min(3u, NumCards) * 18;
+
+    if(WindowLines) result = std::min(WindowLines-1, result);
+    return result;
+}
+
+#if (!defined(__WIN32__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
+extern "C" { static void SigWinchHandler(int); }
+static void SigWinchHandler(int)
+{
+    struct winsize w;
+    if(ioctl(2, TIOCGWINSZ, &w) >= 0 || ioctl(1, TIOCGWINSZ, &w) >= 0 || ioctl(0, TIOCGWINSZ, &w) >= 0)
+        WindowLines = w.ws_row;
+}
+#else
+static void SigWinchHandler(int) {}
+#endif
+
+static void GuessInitialWindowHeight()
+{
+    auto s = std::getenv("LINES");
+    if(s && std::atoi(s)) WindowLines = std::atoi(s);
+    SigWinchHandler(0);
 }
 
 #include "adldata.hh"
@@ -492,6 +517,7 @@ public:
     UI(): x(0), y(0), color(-1), txtline(1),
           maxy(0), cursor_visible(true)
     {
+        GuessInitialWindowHeight();
       #ifdef __WIN32__
         handle = GetStdHandle(STD_OUTPUT_HANDLE);
         GotoXY(41,13);
@@ -504,9 +530,13 @@ public:
         }
         else
         {
+            WindowLines = tmp.dwSize.Y;
             //COORD size = { 80, 23*NumCards+5 };
             //SetConsoleScreenBufferSize(handle,size);
         }
+      #endif
+      #if (!defined(__WIN32__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
+        std::signal(SIGWINCH, SigWinchHandler);
       #endif
       #ifdef __DJGPP__
         color = 7;
