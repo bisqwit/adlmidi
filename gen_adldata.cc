@@ -331,6 +331,14 @@ static size_t InsertIns(
   }
 }
 
+// Create silent 'nosound' instrument
+size_t InsertNoSoundIns()
+{
+    // { 0x0F70700,0x0F70710, 0xFF,0xFF, 0x0,+0 },
+    insdata tmp1 = { {0x00, 0x10, 0x07, 0x07, 0xF7, 0xF7, 0x00, 0x00, 0xFF, 0xFF, 0x00}, 0 };
+    struct ins tmp2 = { 0, 0, 0, 0 };
+    return InsertIns(tmp1, tmp1, tmp2, "nosound");
+}
 
 static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_fat)
 {
@@ -1182,6 +1190,8 @@ int main()
  * PREPROCESSED, CONVERTED, AND POSTPROCESSED OFF-SCREEN.\n\
  */\n\
 ");
+    size_t nosound = InsertNoSoundIns();
+
     LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank! Same as file22.opl
 
     LoadBisqwit("op3_files/bisqwit.adlraw", 1, "Bisq");
@@ -1450,6 +1460,7 @@ int main()
            "} adlins[] =\n");*/
     printf("const struct adlinsdata adlins[%u] =\n", (unsigned)instab.size());
     printf("{\n");
+    std::vector<unsigned> adlins_flags;
     for(size_t b=instab.size(), c=0; c<b; ++c)
         for(std::map<ins,std::pair<size_t,std::set<std::string> > >
             ::const_iterator
@@ -1460,13 +1471,14 @@ int main()
             if(i->second.first != c) continue;
 
             DurationInfo info = MeasureDurations(i->first);
+            unsigned flags = (i->first.pseudo4op ? 1 : 0) | (info.nosound ? 2 : 0);
 
             printf("    {");
             printf("%4d,%4d,%3d, %d, %6ld,%6ld",
                 (unsigned) i->first.insno1,
                 (unsigned) i->first.insno2,
                 (int)(i->first.notenum),
-                (int)((i->first.pseudo4op ? 1 : 0) | (info.nosound ? 2 : 0)),
+                flags,
                 info.ms_sound_kon,
                 info.ms_sound_koff);
             std::string names;
@@ -1483,6 +1495,7 @@ int main()
             }
             printf(" }, // %u: %s\n\n", (unsigned)c, names.c_str());
             fflush(stdout);
+            adlins_flags.push_back(flags);
         }
     printf("};\n\n");
 
@@ -1496,8 +1509,8 @@ int main()
         for(unsigned p=0; p<256; ++p)
         {
             unsigned v = progs[bank][p];
-            if(v == 0)
-                v = 198; // Blank.in
+            if(v == 0 || (adlins_flags[v-1]&2))
+                v = nosound; // Blank.in
             else
                 v -= 1;
             data[p] = v;
@@ -1526,7 +1539,7 @@ int main()
                 listed.insert(v);
                 redundant = false;
             }
-            printf("%3d,", v);
+            printf("%4d,", v);
             if(p%16 == 15) printf("\n");
         }
         printf("    },\n");
@@ -1537,7 +1550,7 @@ int main()
             {
                 bool match = true;
                 for(unsigned p=0; p<256; ++p)
-                    if(bank_data[bank][p] != 198
+                    if(bank_data[bank][p] != nosound
                     && bank_data[bank][p] != bank_data[refbank][p])
                     {
                         match=false;
