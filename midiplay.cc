@@ -1,6 +1,6 @@
-#ifdef __MINGW32__
-typedef struct vswprintf {} swprintf;
-#endif
+//#ifdef __MINGW32__
+//typedef struct vswprintf {} swprintf;
+//#endif
 
 #include <vector>
 #include <string>
@@ -31,6 +31,7 @@ static const unsigned NewTimerFreq = 209;
 # include <termio.h>
 # include <fcntl.h>
 # include <sys/ioctl.h>
+# include <csignal>
 #endif
 
 #include <deque>
@@ -62,12 +63,36 @@ static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
 static bool ScaleModulators = false;
+static unsigned WindowLines = 0;
 
 static unsigned WinHeight()
 {
-    if(AdlPercussionMode)
-        return std::min(2u, NumCards) * 23;
-    return std::min(3u, NumCards) * 18;
+    unsigned result =
+        AdlPercussionMode
+        ? std::min(2u, NumCards) * 23
+        : std::min(3u, NumCards) * 18;
+
+    if(WindowLines) result = std::min(WindowLines-1, result);
+    return result;
+}
+
+#if (!defined(__WIN32__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
+extern "C" { static void SigWinchHandler(int); }
+static void SigWinchHandler(int)
+{
+    struct winsize w;
+    if(ioctl(2, TIOCGWINSZ, &w) >= 0 || ioctl(1, TIOCGWINSZ, &w) >= 0 || ioctl(0, TIOCGWINSZ, &w) >= 0)
+        WindowLines = w.ws_row;
+}
+#else
+static void SigWinchHandler(int) {}
+#endif
+
+static void GuessInitialWindowHeight()
+{
+    auto s = std::getenv("LINES");
+    if(s && std::atoi(s)) WindowLines = std::atoi(s);
+    SigWinchHandler(0);
 }
 
 #include "adldata.hh"
@@ -377,22 +402,22 @@ public:
 };
 
 static const char MIDIsymbols[256+1] =
-"PPPPPPhcckmvmxbd"
-"oooooahoGGGGGGGG"
-"BBBBBBBVVVVVHHMS"
-"SSSOOOcTTTTTTTTX"
-"XXXTTTFFFFFFFFFL"
-"LLLLLLLppppppppX"
-"XXXXXXXGGGGGTSSb"
-"bbbMMMcGXXXXXXXD"
-"????????????????"
-"????????????????"
-"???DDshMhhhCCCbM"
-"CBDMMDDDMMDDDDDD"
-"DDDDDDDDDDDDDD??"
-"????????????????"
-"????????????????"
-"????????????????";
+"PPPPPPhcckmvmxbd"  // Ins  0-15
+"oooooahoGGGGGGGG"  // Ins 16-31
+"BBBBBBBBVVVVVHHM"  // Ins 32-47
+"SSSSOOOcTTTTTTTT"  // Ins 48-63
+"XXXXTTTFFFFFFFFF"  // Ins 64-79
+"LLLLLLLLpppppppp"  // Ins 80-95
+"XXXXXXXXGGGGGTSS"  // Ins 96-111
+"bbbbMMMcGXXXXXXX"  // Ins 112-127
+"????????????????"  // Prc 0-15
+"????????????????"  // Prc 16-31
+"???DDshMhhhCCCbM"  // Prc 32-47
+"CBDMMDDDMMDDDDDD"  // Prc 48-63
+"DDDDDDDDDDDDDD??"  // Prc 64-79
+"????????????????"  // Prc 80-95
+"????????????????"  // Prc 96-111
+"????????????????"; // Prc 112-127
 
 static const char PercussionMap[256] =
 "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GM
@@ -492,6 +517,7 @@ public:
     UI(): x(0), y(0), color(-1), txtline(1),
           maxy(0), cursor_visible(true)
     {
+        GuessInitialWindowHeight();
       #ifdef __WIN32__
         handle = GetStdHandle(STD_OUTPUT_HANDLE);
         GotoXY(41,13);
@@ -504,9 +530,13 @@ public:
         }
         else
         {
+            WindowLines = tmp.dwSize.Y;
             //COORD size = { 80, 23*NumCards+5 };
             //SetConsoleScreenBufferSize(handle,size);
         }
+      #endif
+      #if (!defined(__WIN32__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
+        std::signal(SIGWINCH, SigWinchHandler);
       #endif
       #ifdef __DJGPP__
         color = 7;
@@ -601,11 +631,7 @@ public:
         }
         std::fflush(stderr);
 
-        unsigned n_textlines = 23*NumCards;
-      #ifdef __WIN32__
-        //if(n_textlines > 26) n_textlines -= 26; /* Reserved for tetris */
-      #endif
-        txtline=1 + (txtline) % n_textlines;
+        txtline=(1 + txtline) % WinHeight();
     }
     void IllustrateNote(int adlchn, int note, int ins, int pressure, double bend)
     {
@@ -2826,7 +2852,7 @@ int main(int argc, char** argv)
     std::fflush(stdout);
     UI.Color(3); std::fflush(stderr);
     std::printf(
-        "(C) 2011 Joel Yliluoma -- http://bisqwit.iki.fi/source/adlmidi.html\n");
+        "(C) -- http://iki.fi/bisqwit/source/adlmidi.html\n");
     std::fflush(stdout);
     UI.Color(7); std::fflush(stderr);
 
@@ -2855,7 +2881,7 @@ int main(int argc, char** argv)
 
 #endif /* not DJGPP */
 
-    if(argc < 2)
+    if(argc < 2 || std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")
     {
         UI.Color(7);  std::fflush(stderr);
         std::printf(
@@ -2874,7 +2900,7 @@ int main(int argc, char** argv)
                 a,
                 banknames[a]);
         std::printf(
-            "     Use banks 1-4 to play Descent \"q\" soundtracks.\n"
+            "     Use banks 2-5 to play Descent \"q\" soundtracks.\n"
             "     Look up the relevant bank number from descent.sng.\n"
             "\n"
             "     The fourth parameter can be used to specify the number\n"

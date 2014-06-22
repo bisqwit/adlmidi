@@ -1,4 +1,4 @@
-#CXX=i686-pc-mingw32-g++ -static
+#CXX=i686-w64-mingw32-g++ -static
 CXX=g++
 CXXLINK=$(CXX)
 
@@ -12,7 +12,6 @@ DEBUG=-Ofast -g
 
 CPPFLAGS+=$$(pkg-config --cflags sdl)
 LDLIBS+=$$(pkg-config --libs sdl)
-
 CPPFLAGS += $(SDL)
 
 CPPFLAGS += -std=c++11 -pedantic -Wall -Wextra

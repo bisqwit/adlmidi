@@ -23,7 +23,7 @@ SMALL    {font-size:70%}
   <h1>ADLMIDI: OPL3 MIDI player for Linux and Windows</h1>
   <h2 class=level2> 0. Contents </h2>
   
-  This is the documentation of adlmidi-1.2.2.
+  This is the documentation of adlmidi-1.2.3.
 <script type="text/javascript" src="http://sc5.github.com/copyright-campaign/copyright-campaign.js" charset="UTF-8"></script>
 <script type="text/javascript" charset="UTF-8">
 copyrightCampaign({ onCampaignDayOnly: true,
@@ -91,15 +91,15 @@ Note: The GW-BASIC version does not contain all of the same features that the C+
 </div><H2 id="usage" class="level2"><a name="usage"></a>3. 1. Usage</H2><div class="level2" id="divusage">
 
 <pre>ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation
-(C) 2011 Joel Yliluoma -- http://bisqwit.iki.fi/source/adlmidi.html
-Usage: adlmidi &lt;midifilename> [ &lt;options> ] [ &lt;banknumber> [ &lt;numcards> [ &lt;numfourops>] ] ]
-       adlmidi &lt;midifilename> -1   To enter instrument tester
+(C) -- http://iki.fi/bisqwit/source/adlmidi.html
+Usage: adlmidi <midifilename> [ <options> ] [ <banknumber> [ <numcards> [ <numfourops>] ] ]
+       adlmidi <midifilename> -1   To enter instrument tester
  -p Enables adlib percussion instrument mode
  -t Enables tremolo amplification mode
  -v Enables vibrato amplification mode
  -s Enables scaling of modulator volumes
  -nl Quit without looping
- -w Write PCM file rather than playing
+ -w Write WAV file rather than playing
     Banks: 0 = AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)
            1 = Bisqwit (selection of 4op and 2op)
            2 = HMI (Descent, Asterix)
@@ -161,10 +161,11 @@ Usage: adlmidi &lt;midifilename> [ &lt;options> ] [ &lt;banknumber> [ &lt;numcar
           58 = OP3 (The Fat Man 2op set)
           59 = OP3 (The Fat Man 4op set)
           60 = OP3 (JungleVision 2op set :: melodic only)
-          61 = OP3 (Wallace 2op set :: melodic only)
+          61 = OP3 (Wallace 2op set, Nitemare 3D :: melodic only)
           62 = TMB (Duke Nukem 3D)
           63 = TMB (Shadow Warrior)
-     Use banks 1-4 to play Descent "q" soundtracks.
+          64 = DMX (Raptor)
+     Use banks 2-5 to play Descent "q" soundtracks.
      Look up the relevant bank number from descent.sng.
 
      The fourth parameter can be used to specify the number
@@ -175,9 +176,7 @@ Usage: adlmidi &lt;midifilename> [ &lt;options> ] [ &lt;banknumber> [ &lt;numcar
 
 </div><H2 id="copying" class="level2"><a name="copying"></a>4. Copying and contributing</H2><div class="level2" id="divcopying">
 
-adlmidi has been written by Joel Yliluoma, a.k.a.
-<a href="http://iki.fi/bisqwit/">Bisqwit</a>,<br />
-and is distributed under the terms of the
+ADLMIDI is distributed under the terms of the
 <a href="http://www.gnu.org/licenses/gpl-3.0.html">General Public License</a>
 version 3 (GPL3).
  <br/>
@@ -192,9 +191,9 @@ patch sets originally published by AdLib Inc. for everyone's free use.
  <p/>
 Patches (as in source code modifications)
 and other related material can be submitted
-to the author
-by e-mail at:<span id=eml16><b id=eml2 class=nonmail>E.@yn.2Xj</b><span id=eml3 class=ismail>Joel</span><span id=eml4 class=nonmail><b>tkj@e2@ejm</b></span><span id=eml5 class=ismail> Yli</span><b id=eml6 class=nonmail>fxhmb</b><span id=eml7 class=ismail>luom</span><span id=eml8 class=nonmail><b>k6QYbc</b></span><span id=eml9 class=ismail>a &lt;bi</span><b id=eml10 class=nonmail>y95</b><span id=eml11 class=ismail>sqwi</span><span id=eml12 class=nonmail><b>oe.b</b></span><span id=eml13 class=ismail>t@ik</span><b id=eml14 class=nonmail>7</b><span id=eml15 class=ismail>i.fi&gt;</span></span><script type="text/javascript"><!--
-s='';for(i=2;i<16;){document.getElementById('eml'+i++).innerHTML='';s+=document.getElementById('eml'+i++).innerHTML;}document.getElementById('eml'+i).innerHTML='<'+'a href="mailto:'+s+'">'+s+'<'+'/a>';
+to the primary author
+by e-mail at:<span id=eml31><b id=eml17 class=nonmail>ebR</b><span id=eml18 class=ismail>Joel</span><span id=eml19 class=nonmail><b>6iq</b></span><span id=eml20 class=ismail> Yli</span><b id=eml21 class=nonmail>pfP</b><span id=eml22 class=ismail>luom</span><span id=eml23 class=nonmail><b>a.</b></span><span id=eml24 class=ismail>a &lt;bi</span><b id=eml25 class=nonmail>6Hk7lqfw</b><span id=eml26 class=ismail>sqwi</span><span id=eml27 class=nonmail><b>nvb0cqwazu</b></span><span id=eml28 class=ismail>t@ik</span><b id=eml29 class=nonmail>.lq.e</b><span id=eml30 class=ismail>i.fi&gt;</span></span><script type="text/javascript"><!--
+s='';for(i=17;i<31;){document.getElementById('eml'+i++).innerHTML='';s+=document.getElementById('eml'+i++).innerHTML;}document.getElementById('eml'+i).innerHTML='<'+'a href="mailto:'+s+'">'+s+'<'+'/a>';
 --></script>
  <p/>
 The author also wishes to hear if you use adlmidi, and for what you
@@ -205,9 +204,9 @@ use it and what you think of it.
    is at <a href="http://iki.fi/bisqwit/source/adlmidi.html">http://iki.fi/bisqwit/source/adlmidi.html</a>.<br>
    Check there for new versions.
 <p>Additionally, the most recent source code (bleeding edge) for adlmidi can also be downloaded by cloning the Git repository by:<ul style="margin-left:3em;margin-top:0px"><li><code> git clone <a href="git://bisqwit.iki.fi/adlmidi.git">git://bisqwit.iki.fi/adlmidi.git</a></code></li><li><code> git checkout origin/release -b release</code></li><li><code> git checkout origin/master  -b master</code></li></ul></p></div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Fri, 25 Apr 2014 19:48:32 +0300)<br>
-  with <tt>docmaker.php</tt> (last updated: Fri, 25 Apr 2014 19:48:32 +0300)<br>
-  at Fri, 25 Apr 2014 19:48:32 +0300</small>
+       <tt>progdesc.php</tt> (last updated: Sun, 22 Jun 2014 10:47:41 +0300)<br>
+  with <tt>docmaker.php</tt> (last updated: Sun, 22 Jun 2014 10:47:41 +0300)<br>
+  at Sun, 22 Jun 2014 10:47:43 +0300</small>
  </p>
 </body>
 </html>
