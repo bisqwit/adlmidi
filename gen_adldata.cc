@@ -340,7 +340,7 @@ size_t InsertNoSoundIns()
     return InsertIns(tmp1, tmp1, tmp2, "nosound");
 }
 
-static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_fat)
+static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_fat, bool percussive)
 {
     FILE* fp = std::fopen(fn, "rb");
     std::fseek(fp, 0, SEEK_END);
@@ -383,10 +383,6 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
 
         /*printf("%5d %3d %8s mode=%02X voice=%02X: ", data_index,usage_flag, name.c_str(),
             mode,voice_num);*/
-
-        bool percussive = is_fat
-            ?   name[1] == 'P' /* mode == 1 */
-            :   (usage_flag >= 16);
 
         int gmno = is_fat
             ?   ((n & 127) + percussive*128)
@@ -1196,32 +1192,32 @@ int main()
 
     LoadBisqwit("op3_files/bisqwit.adlraw", 1, "Bisq");
 
-    LoadBNK("bnk_files/melodic.bnk", 2, "HMIGM", false); // same as file156.bnk
-    LoadBNK("bnk_files/drum.bnk",    2, "HMIGP", false);
-    LoadBNK("bnk_files/intmelo.bnk", 3, "intM", false);
-    LoadBNK("bnk_files/intdrum.bnk", 3, "intP", false);
-    LoadBNK("bnk_files/hammelo.bnk", 4, "hamM", false);
-    LoadBNK("bnk_files/hamdrum.bnk", 4, "hamP", false);
-    LoadBNK("bnk_files/rickmelo.bnk",5, "rickM", false);
-    LoadBNK("bnk_files/rickdrum.bnk",5, "rickP", false);
+    LoadBNK("bnk_files/melodic.bnk", 2, "HMIGM", false, false); // same as file156.bnk
+    LoadBNK("bnk_files/drum.bnk",    2, "HMIGP", false, true);
+    LoadBNK("bnk_files/intmelo.bnk", 3, "intM", false, false);
+    LoadBNK("bnk_files/intdrum.bnk", 3, "intP", false, true);
+    LoadBNK("bnk_files/hammelo.bnk", 4, "hamM", false, false);
+    LoadBNK("bnk_files/hamdrum.bnk", 4, "hamP", false, true);
+    LoadBNK("bnk_files/rickmelo.bnk",5, "rickM", false, false);
+    LoadBNK("bnk_files/rickdrum.bnk",5, "rickP", false, true);
 
-    LoadBNK("bnk_files/d2melo.bnk",  6, "b6M", false);
-    LoadBNK("bnk_files/d2drum.bnk",  6, "b6P", false);
-    LoadBNK("bnk_files/normmelo.bnk", 7, "b7M", false);
-    LoadBNK("bnk_files/normdrum.bnk", 7, "b7P", false); // same as file122.bnk
-    LoadBNK("bnk_files/ssmelo.bnk",  8, "b8M", false);
-    LoadBNK("bnk_files/ssdrum.bnk",  8, "b8P", false);
+    LoadBNK("bnk_files/d2melo.bnk",  6, "b6M", false, false);
+    LoadBNK("bnk_files/d2drum.bnk",  6, "b6P", false, true);
+    LoadBNK("bnk_files/normmelo.bnk", 7, "b7M", false, false);
+    LoadBNK("bnk_files/normdrum.bnk", 7, "b7P", false, true); // same as file122.bnk
+    LoadBNK("bnk_files/ssmelo.bnk",  8, "b8M", false, false);
+    LoadBNK("bnk_files/ssdrum.bnk",  8, "b8P", false, true);
 
-    LoadBNK("bnk_files/file131.bnk", 9, "b9M", false);
-    LoadBNK("bnk_files/file132.bnk", 9, "b9P", false);
-    LoadBNK("bnk_files/file133.bnk", 10,"b10P", false);
-    LoadBNK("bnk_files/file134.bnk", 10,"b10M", false);
-    LoadBNK("bnk_files/file142.bnk", 11, "b11P", false);
-    LoadBNK("bnk_files/file143.bnk", 11, "b11M", false);
-    LoadBNK("bnk_files/file144.bnk", 12, "b12M", false);
-    LoadBNK("bnk_files/file145.bnk", 12, "b12P", false);
-    LoadBNK("bnk_files/file167.bnk", 13, "b13P", false);
-    LoadBNK("bnk_files/file168.bnk", 13, "b13M", false);
+    LoadBNK("bnk_files/file131.bnk", 9, "b9M", false, false);
+    LoadBNK("bnk_files/file132.bnk", 9, "b9P", false, true);
+    LoadBNK("bnk_files/file133.bnk", 10,"b10P", false, true);
+    LoadBNK("bnk_files/file134.bnk", 10,"b10M", false, false);
+    LoadBNK("bnk_files/file142.bnk", 11, "b11P", false, true);
+    LoadBNK("bnk_files/file143.bnk", 11, "b11M", false, false);
+    LoadBNK("bnk_files/file144.bnk", 12, "b12M", false, false);
+    LoadBNK("bnk_files/file145.bnk", 12, "b12P", false, true);
+    LoadBNK("bnk_files/file167.bnk", 13, "b13P", false, true);
+    LoadBNK("bnk_files/file168.bnk", 13, "b13M", false, false);
 
     LoadDoom("doom2/genmidi.op2", 14, "dM");
     LoadDoom("doom2/genmidi.htc", 15, "hxM"); // same as genmidi.hxn
