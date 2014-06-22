@@ -2852,7 +2852,7 @@ int main(int argc, char** argv)
     std::fflush(stdout);
     UI.Color(3); std::fflush(stderr);
     std::printf(
-        "(C) 2011 Joel Yliluoma -- http://bisqwit.iki.fi/source/adlmidi.html\n");
+        "(C) -- http://iki.fi/bisqwit/source/adlmidi.html\n");
     std::fflush(stdout);
     UI.Color(7); std::fflush(stderr);
 
@@ -2881,7 +2881,7 @@ int main(int argc, char** argv)
 
 #endif /* not DJGPP */
 
-    if(argc < 2)
+    if(argc < 2 || std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")
     {
         UI.Color(7);  std::fflush(stderr);
         std::printf(

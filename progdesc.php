@@ -66,15 +66,15 @@ Note: The GW-BASIC version does not contain all of the same features that the C+
 ", 'usage: 1. Usage' => "
 
 <pre>ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation
-(C) 2011 Joel Yliluoma -- http://bisqwit.iki.fi/source/adlmidi.html
-Usage: adlmidi &lt;midifilename> [ &lt;options> ] [ &lt;banknumber> [ &lt;numcards> [ &lt;numfourops>] ] ]
-       adlmidi &lt;midifilename> -1   To enter instrument tester
+(C) -- http://iki.fi/bisqwit/source/adlmidi.html
+Usage: adlmidi <midifilename> [ <options> ] [ <banknumber> [ <numcards> [ <numfourops>] ] ]
+       adlmidi <midifilename> -1   To enter instrument tester
  -p Enables adlib percussion instrument mode
  -t Enables tremolo amplification mode
  -v Enables vibrato amplification mode
  -s Enables scaling of modulator volumes
  -nl Quit without looping
- -w Write PCM file rather than playing
+ -w Write WAV file rather than playing
     Banks: 0 = AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)
            1 = Bisqwit (selection of 4op and 2op)
            2 = HMI (Descent, Asterix)
@@ -136,10 +136,11 @@ Usage: adlmidi &lt;midifilename> [ &lt;options> ] [ &lt;banknumber> [ &lt;numcar
           58 = OP3 (The Fat Man 2op set)
           59 = OP3 (The Fat Man 4op set)
           60 = OP3 (JungleVision 2op set :: melodic only)
-          61 = OP3 (Wallace 2op set :: melodic only)
+          61 = OP3 (Wallace 2op set, Nitemare 3D :: melodic only)
           62 = TMB (Duke Nukem 3D)
           63 = TMB (Shadow Warrior)
-     Use banks 1-4 to play Descent \"q\" soundtracks.
+          64 = DMX (Raptor)
+     Use banks 2-5 to play Descent \"q\" soundtracks.
      Look up the relevant bank number from descent.sng.
 
      The fourth parameter can be used to specify the number
@@ -150,9 +151,7 @@ Usage: adlmidi &lt;midifilename> [ &lt;options> ] [ &lt;banknumber> [ &lt;numcar
 
 ", 'copying:1. Copying and contributing' => "
 
-adlmidi has been written by Joel Yliluoma, a.k.a.
-<a href=\"http://iki.fi/bisqwit/\">Bisqwit</a>,<br />
-and is distributed under the terms of the
+ADLMIDI is distributed under the terms of the
 <a href=\"http://www.gnu.org/licenses/gpl-3.0.html\">General Public License</a>
 version 3 (GPL3).
  <br/>
@@ -167,7 +166,7 @@ patch sets originally published by AdLib Inc. for everyone's free use.
  <p/>
 Patches (as in source code modifications)
 and other related material can be submitted
-to the author
+to the primary author
 ".GetEmail('by e-mail at:', 'Joel Yliluoma', 'bisqwi'. 't@iki.fi')."
  <p/>
 The author also wishes to hear if you use adlmidi, and for what you
