@@ -978,6 +978,7 @@ struct DurationInfo
 {
     long ms_sound_kon;
     long ms_sound_koff;
+    bool nosound;
 };
 static DurationInfo MeasureDurations(const ins& in)
 {
@@ -1167,6 +1168,7 @@ static DurationInfo MeasureDurations(const ins& in)
     DurationInfo result;
     result.ms_sound_kon  = quarter_amplitude_time * 1000.0 / interval;
     result.ms_sound_koff = keyoff_out_time        * 1000.0 / interval;
+    result.nosound = (peak_amplitude_value < 0.5);
     return result;
 }
 
@@ -1464,7 +1466,7 @@ int main()
                 (unsigned) i->first.insno1,
                 (unsigned) i->first.insno2,
                 (int)(i->first.notenum),
-                (int)(i->first.pseudo4op ? 1 : 0),
+                (int)((i->first.pseudo4op ? 1 : 0) | (info.nosound ? 2 : 0)),
                 info.ms_sound_kon,
                 info.ms_sound_koff);
             std::string names;

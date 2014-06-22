@@ -32,7 +32,7 @@ extern const struct adldata
 } adl[];
 extern const struct adlinsdata
 {
-    enum { Flag_Pseudo4op = 0x01 };
+    enum { Flag_Pseudo4op = 0x01, Flag_NoSound = 0x02 };
 
     Uint16 adlno1, adlno2;
     Uint8 tone;

@@ -1646,6 +1646,13 @@ private:
 
                 if(AdlPercussionMode && PercussionMap[midiins & 0xFF]) i[1] = i[0];
 
+                static std::set<unsigned char> missing_warnings;
+                if(!missing_warnings.count(midiins) && (adlins[meta].flags & adlinsdata::Flag_NoSound))
+                {
+                    UI.PrintLn("[%i]Playing missing instrument %i", MidCh, midiins);
+                    missing_warnings.insert(midiins);
+                }
+
                 // Allocate AdLib channel (the physical sound channel for the note)
                 int adlchannel[2] = { -1, -1 };
                 for(unsigned ccount = 0; ccount < 2; ++ccount)
