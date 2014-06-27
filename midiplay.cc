@@ -65,6 +65,7 @@ static bool WritePCMfile = false;
 static std::string PCMfilepath = "adlmidi.wav";
 static bool ScaleModulators = false;
 static unsigned WindowLines = 0;
+static bool WritingToTTY;
 
 static unsigned WinHeight()
 {
@@ -364,13 +365,16 @@ public:
         }
 
         /**/
-        fprintf(stdout, "Channels used as:\n");
-        for(size_t a=0; a<four_op_category.size(); ++a)
+        if (WritingToTTY)
         {
-            fprintf(stdout, " %d", four_op_category[a]);
-            if(a%23 == 22) fprintf(stdout, "\n");
+            fprintf(stdout, "Channels used as:\n");
+            for(size_t a=0; a<four_op_category.size(); ++a)
+            {
+                fprintf(stdout, " %d", four_op_category[a]);
+                if(a%23 == 22) fprintf(stdout, "\n");
+            }
+            fflush(stdout);
         }
-        fflush(stdout);
         /**/
         /*
         In two-op mode, channels 0..8 go as follows:
@@ -2850,18 +2854,25 @@ int main(int argc, char** argv)
     // the sum of these two buffers.
 
     UI.Color(15); std::fflush(stderr);
-    std::printf(
+    WritingToTTY = isatty(STDOUT_FILENO);
+    if (WritingToTTY)
+    {
+        std::printf(
 #ifdef __DJGPP__
-        "ADLMIDI_A: MIDI player for OPL3 hardware\n"
+            "ADLMIDI_A: MIDI player for OPL3 hardware\n"
 #else
-        "ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation\n"
+            "ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation\n"
 #endif
-    );
-    std::fflush(stdout);
+        );
+        std::fflush(stdout);
+    }
     UI.Color(3); std::fflush(stderr);
-    std::printf(
-        "(C) -- http://iki.fi/bisqwit/source/adlmidi.html\n");
-    std::fflush(stdout);
+    if (WritingToTTY)
+    {
+        std::printf(
+            "(C) -- http://iki.fi/bisqwit/source/adlmidi.html\n");
+        std::fflush(stdout);
+    }
     UI.Color(7); std::fflush(stderr);
 
     signal(SIGINT, TidyupAndExit);
@@ -2972,9 +2983,12 @@ int main(int argc, char** argv)
         if(adlins[insno].adlno1 != adlins[insno].adlno2)
             ++n_fourop[a/128];
     }
-    std::printf("This bank has %u/%u four-op melodic instruments and %u/%u percussive ones.\n",
-        n_fourop[0], n_total[0],
-        n_fourop[1], n_total[1]);
+    if (WritingToTTY)
+    {
+        std::printf("This bank has %u/%u four-op melodic instruments and %u/%u percussive ones.\n",
+            n_fourop[0], n_total[0],
+            n_fourop[1], n_total[1]);
+    }
 
     if(argc >= 4)
     {
@@ -3001,16 +3015,18 @@ int main(int argc, char** argv)
           : (n_fourop[0] >= n_total[0]*7/8) ? NumCards * 6
           : (n_fourop[0] < n_total[0]*1/8) ? 0
           : (NumCards==1 ? 1 : NumCards*4);
-
-    std::printf(
-        "Simulating %u OPL3 cards for a total of %u operators.\n"
-        "Setting up the operators as %u four-op channels, %u dual-op channels",
-        NumCards, NumCards*36,
-        NumFourOps, (AdlPercussionMode ? 15 : 18) * NumCards - NumFourOps*2);
-    if(AdlPercussionMode)
-        std::printf(", %u percussion channels", NumCards * 5);
-    std::printf("\n");
-    std::fflush(stdout);
+    if (WritingToTTY)
+    {
+        std::printf(
+            "Simulating %u OPL3 cards for a total of %u operators.\n"
+            "Setting up the operators as %u four-op channels, %u dual-op channels",
+            NumCards, NumCards*36,
+            NumFourOps, (AdlPercussionMode ? 15 : 18) * NumCards - NumFourOps*2);
+        if(AdlPercussionMode)
+            std::printf(", %u percussion channels", NumCards * 5);
+        std::printf("\n");
+        std::fflush(stdout);
+    }
 
     MIDIplay player;
     player.ChooseDevice("");
