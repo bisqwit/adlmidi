@@ -62,6 +62,7 @@ static unsigned SkipForward = 0;
 static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
+static std::string PCMfilepath = "adlmidi.wav";
 static bool ScaleModulators = false;
 static unsigned WindowLines = 0;
 
@@ -2575,7 +2576,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         static FILE* fp = 0;
         if(!fp)
         {
-            fp = fopen("adlmidi.wav", "wb");
+            fp = fopen(PCMfilepath.c_str(), "wb");
             if(fp)
             {
                 FourChars Bufs[] = {
@@ -2931,7 +2932,11 @@ int main(int argc, char** argv)
         else if(!std::strcmp("-nl", argv[2]))
             QuitWithoutLooping = true;
         else if(!std::strcmp("-w", argv[2]))
+        {
             WritePCMfile = true;
+            if (argc > 3)
+                PCMfilepath = argv[3];
+        }
         else if(!std::strcmp("-s", argv[2]))
             ScaleModulators = true;
         else break;
