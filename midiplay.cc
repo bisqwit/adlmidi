@@ -2877,29 +2877,6 @@ int main(int argc, char** argv)
 
     signal(SIGINT, TidyupAndExit);
 
-#ifndef __DJGPP__
-
-#ifndef __WIN32__
-    // Set up SDL
-    static SDL_AudioSpec spec, obtained;
-    spec.freq     = PCM_RATE;
-    spec.format   = AUDIO_S16SYS;
-    spec.channels = 2;
-    spec.samples  = spec.freq * AudioBufferLength;
-    spec.callback = SDL_AudioCallback;
-    if(SDL_OpenAudio(&spec, &obtained) < 0)
-    {
-        std::fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
-        //return 1;
-    }
-    if(spec.samples != obtained.samples)
-        std::fprintf(stderr, "Wanted (samples=%u,rate=%u,channels=%u); obtained (samples=%u,rate=%u,channels=%u)\n",
-            spec.samples,    spec.freq,    spec.channels,
-            obtained.samples,obtained.freq,obtained.channels);
-#endif
-
-#endif /* not DJGPP */
-
     if(argc < 2 || std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")
     {
         UI.Color(7);  std::fflush(stderr);
@@ -2955,6 +2932,32 @@ int main(int argc, char** argv)
         for(int p=2; p<argc; ++p) argv[p] = argv[p+1];
         --argc;
     }
+
+#ifndef __DJGPP__
+
+#ifndef __WIN32__
+    static SDL_AudioSpec spec, obtained;
+    spec.freq     = PCM_RATE;
+    spec.format   = AUDIO_S16SYS;
+    spec.channels = 2;
+    spec.samples  = spec.freq * AudioBufferLength;
+    spec.callback = SDL_AudioCallback;
+    if (!WritePCMfile)
+    {
+        // Set up SDL
+        if(SDL_OpenAudio(&spec, &obtained) < 0)
+        {
+            std::fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
+            //return 1;
+        }
+        if(spec.samples != obtained.samples)
+            std::fprintf(stderr, "Wanted (samples=%u,rate=%u,channels=%u); obtained (samples=%u,rate=%u,channels=%u)\n",
+                spec.samples,    spec.freq,    spec.channels,
+                obtained.samples,obtained.freq,obtained.channels);
+    }
+#endif
+
+#endif /* not DJGPP */
 
     if(argc >= 3)
     {
@@ -3114,7 +3117,8 @@ int main(int argc, char** argv)
             //fprintf(stderr, "Enter: %u (%.2f ms)\n", (unsigned)AudioBuffer.size(),
             //    AudioBuffer.size() * .5e3 / obtained.freq);
         #ifndef __WIN32__
-            while(AudioBuffer.size() > obtained.samples + (obtained.freq*2) * OurHeadRoomLength)
+            const SDL_AudioSpec& spec_ = (WritePCMfile ? spec : obtained);
+            while(AudioBuffer.size() > spec_.samples + (spec_.freq*2) * OurHeadRoomLength)
             {
                 if(!WritePCMfile)
                     SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
