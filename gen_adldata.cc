@@ -376,7 +376,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         const size_t offset2 = data_offset + data_index * 30;
         const unsigned char mode      = data[offset2+0];
         const unsigned char voice_num = data[offset2+1];
-        const unsigned char* op1 = &data[offset2+2];  // 13 bytes 
+        const unsigned char* op1 = &data[offset2+2];  // 13 bytes
         const unsigned char* op2 = &data[offset2+15];
         const unsigned char waveform_mod = data[offset2+28];
         const unsigned char waveform_car = data[offset2+29];
@@ -1294,7 +1294,7 @@ int main()
      "HMI (Descent 2)",        //d2melo,d2drum
      "HMI (Normality)",        //normmelo,normdrum
      "HMI (Shattered Steel)",  //ssmelo,ssdrum
-     "HMI (Theme Park)", // file131, file132 
+     "HMI (Theme Park)", // file131, file132
      // 10
      "HMI (3d Table Sports, Battle Arena Toshinden)", //file133, file134
      "HMI (Aces of the Deep)", //file142, file143
@@ -1362,7 +1362,7 @@ int main()
     for(unsigned a=0; a<36*8; ++a)
     {
         if( (1 << (a%8)) > maxvalues[a/8]) continue;
-        
+
         const std::map<unsigned,unsigned>& data = Correlate[a];
         if(data.empty()) continue;
         std::vector< std::pair<unsigned,unsigned> > correlations;

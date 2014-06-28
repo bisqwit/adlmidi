@@ -2577,10 +2577,11 @@ static void SendStereoAudio(unsigned long count, int* samples)
     if(WritePCMfile)
     {
         /* HACK: Cheat on DOSBox recording: Record audio separately on Windows. */
-        static FILE* fp = 0;
+        static FILE* fp = nullptr;
         if(!fp)
         {
-            fp = fopen(PCMfilepath.c_str(), "wb");
+            fp = PCMfilepath == "-" ? stdout
+                                    : fopen(PCMfilepath.c_str(), "wb");
             if(fp)
             {
                 FourChars Bufs[] = {
@@ -2911,6 +2912,8 @@ int main(int argc, char** argv)
 
     while(argc > 2)
     {
+        bool had_option = false;
+
         if(!std::strcmp("-p", argv[2]))
             AdlPercussionMode = true;
         else if(!std::strcmp("-v", argv[2]))
@@ -2922,15 +2925,27 @@ int main(int argc, char** argv)
         else if(!std::strcmp("-w", argv[2]))
         {
             WritePCMfile = true;
-            if (argc > 3)
-                PCMfilepath = argv[3];
+            if (argc > 3 && argv[3][0] != '\0' && (argv[3][0] != '-' || argv[3][1] == '\0'))
+            {
+                // Allow the option argument if
+                // - it's not empty, and...
+                // - it does not begin with "-" or it is "-"
+                // - it is not a positive integer
+                char* endptr = 0;
+                if(std::strtol(argv[3], &endptr, 10) < 0 || (endptr && *endptr))
+                {
+                    PCMfilepath = argv[3];
+                    had_option  = true;
+                }
+            }
         }
         else if(!std::strcmp("-s", argv[2]))
             ScaleModulators = true;
         else break;
 
-        for(int p=2; p<argc; ++p) argv[p] = argv[p+1];
-        --argc;
+        std::copy(argv + (had_option ? 4 : 2), argv + argc,
+                  argv+2);
+        argc -= (had_option ? 2 : 1);
     }
 
 #ifndef __DJGPP__
@@ -2974,7 +2989,8 @@ int main(int argc, char** argv)
             std::fprintf(stderr, "bank number may only be 0..%u.\n", NumBanks-1);
             return 0;
         }
-        std::printf("FM instrument bank %u selected.\n", AdlBank);
+        if(WritingToTTY)
+            std::printf("FM instrument bank %u selected.\n", AdlBank);
     }
 
     unsigned n_fourop[2] = {0,0}, n_total[2] = {0,0};
