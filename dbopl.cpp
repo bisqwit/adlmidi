@@ -1559,4 +1559,4 @@ void Handler::Init( Bitu rate ) {
 }
 
 
-};		//Namespace DBOPL
+}		//Namespace DBOPL
