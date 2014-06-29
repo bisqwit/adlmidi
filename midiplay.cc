@@ -2478,6 +2478,7 @@ struct FourChars
 
 static void SendStereoAudio(unsigned long count, int* samples)
 {
+#if 0
     if(count % 2 == 1)
     {
         // An uneven number of samples? To avoid complicating matters,
@@ -2485,6 +2486,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         count   -= 1;
         samples += 1;
     }
+#endif
     if(!count) return;
 
     // Attempt to filter out the DC component. However, avoid doing
