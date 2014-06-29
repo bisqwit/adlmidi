@@ -2943,7 +2943,7 @@ int main(int argc, char** argv)
             ScaleModulators = true;
         else break;
 
-        std::copy(argv + (had_option ? 4 : 2), argv + argc,
+        std::copy(argv + (had_option ? 4 : 3), argv + argc,
                   argv+2);
         argc -= (had_option ? 2 : 1);
     }
