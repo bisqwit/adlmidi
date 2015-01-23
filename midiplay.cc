@@ -28,7 +28,7 @@
 # define BIOStimer _farpeekl(_dos_ds, 0x46C)
 static const unsigned NewTimerFreq = 209;
 #elif !defined(__WIN32__) || defined(__CYGWIN__)
-# include <termio.h>
+# include <termios.h>
 # include <fcntl.h>
 # include <sys/ioctl.h>
 # include <csignal>
@@ -453,7 +453,7 @@ class Input
     void* inhandle;
 #endif
 #if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-    struct termio back;
+    struct termios back;
 #endif
 public:
     Input()
@@ -462,18 +462,18 @@ public:
         inhandle = GetStdHandle(STD_INPUT_HANDLE);
 #endif
 #if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-        ioctl(0, TCGETA, &back);
-        struct termio term = back;
+        ioctl(0, TIOCSCTTY, &back);
+        struct termios term = back;
         term.c_lflag &= ~(ICANON|ECHO);
         term.c_cc[VMIN] = 0; // 0=no block, 1=do block
-        if(ioctl(0, TCSETA, &term) < 0)
+        if(ioctl(0, TCSANOW, &term) < 0)
             fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 #endif
     }
     ~Input()
     {
 #if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-        if(ioctl(0, TCSETA, &back) < 0)
+        if(ioctl(0, TCSANOW, &back) < 0)
             fcntl(0, F_SETFL, fcntl(0, F_GETFL) &~ O_NONBLOCK);
 #endif
     }
@@ -506,7 +506,7 @@ public:
     }
 } Input;
 
-class UI
+class UserInterface
 {
 public:
   #ifdef __WIN32__
@@ -521,7 +521,7 @@ public:
     #ifdef __DJGPP__
     # define prn cprintf
     #endif
-    UI(): x(0), y(0), color(-1), txtline(1),
+    UserInterface(): x(0), y(0), color(-1), txtline(1),
           maxy(0), cursor_visible(true)
     {
         GuessInitialWindowHeight();
@@ -790,7 +790,7 @@ public:
     void CheckTetris()
     {
         static const unsigned MH = 17;
-        extern UI UI;
+        extern UserInterface UI;
         static char area[12][MH]={{0}};
         static int emptycount;
         static const char empty[5][13]=

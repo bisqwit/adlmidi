@@ -393,7 +393,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             if(name[2] == 'O'
             || name[2] == 'S')
             {
-                gmno = 128 + std::atoi(name.substr(3).c_str());
+                gmno = 128 + std::stoi(name.substr(3));
             }
         }
 
@@ -499,9 +499,9 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
 
         int gmno = 0;
         if(name.substr(0, melo_filter.size()) == melo_filter)
-            gmno = std::atoi(name.substr(melo_filter.size()).c_str());
+            gmno = std::stoi(name.substr(melo_filter.size()));
         else if(name.substr(0, perc_filter.size()) == perc_filter)
-            gmno = std::atoi(name.substr(perc_filter.size()).c_str()) + 128;
+            gmno = std::stoi(name.substr(perc_filter.size())) + 128;
         else
             continue;
 
