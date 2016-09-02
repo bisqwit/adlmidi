@@ -28,7 +28,7 @@
 # define BIOStimer _farpeekl(_dos_ds, 0x46C)
 static const unsigned NewTimerFreq = 209;
 #elif !defined(__WIN32__) || defined(__CYGWIN__)
-# include <termio.h>
+# include <termios.h>
 # include <fcntl.h>
 # include <sys/ioctl.h>
 # include <csignal>
@@ -62,8 +62,10 @@ static unsigned SkipForward = 0;
 static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
+static std::string PCMfilepath = "adlmidi.wav";
 static bool ScaleModulators = false;
 static unsigned WindowLines = 0;
+static bool WritingToTTY;
 
 static unsigned WinHeight()
 {
@@ -197,6 +199,8 @@ public:
     {
         unsigned card = c/23, cc = c%23;
         unsigned x = 0x2000;
+        if(hertz < 0 || hertz > 131071) // Avoid infinite loop
+            return;
         while(hertz >= 1023.5) { hertz /= 2.0; x += 0x400; } // Calculate octave
         x += (int)(hertz + 0.5);
         unsigned chn = Channels[cc];
@@ -363,13 +367,16 @@ public:
         }
 
         /**/
-        fprintf(stdout, "Channels used as:\n");
-        for(size_t a=0; a<four_op_category.size(); ++a)
+        if (WritingToTTY)
         {
-            fprintf(stdout, " %d", four_op_category[a]);
-            if(a%23 == 22) fprintf(stdout, "\n");
+            fprintf(stdout, "Channels used as:\n");
+            for(size_t a=0; a<four_op_category.size(); ++a)
+            {
+                fprintf(stdout, " %d", four_op_category[a]);
+                if(a%23 == 22) fprintf(stdout, "\n");
+            }
+            fflush(stdout);
         }
-        fflush(stdout);
         /**/
         /*
         In two-op mode, channels 0..8 go as follows:
@@ -414,8 +421,8 @@ static const char MIDIsymbols[256+1] =
 "????????????????"  // Prc 16-31
 "???DDshMhhhCCCbM"  // Prc 32-47
 "CBDMMDDDMMDDDDDD"  // Prc 48-63
-"DDDDDDDDDDDDDD??"  // Prc 64-79
-"????????????????"  // Prc 80-95
+"DDDDDDDDDDDDDDDD"  // Prc 64-79
+"DD??????????????"  // Prc 80-95
 "????????????????"  // Prc 96-111
 "????????????????"; // Prc 112-127
 
@@ -446,7 +453,7 @@ class Input
     void* inhandle;
 #endif
 #if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-    struct termio back;
+    struct termios back;
 #endif
 public:
     Input()
@@ -455,18 +462,18 @@ public:
         inhandle = GetStdHandle(STD_INPUT_HANDLE);
 #endif
 #if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-        ioctl(0, TCGETA, &back);
-        struct termio term = back;
+        ioctl(0, TIOCSCTTY, &back);
+        struct termios term = back;
         term.c_lflag &= ~(ICANON|ECHO);
         term.c_cc[VMIN] = 0; // 0=no block, 1=do block
-        if(ioctl(0, TCSETA, &term) < 0)
+        if(ioctl(0, TCSANOW, &term) < 0)
             fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 #endif
     }
     ~Input()
     {
 #if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-        if(ioctl(0, TCSETA, &back) < 0)
+        if(ioctl(0, TCSANOW, &back) < 0)
             fcntl(0, F_SETFL, fcntl(0, F_GETFL) &~ O_NONBLOCK);
 #endif
     }
@@ -499,7 +506,7 @@ public:
     }
 } Input;
 
-class UI
+class UserInterface
 {
 public:
   #ifdef __WIN32__
@@ -514,7 +521,7 @@ public:
     #ifdef __DJGPP__
     # define prn cprintf
     #endif
-    UI(): x(0), y(0), color(-1), txtline(1),
+    UserInterface(): x(0), y(0), color(-1), txtline(1),
           maxy(0), cursor_visible(true)
     {
         GuessInitialWindowHeight();
@@ -783,7 +790,7 @@ public:
     void CheckTetris()
     {
         static const unsigned MH = 17;
-        extern UI UI;
+        extern UserInterface UI;
         static char area[12][MH]={{0}};
         static int emptycount;
         static const char empty[5][13]=
@@ -1060,7 +1067,7 @@ class MIDIplay
             // Current pressure
             unsigned char  vol;
             // Tone selected on noteon:
-            unsigned short tone;
+            short tone;
             // Patch selected on noteon; index to banks[AdlBank][]
             unsigned char midiins;
             // Index to physical adlib data structure, adlins[]
@@ -1645,6 +1652,13 @@ private:
                 bool pseudo_4op = adlins[meta].flags & adlinsdata::Flag_Pseudo4op;
 
                 if(AdlPercussionMode && PercussionMap[midiins & 0xFF]) i[1] = i[0];
+
+                static std::set<unsigned char> missing_warnings;
+                if(!missing_warnings.count(midiins) && (adlins[meta].flags & adlinsdata::Flag_NoSound))
+                {
+                    UI.PrintLn("[%i]Playing missing instrument %i", MidCh, midiins);
+                    missing_warnings.insert(midiins);
+                }
 
                 // Allocate AdLib channel (the physical sound channel for the note)
                 int adlchannel[2] = { -1, -1 };
@@ -2466,6 +2480,7 @@ struct FourChars
 
 static void SendStereoAudio(unsigned long count, int* samples)
 {
+#if 0
     if(count % 2 == 1)
     {
         // An uneven number of samples? To avoid complicating matters,
@@ -2473,6 +2488,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         count   -= 1;
         samples += 1;
     }
+#endif
     if(!count) return;
 
     // Attempt to filter out the DC component. However, avoid doing
@@ -2565,10 +2581,11 @@ static void SendStereoAudio(unsigned long count, int* samples)
     if(WritePCMfile)
     {
         /* HACK: Cheat on DOSBox recording: Record audio separately on Windows. */
-        static FILE* fp = 0;
+        static FILE* fp = nullptr;
         if(!fp)
         {
-            fp = fopen("adlmidi.wav", "wb");
+            fp = PCMfilepath == "-" ? stdout
+                                    : fopen(PCMfilepath.c_str(), "wb");
             if(fp)
             {
                 FourChars Bufs[] = {
@@ -2842,44 +2859,28 @@ int main(int argc, char** argv)
     // the sum of these two buffers.
 
     UI.Color(15); std::fflush(stderr);
-    std::printf(
+    WritingToTTY = isatty(STDOUT_FILENO);
+    if (WritingToTTY)
+    {
+        std::printf(
 #ifdef __DJGPP__
-        "ADLMIDI_A: MIDI player for OPL3 hardware\n"
+            "ADLMIDI_A: MIDI player for OPL3 hardware\n"
 #else
-        "ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation\n"
+            "ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation\n"
 #endif
-    );
-    std::fflush(stdout);
+        );
+        std::fflush(stdout);
+    }
     UI.Color(3); std::fflush(stderr);
-    std::printf(
-        "(C) -- http://iki.fi/bisqwit/source/adlmidi.html\n");
-    std::fflush(stdout);
+    if (WritingToTTY)
+    {
+        std::printf(
+            "(C) -- http://iki.fi/bisqwit/source/adlmidi.html\n");
+        std::fflush(stdout);
+    }
     UI.Color(7); std::fflush(stderr);
 
     signal(SIGINT, TidyupAndExit);
-
-#ifndef __DJGPP__
-
-#ifndef __WIN32__
-    // Set up SDL
-    static SDL_AudioSpec spec, obtained;
-    spec.freq     = PCM_RATE;
-    spec.format   = AUDIO_S16SYS;
-    spec.channels = 2;
-    spec.samples  = spec.freq * AudioBufferLength;
-    spec.callback = SDL_AudioCallback;
-    if(SDL_OpenAudio(&spec, &obtained) < 0)
-    {
-        std::fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
-        //return 1;
-    }
-    if(spec.samples != obtained.samples)
-        std::fprintf(stderr, "Wanted (samples=%u,rate=%u,channels=%u); obtained (samples=%u,rate=%u,channels=%u)\n",
-            spec.samples,    spec.freq,    spec.channels,
-            obtained.samples,obtained.freq,obtained.channels);
-#endif
-
-#endif /* not DJGPP */
 
     if(argc < 2 || std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")
     {
@@ -2915,6 +2916,8 @@ int main(int argc, char** argv)
 
     while(argc > 2)
     {
+        bool had_option = false;
+
         if(!std::strcmp("-p", argv[2]))
             AdlPercussionMode = true;
         else if(!std::strcmp("-v", argv[2]))
@@ -2924,14 +2927,56 @@ int main(int argc, char** argv)
         else if(!std::strcmp("-nl", argv[2]))
             QuitWithoutLooping = true;
         else if(!std::strcmp("-w", argv[2]))
+        {
             WritePCMfile = true;
+            if (argc > 3 && argv[3][0] != '\0' && (argv[3][0] != '-' || argv[3][1] == '\0'))
+            {
+                // Allow the option argument if
+                // - it's not empty, and...
+                // - it does not begin with "-" or it is "-"
+                // - it is not a positive integer
+                char* endptr = 0;
+                if(std::strtol(argv[3], &endptr, 10) < 0 || (endptr && *endptr))
+                {
+                    PCMfilepath = argv[3];
+                    had_option  = true;
+                }
+            }
+        }
         else if(!std::strcmp("-s", argv[2]))
             ScaleModulators = true;
         else break;
 
-        for(int p=2; p<argc; ++p) argv[p] = argv[p+1];
-        --argc;
+        std::copy(argv + (had_option ? 4 : 3), argv + argc,
+                  argv+2);
+        argc -= (had_option ? 2 : 1);
     }
+
+#ifndef __DJGPP__
+
+#ifndef __WIN32__
+    static SDL_AudioSpec spec, obtained;
+    spec.freq     = PCM_RATE;
+    spec.format   = AUDIO_S16SYS;
+    spec.channels = 2;
+    spec.samples  = spec.freq * AudioBufferLength;
+    spec.callback = SDL_AudioCallback;
+    if (!WritePCMfile)
+    {
+        // Set up SDL
+        if(SDL_OpenAudio(&spec, &obtained) < 0)
+        {
+            std::fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
+            //return 1;
+        }
+        if(spec.samples != obtained.samples)
+            std::fprintf(stderr, "Wanted (samples=%u,rate=%u,channels=%u); obtained (samples=%u,rate=%u,channels=%u)\n",
+                spec.samples,    spec.freq,    spec.channels,
+                obtained.samples,obtained.freq,obtained.channels);
+    }
+#endif
+
+#endif /* not DJGPP */
 
     if(argc >= 3)
     {
@@ -2948,7 +2993,8 @@ int main(int argc, char** argv)
             std::fprintf(stderr, "bank number may only be 0..%u.\n", NumBanks-1);
             return 0;
         }
-        std::printf("FM instrument bank %u selected.\n", AdlBank);
+        if(WritingToTTY)
+            std::printf("FM instrument bank %u selected.\n", AdlBank);
     }
 
     unsigned n_fourop[2] = {0,0}, n_total[2] = {0,0};
@@ -2960,9 +3006,12 @@ int main(int argc, char** argv)
         if(adlins[insno].adlno1 != adlins[insno].adlno2)
             ++n_fourop[a/128];
     }
-    std::printf("This bank has %u/%u four-op melodic instruments and %u/%u percussive ones.\n",
-        n_fourop[0], n_total[0],
-        n_fourop[1], n_total[1]);
+    if (WritingToTTY)
+    {
+        std::printf("This bank has %u/%u four-op melodic instruments and %u/%u percussive ones.\n",
+            n_fourop[0], n_total[0],
+            n_fourop[1], n_total[1]);
+    }
 
     if(argc >= 4)
     {
@@ -2989,16 +3038,18 @@ int main(int argc, char** argv)
           : (n_fourop[0] >= n_total[0]*7/8) ? NumCards * 6
           : (n_fourop[0] < n_total[0]*1/8) ? 0
           : (NumCards==1 ? 1 : NumCards*4);
-
-    std::printf(
-        "Simulating %u OPL3 cards for a total of %u operators.\n"
-        "Setting up the operators as %u four-op channels, %u dual-op channels",
-        NumCards, NumCards*36,
-        NumFourOps, (AdlPercussionMode ? 15 : 18) * NumCards - NumFourOps*2);
-    if(AdlPercussionMode)
-        std::printf(", %u percussion channels", NumCards * 5);
-    std::printf("\n");
-    std::fflush(stdout);
+    if (WritingToTTY)
+    {
+        std::printf(
+            "Simulating %u OPL3 cards for a total of %u operators.\n"
+            "Setting up the operators as %u four-op channels, %u dual-op channels",
+            NumCards, NumCards*36,
+            NumFourOps, (AdlPercussionMode ? 15 : 18) * NumCards - NumFourOps*2);
+        if(AdlPercussionMode)
+            std::printf(", %u percussion channels", NumCards * 5);
+        std::printf("\n");
+        std::fflush(stdout);
+    }
 
     MIDIplay player;
     player.ChooseDevice("");
@@ -3086,7 +3137,8 @@ int main(int argc, char** argv)
             //fprintf(stderr, "Enter: %u (%.2f ms)\n", (unsigned)AudioBuffer.size(),
             //    AudioBuffer.size() * .5e3 / obtained.freq);
         #ifndef __WIN32__
-            while(AudioBuffer.size() > obtained.samples + (obtained.freq*2) * OurHeadRoomLength)
+            const SDL_AudioSpec& spec_ = (WritePCMfile ? spec : obtained);
+            while(AudioBuffer.size() > spec_.samples + (spec_.freq*2) * OurHeadRoomLength)
             {
                 if(!WritePCMfile)
                     SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );

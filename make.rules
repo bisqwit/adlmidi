@@ -1,4 +1,4 @@
-VERSION=1.2.3
+VERSION=1.2.4
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -90,6 +90,7 @@ ARCHFILES=\
 	opl_files/nhlpa.opl \
 	tmb_files/d3dtimbr.tmb \
 	tmb_files/swtimbr.tmb \
+	tmb_files/bloodtmb.tmb \
 	raptor/genmidi.op2
 
 INSTALLPROGS=adlmidi

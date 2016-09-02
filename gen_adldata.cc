@@ -331,8 +331,16 @@ static size_t InsertIns(
   }
 }
 
+// Create silent 'nosound' instrument
+size_t InsertNoSoundIns()
+{
+    // { 0x0F70700,0x0F70710, 0xFF,0xFF, 0x0,+0 },
+    insdata tmp1 = { {0x00, 0x10, 0x07, 0x07, 0xF7, 0xF7, 0x00, 0x00, 0xFF, 0xFF, 0x00}, 0 };
+    struct ins tmp2 = { 0, 0, 0, 0 };
+    return InsertIns(tmp1, tmp1, tmp2, "nosound");
+}
 
-static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_fat)
+static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_fat, bool percussive)
 {
     FILE* fp = std::fopen(fn, "rb");
     std::fseek(fp, 0, SEEK_END);
@@ -368,17 +376,13 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         const size_t offset2 = data_offset + data_index * 30;
         const unsigned char mode      = data[offset2+0];
         const unsigned char voice_num = data[offset2+1];
-        const unsigned char* op1 = &data[offset2+2];  // 13 bytes 
+        const unsigned char* op1 = &data[offset2+2];  // 13 bytes
         const unsigned char* op2 = &data[offset2+15];
         const unsigned char waveform_mod = data[offset2+28];
         const unsigned char waveform_car = data[offset2+29];
 
         /*printf("%5d %3d %8s mode=%02X voice=%02X: ", data_index,usage_flag, name.c_str(),
             mode,voice_num);*/
-
-        bool percussive = is_fat
-            ?   name[1] == 'P' /* mode == 1 */
-            :   (usage_flag >= 16);
 
         int gmno = is_fat
             ?   ((n & 127) + percussive*128)
@@ -389,7 +393,7 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
             if(name[2] == 'O'
             || name[2] == 'S')
             {
-                gmno = 128 + std::atoi(name.substr(3).c_str());
+                gmno = 128 + std::stoi(name.substr(3));
             }
         }
 
@@ -495,9 +499,9 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
 
         int gmno = 0;
         if(name.substr(0, melo_filter.size()) == melo_filter)
-            gmno = std::atoi(name.substr(melo_filter.size()).c_str());
+            gmno = std::stoi(name.substr(melo_filter.size()));
         else if(name.substr(0, perc_filter.size()) == perc_filter)
-            gmno = std::atoi(name.substr(perc_filter.size()).c_str()) + 128;
+            gmno = std::stoi(name.substr(perc_filter.size())) + 128;
         else
             continue;
 
@@ -978,6 +982,7 @@ struct DurationInfo
 {
     long ms_sound_kon;
     long ms_sound_koff;
+    bool nosound;
 };
 static DurationInfo MeasureDurations(const ins& in)
 {
@@ -1167,6 +1172,7 @@ static DurationInfo MeasureDurations(const ins& in)
     DurationInfo result;
     result.ms_sound_kon  = quarter_amplitude_time * 1000.0 / interval;
     result.ms_sound_koff = keyoff_out_time        * 1000.0 / interval;
+    result.nosound = (peak_amplitude_value < 0.5);
     return result;
 }
 
@@ -1180,36 +1186,38 @@ int main()
  * PREPROCESSED, CONVERTED, AND POSTPROCESSED OFF-SCREEN.\n\
  */\n\
 ");
+    size_t nosound = InsertNoSoundIns();
+
     LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank! Same as file22.opl
 
     LoadBisqwit("op3_files/bisqwit.adlraw", 1, "Bisq");
 
-    LoadBNK("bnk_files/melodic.bnk", 2, "HMIGM", false); // same as file156.bnk
-    LoadBNK("bnk_files/drum.bnk",    2, "HMIGP", false);
-    LoadBNK("bnk_files/intmelo.bnk", 3, "intM", false);
-    LoadBNK("bnk_files/intdrum.bnk", 3, "intP", false);
-    LoadBNK("bnk_files/hammelo.bnk", 4, "hamM", false);
-    LoadBNK("bnk_files/hamdrum.bnk", 4, "hamP", false);
-    LoadBNK("bnk_files/rickmelo.bnk",5, "rickM", false);
-    LoadBNK("bnk_files/rickdrum.bnk",5, "rickP", false);
+    LoadBNK("bnk_files/melodic.bnk", 2, "HMIGM", false, false); // same as file156.bnk
+    LoadBNK("bnk_files/drum.bnk",    2, "HMIGP", false, true);
+    LoadBNK("bnk_files/intmelo.bnk", 3, "intM", false, false);
+    LoadBNK("bnk_files/intdrum.bnk", 3, "intP", false, true);
+    LoadBNK("bnk_files/hammelo.bnk", 4, "hamM", false, false);
+    LoadBNK("bnk_files/hamdrum.bnk", 4, "hamP", false, true);
+    LoadBNK("bnk_files/rickmelo.bnk",5, "rickM", false, false);
+    LoadBNK("bnk_files/rickdrum.bnk",5, "rickP", false, true);
 
-    LoadBNK("bnk_files/d2melo.bnk",  6, "b6M", false);
-    LoadBNK("bnk_files/d2drum.bnk",  6, "b6P", false);
-    LoadBNK("bnk_files/normmelo.bnk", 7, "b7M", false);
-    LoadBNK("bnk_files/normdrum.bnk", 7, "b7P", false); // same as file122.bnk
-    LoadBNK("bnk_files/ssmelo.bnk",  8, "b8M", false);
-    LoadBNK("bnk_files/ssdrum.bnk",  8, "b8P", false);
+    LoadBNK("bnk_files/d2melo.bnk",  6, "b6M", false, false);
+    LoadBNK("bnk_files/d2drum.bnk",  6, "b6P", false, true);
+    LoadBNK("bnk_files/normmelo.bnk", 7, "b7M", false, false);
+    LoadBNK("bnk_files/normdrum.bnk", 7, "b7P", false, true); // same as file122.bnk
+    LoadBNK("bnk_files/ssmelo.bnk",  8, "b8M", false, false);
+    LoadBNK("bnk_files/ssdrum.bnk",  8, "b8P", false, true);
 
-    LoadBNK("bnk_files/file131.bnk", 9, "b9M", false);
-    LoadBNK("bnk_files/file132.bnk", 9, "b9P", false);
-    LoadBNK("bnk_files/file133.bnk", 10,"b10P", false);
-    LoadBNK("bnk_files/file134.bnk", 10,"b10M", false);
-    LoadBNK("bnk_files/file142.bnk", 11, "b11P", false);
-    LoadBNK("bnk_files/file143.bnk", 11, "b11M", false);
-    LoadBNK("bnk_files/file144.bnk", 12, "b12M", false);
-    LoadBNK("bnk_files/file145.bnk", 12, "b12P", false);
-    LoadBNK("bnk_files/file167.bnk", 13, "b13P", false);
-    LoadBNK("bnk_files/file168.bnk", 13, "b13M", false);
+    LoadBNK("bnk_files/file131.bnk", 9, "b9M", false, false);
+    LoadBNK("bnk_files/file132.bnk", 9, "b9P", false, true);
+    LoadBNK("bnk_files/file133.bnk", 10,"b10P", false, true);
+    LoadBNK("bnk_files/file134.bnk", 10,"b10M", false, false);
+    LoadBNK("bnk_files/file142.bnk", 11, "b11P", false, true);
+    LoadBNK("bnk_files/file143.bnk", 11, "b11M", false, false);
+    LoadBNK("bnk_files/file144.bnk", 12, "b12M", false, false);
+    LoadBNK("bnk_files/file145.bnk", 12, "b12P", false, true);
+    LoadBNK("bnk_files/file167.bnk", 13, "b13P", false, true);
+    LoadBNK("bnk_files/file168.bnk", 13, "b13M", false, false);
 
     LoadDoom("doom2/genmidi.op2", 14, "dM");
     LoadDoom("doom2/genmidi.htc", 15, "hxM"); // same as genmidi.hxn
@@ -1275,6 +1283,8 @@ int main()
 
     //LoadIBK("ibk_files/nitemare_3d.ibk",  65, "b65G", false); // Seems to be identical to wallace.op3 despite different format!
 
+    LoadTMB("tmb_files/bloodtmb.tmb", 65, "bld");
+
     static const char* const banknames[] =
     {// 0
      "AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
@@ -1286,7 +1296,7 @@ int main()
      "HMI (Descent 2)",        //d2melo,d2drum
      "HMI (Normality)",        //normmelo,normdrum
      "HMI (Shattered Steel)",  //ssmelo,ssdrum
-     "HMI (Theme Park)", // file131, file132 
+     "HMI (Theme Park)", // file131, file132
      // 10
      "HMI (3d Table Sports, Battle Arena Toshinden)", //file133, file134
      "HMI (Aces of the Deep)", //file142, file143
@@ -1347,14 +1357,15 @@ int main()
      "OP3 (Wallace 2op set, Nitemare 3D :: melodic only)",
      "TMB (Duke Nukem 3D)",
      "TMB (Shadow Warrior)",
-     "DMX (Raptor)"
+     "DMX (Raptor)",
+     "TMB (Blood)"
     };
 
 #if 0
     for(unsigned a=0; a<36*8; ++a)
     {
         if( (1 << (a%8)) > maxvalues[a/8]) continue;
-        
+
         const std::map<unsigned,unsigned>& data = Correlate[a];
         if(data.empty()) continue;
         std::vector< std::pair<unsigned,unsigned> > correlations;
@@ -1448,6 +1459,7 @@ int main()
            "} adlins[] =\n");*/
     printf("const struct adlinsdata adlins[%u] =\n", (unsigned)instab.size());
     printf("{\n");
+    std::vector<unsigned> adlins_flags;
     for(size_t b=instab.size(), c=0; c<b; ++c)
         for(std::map<ins,std::pair<size_t,std::set<std::string> > >
             ::const_iterator
@@ -1458,13 +1470,14 @@ int main()
             if(i->second.first != c) continue;
 
             DurationInfo info = MeasureDurations(i->first);
+            unsigned flags = (i->first.pseudo4op ? 1 : 0) | (info.nosound ? 2 : 0);
 
             printf("    {");
             printf("%4d,%4d,%3d, %d, %6ld,%6ld",
                 (unsigned) i->first.insno1,
                 (unsigned) i->first.insno2,
                 (int)(i->first.notenum),
-                (int)(i->first.pseudo4op ? 1 : 0),
+                flags,
                 info.ms_sound_kon,
                 info.ms_sound_koff);
             std::string names;
@@ -1481,6 +1494,7 @@ int main()
             }
             printf(" }, // %u: %s\n\n", (unsigned)c, names.c_str());
             fflush(stdout);
+            adlins_flags.push_back(flags);
         }
     printf("};\n\n");
 
@@ -1494,8 +1508,8 @@ int main()
         for(unsigned p=0; p<256; ++p)
         {
             unsigned v = progs[bank][p];
-            if(v == 0)
-                v = 198; // Blank.in
+            if(v == 0 || (adlins_flags[v-1]&2))
+                v = nosound; // Blank.in
             else
                 v -= 1;
             data[p] = v;
@@ -1524,7 +1538,7 @@ int main()
                 listed.insert(v);
                 redundant = false;
             }
-            printf("%3d,", v);
+            printf("%4d,", v);
             if(p%16 == 15) printf("\n");
         }
         printf("    },\n");
@@ -1535,7 +1549,7 @@ int main()
             {
                 bool match = true;
                 for(unsigned p=0; p<256; ++p)
-                    if(bank_data[bank][p] != 198
+                    if(bank_data[bank][p] != nosound
                     && bank_data[bank][p] != bank_data[refbank][p])
                     {
                         match=false;
