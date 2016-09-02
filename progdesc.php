@@ -140,6 +140,7 @@ Usage: adlmidi <midifilename> [ <options> ] [ <banknumber> [ <numcards> [ <numfo
           62 = TMB (Duke Nukem 3D)
           63 = TMB (Shadow Warrior)
           64 = DMX (Raptor)
+          65 = TMB (Blood)
      Use banks 2-5 to play Descent \"q\" soundtracks.
      Look up the relevant bank number from descent.sng.
 

@@ -1283,6 +1283,8 @@ int main()
 
     //LoadIBK("ibk_files/nitemare_3d.ibk",  65, "b65G", false); // Seems to be identical to wallace.op3 despite different format!
 
+    LoadTMB("tmb_files/bloodtmb.tmb", 65, "bld");
+
     static const char* const banknames[] =
     {// 0
      "AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
@@ -1355,7 +1357,8 @@ int main()
      "OP3 (Wallace 2op set, Nitemare 3D :: melodic only)",
      "TMB (Duke Nukem 3D)",
      "TMB (Shadow Warrior)",
-     "DMX (Raptor)"
+     "DMX (Raptor)",
+     "TMB (Blood)"
     };
 
 #if 0
