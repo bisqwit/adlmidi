@@ -44,6 +44,8 @@ static const unsigned NewTimerFreq = 209;
 #ifndef __DJGPP__
 #include "dbopl.h"
 
+#include "adldata.hh"
+
 static const unsigned long PCM_RATE = 48000;
 static const unsigned MaxCards = 100;
 static const unsigned MaxSamplesAtTime = 512; // 512=dbopl limitation
@@ -57,6 +59,7 @@ static unsigned NumCards   = 2;
 static bool HighTremoloMode   = false;
 static bool HighVibratoMode   = false;
 static bool AdlPercussionMode = false;
+static bool LogarithmicVolumes = false;
 static bool QuitFlag = false, FakeDOSshell = false;
 static unsigned SkipForward = 0;
 static bool DoingInstrumentTesting = false;
@@ -97,25 +100,32 @@ static void GuessInitialWindowHeight()
     SigWinchHandler(0);
 }
 
-#include "adldata.hh"
-
 static const unsigned short Operators[23*2] =
-    {0x000,0x003,0x001,0x004,0x002,0x005, // operators  0, 3,  1, 4,  2, 5
+    {// Channels 0-2
+     0x000,0x003,0x001,0x004,0x002,0x005, // operators  0, 3,  1, 4,  2, 5
+     // Channels 3-5
      0x008,0x00B,0x009,0x00C,0x00A,0x00D, // operators  6, 9,  7,10,  8,11
+     // Channels 6-8
      0x010,0x013,0x011,0x014,0x012,0x015, // operators 12,15, 13,16, 14,17
+     // Same for second card
      0x100,0x103,0x101,0x104,0x102,0x105, // operators 18,21, 19,22, 20,23
      0x108,0x10B,0x109,0x10C,0x10A,0x10D, // operators 24,27, 25,28, 26,29
      0x110,0x113,0x111,0x114,0x112,0x115, // operators 30,33, 31,34, 32,35
+     // Channel 18
      0x010,0x013,   // operators 12,15
+     // Channel 19
      0x014,0xFFF,   // operator 16
+     // Channel 19
      0x012,0xFFF,   // operator 14
+     // Channel 19
      0x015,0xFFF,   // operator 17
+     // Channel 19
      0x011,0xFFF }; // operator 13
 
 static const unsigned short Channels[23] =
     {0x000,0x001,0x002, 0x003,0x004,0x005, 0x006,0x007,0x008, // 0..8
      0x100,0x101,0x102, 0x103,0x104,0x105, 0x106,0x107,0x108, // 9..17 (secondary set)
-     0x006,0x007,0x008,0xFFF,0xFFF }; // <- hw percussions, 0xFFF = no support for pitch/pan
+     0x006,0x007,0x008, 0xFFF,0xFFF }; // <- hw percussions, 0xFFF = no support for pitch/pan
 
 /*
     In OPL3 mode:
@@ -146,9 +156,31 @@ static const unsigned short Channels[23] =
        op2     op8      op14      op20       op26      op32
        op3     op9      op15      op21       op27      op33    for a total of 6 quad + 12 dual
     Ports: ???
-      
-
 */
+
+
+
+static std::vector<adlinsdata> dynamic_metainstruments; // Replaces adlins[] when CMF file
+static std::vector<adldata>    dynamic_instruments;     // Replaces adl[]    when CMF file
+static const unsigned DynamicInstrumentTag = 0x8000u, DynamicMetaInstrumentTag = 0x4000000u;
+static const adlinsdata& GetAdlMetaIns(unsigned n)
+{
+    return (n & DynamicMetaInstrumentTag)
+        ? dynamic_metainstruments[n & ~DynamicMetaInstrumentTag]
+        : adlins[n];
+}
+static unsigned GetAdlMetaNumber(unsigned midiins)
+{
+    return (AdlBank == ~0u)
+        ? (midiins | DynamicMetaInstrumentTag)
+        : banks[AdlBank][midiins];
+}
+static const adldata& GetAdlIns(unsigned short insno)
+{
+    return (insno & DynamicInstrumentTag)
+        ? dynamic_instruments[insno & ~DynamicInstrumentTag]
+        : adl[insno];
+}
 
 
 struct OPL3
@@ -221,15 +253,17 @@ public:
     {
         if(volume > 63) volume = 63;
         unsigned card = c/23, cc = c%23;
-        unsigned i = ins[c], o1 = Operators[cc*2], o2 = Operators[cc*2+1];
-        unsigned x = adl[i].modulator_40, y = adl[i].carrier_40;
-        bool do_modulator;
-        bool do_carrier;
+        unsigned i = ins[c];
+        unsigned o1 = Operators[cc*2+0];
+        unsigned o2 = Operators[cc*2+1];
+
+        const adldata& adli = GetAdlIns(i);
+        unsigned x = adli.modulator_40, y = adli.carrier_40;
 
         unsigned mode = 1; // 2-op AM
         if(four_op_category[c] == 0 || four_op_category[c] == 3)
         {
-            mode = adl[i].feedconn & 1; // 2-op FM or 2-op AM
+            mode = adli.feedconn & 1; // 2-op FM or 2-op AM
         }
         else if(four_op_category[c] == 1 || four_op_category[c] == 2)
         {
@@ -246,7 +280,7 @@ public:
                 i1 = i;
                 mode = 6; // 4-op xx-xx ops 3&4
             }
-            mode += (adl[i0].feedconn & 1) + (adl[i1].feedconn & 1) * 2;
+            mode += (GetAdlIns(i0).feedconn & 1) + (GetAdlIns(i1).feedconn & 1) * 2;
         }
         static const bool do_ops[10][2] =
           { { false, true },  /* 2 op FM */
@@ -261,8 +295,8 @@ public:
             { true,  true  }  /* 4 op AM-AM ops 3&4 */
           };
 
-        do_modulator = ScaleModulators ? true : do_ops[ mode ][ 0 ];
-        do_carrier   = ScaleModulators ? true : do_ops[ mode ][ 1 ];
+        bool do_modulator = do_ops[ mode ][ 0 ] || ScaleModulators;
+        bool do_carrier   = do_ops[ mode ][ 1 ] || ScaleModulators;
 
         Poke(card, 0x40+o1, do_modulator ? (x|63) - volume + volume*(x&63)/63 : x);
         if(o2 != 0xFFF)
@@ -276,30 +310,41 @@ public:
     }
     void Touch(unsigned c, unsigned volume) // Volume maxes at 127*127*127
     {
-        // The formula below: SOLVE(V=127^3 * 2^( (A-63.49999) / 8), A)
-        Touch_Real(c, volume>8725  ? std::log(volume)*11.541561 + (0.5 - 104.22845) : 0);
-        // The incorrect formula below: SOLVE(V=127^3 * (2^(A/63)-1), A)
-        //Touch_Real(c, volume>11210 ? 91.61112 * std::log(4.8819E-7*volume + 1.0)+0.5 : 0);
+        if(LogarithmicVolumes)
+        {
+            Touch_Real(c, volume*127/(127*127*127));
+        }
+        else
+        {
+            // The formula below: SOLVE(V=127^3 * 2^( (A-63.49999) / 8), A)
+            Touch_Real(c, volume>8725  ? std::log(volume)*11.541561 + (0.5 - 104.22845) : 0);
+
+            // The incorrect formula below: SOLVE(V=127^3 * (2^(A/63)-1), A)
+            //Touch_Real(c, volume>11210 ? 91.61112 * std::log(4.8819E-7*volume + 1.0)+0.5 : 0);
+        }
     }
     void Patch(unsigned c, unsigned i)
     {
         unsigned card = c/23, cc = c%23;
         static const unsigned char data[4] = {0x20,0x60,0x80,0xE0};
         ins[c] = i;
-        unsigned o1 = Operators[cc*2+0], o2 = Operators[cc*2+1];
-        unsigned x = adl[i].modulator_E862, y = adl[i].carrier_E862;
-        for(unsigned a=0; a<4; ++a)
+        unsigned o1 = Operators[cc*2+0];
+        unsigned o2 = Operators[cc*2+1];
+
+        const adldata& adli = GetAdlIns(i);
+        unsigned x = adli.modulator_E862, y = adli.carrier_E862;
+        for(unsigned a=0; a<4; ++a, x>>=8, y>>=8)
         {
-            Poke(card, data[a]+o1, x&0xFF); x>>=8;
+            Poke(card, data[a]+o1, x&0xFF);
             if(o2 != 0xFFF)
-            Poke(card, data[a]+o2, y&0xFF); y>>=8;
+            Poke(card, data[a]+o2, y&0xFF);
         }
     }
     void Pan(unsigned c, unsigned value)
     {
         unsigned card = c/23, cc = c%23;
         if(Channels[cc] != 0xFFF)
-            Poke(card, 0xC0 + Channels[cc], adl[ins[c]].feedconn | value);
+            Poke(card, 0xC0 + Channels[cc], GetAdlIns(ins[c]).feedconn | value);
     }
     void Silence() // Silence all OPL channels.
     {
@@ -1093,6 +1138,7 @@ class MIDIplay
               activenotes() { }
     };
     std::vector<MIDIchannel> Ch;
+    bool cmf_percussion_mode = false;
 
     // Additional information about AdLib channels
     struct AdlChannel
@@ -1147,12 +1193,20 @@ public:
     bool loopStart, loopEnd;
     OPL3 opl;
 public:
-    static unsigned long ReadBEInt(const void* buffer, unsigned nbytes)
+    static unsigned long ReadBEint(const void* buffer, unsigned nbytes)
     {
         unsigned long result=0;
         const unsigned char* data = (const unsigned char*) buffer;
         for(unsigned n=0; n<nbytes; ++n)
             result = (result << 8) + data[n];
+        return result;
+    }
+    static unsigned long ReadLEint(const void* buffer, unsigned nbytes)
+    {
+        unsigned long result=0;
+        const unsigned char* data = (const unsigned char*) buffer;
+        for(unsigned n=0; n<nbytes; ++n)
+            result = result + (data[n] << (n*8));
         return result;
     }
     unsigned long ReadVarLen(unsigned tk)
@@ -1171,52 +1225,117 @@ public:
     {
         std::FILE* fp = std::fopen(filename.c_str(), "rb");
         if(!fp) { std::perror(filename.c_str()); return false; }
-        char HeaderBuf[4+4+2+2+2]="";
+        const unsigned HeaderSize = 4+4+2+2+2; // 14
+        char HeaderBuf[HeaderSize]="";
     riffskip:;
-        std::fread(HeaderBuf, 1, 4+4+2+2+2, fp);
+        std::fread(HeaderBuf, 1, HeaderSize, fp);
         if(std::memcmp(HeaderBuf, "RIFF", 4) == 0)
             { std::fseek(fp, 6, SEEK_CUR); goto riffskip; }
         size_t DeltaTicks=192, TrackCount=1;
 
-        bool is_GMF = false, is_MUS = false, is_IMF = false;
+        bool is_GMF = false; // GMD/MUS files (ScummVM)
+        bool is_MUS = false; // MUS/DMX files (Doom)
+        bool is_IMF = false; // IMF
+        bool is_CMF = false; // Creative Music format (CMF/CTMF)
         std::vector<unsigned char> MUS_instrumentList;
 
         if(std::memcmp(HeaderBuf, "GMF\1", 4) == 0)
         {
             // GMD/MUS files (ScummVM)
-            std::fseek(fp, 7-(4+4+2+2+2), SEEK_CUR);
+            std::fseek(fp, 7-(HeaderSize), SEEK_CUR);
             is_GMF = true;
         }
         else if(std::memcmp(HeaderBuf, "MUS\1x1A", 4) == 0)
         {
             // MUS/DMX files (Doom)
-            std::fseek(fp, 8-(4+4+2+2+2), SEEK_CUR);
+            unsigned start = ReadLEint(HeaderBuf+8, 2);
             is_MUS = true;
-            unsigned start = std::fgetc(fp); start += (std::fgetc(fp) << 8);
-            std::fseek(fp, -8+start, SEEK_CUR);
+            std::fseek(fp, int(start-HeaderSize), SEEK_CUR);
+        }
+        else if(std::memcmp(HeaderBuf, "CTMF", 4) == 0)
+        {
+            // Creative Music Format (CMF).
+            // When playing CTMF files, use the following commandline:
+            // adlmidi song8.ctmf -p -v 1 1 0
+            // i.e. enable percussion mode, deeper vibrato, and use only 1 card.
+
+            is_CMF = true;
+            //unsigned version   = ReadLEint(HeaderBuf+4, 2);
+            unsigned ins_start = ReadLEint(HeaderBuf+6, 2);
+            unsigned mus_start = ReadLEint(HeaderBuf+8, 2);
+            //unsigned deltas    = ReadLEint(HeaderBuf+10, 2);
+            unsigned ticks     = ReadLEint(HeaderBuf+12, 2);
+            // Read title, author, remarks start offsets in file
+            std::fread(HeaderBuf, 1, 6, fp);
+            //unsigned long notes_starts[3] = {ReadLEint(HeaderBuf+0,2),ReadLEint(HeaderBuf+0,4),ReadLEint(HeaderBuf+0,6)};
+            std::fseek(fp, 16, SEEK_CUR); // Skip the channels-in-use table
+            std::fread(HeaderBuf, 1, 4, fp);
+            unsigned ins_count =  ReadLEint(HeaderBuf+0, 2);//, basictempo = ReadLEint(HeaderBuf+2, 2);
+            std::fseek(fp, ins_start, SEEK_SET);
+            //std::printf("%u instruments\n", ins_count);
+            for(unsigned i=0; i<ins_count; ++i)
+            {
+                unsigned char InsData[16];
+                std::fread(InsData, 1, 16, fp);
+                /*std::printf("Ins %3u: %02X %02X %02X %02X  %02X %02X %02X %02X  %02X %02X %02X %02X  %02X %02X %02X %02X\n",
+                    i, InsData[0],InsData[1],InsData[2],InsData[3], InsData[4],InsData[5],InsData[6],InsData[7],
+                       InsData[8],InsData[9],InsData[10],InsData[11], InsData[12],InsData[13],InsData[14],InsData[15]);*/
+                struct adldata    adl;
+                struct adlinsdata adlins;
+                adl.modulator_E862 =
+                    (InsData[8] << 24)
+                  + (InsData[6] << 16)
+                  + (InsData[4] << 8)
+                  + (InsData[0] << 0);
+                adl.carrier_E862 =
+                    (InsData[9] << 24)
+                  + (InsData[7] << 16)
+                  + (InsData[5] << 8)
+                  + (InsData[1] << 0);
+                adl.modulator_40 = InsData[2];
+                adl.carrier_40   = InsData[3];
+                adl.feedconn     = InsData[10];
+                adl.finetune = 0;
+
+                adlins.adlno1 = dynamic_instruments.size() | DynamicInstrumentTag;
+                adlins.adlno2 = adlins.adlno1;
+                adlins.ms_sound_kon  = 1000;
+                adlins.ms_sound_koff = 500;
+                adlins.tone  = 0;
+                adlins.flags = 0;
+                dynamic_metainstruments.push_back(adlins);
+                dynamic_instruments.push_back(adl);
+            }
+            std::fseek(fp, mus_start, SEEK_SET);
+            TrackCount = 1;
+            DeltaTicks = ticks;
+            AdlBank    = ~0u; // Ignore AdlBank number, use dynamic banks instead
+            //std::printf("CMF deltas %u ticks %u, basictempo = %u\n", deltas, ticks, basictempo);
+            LogarithmicVolumes = true;
         }
         else
         {
             // Try parsing as an IMF file
-           {
-            unsigned end = (unsigned char)HeaderBuf[0] + 256*(unsigned char)HeaderBuf[1];
-            if(!end || (end & 3)) goto not_imf;
+            if(1)
+            {
+                unsigned end = (unsigned char)HeaderBuf[0] + 256*(unsigned char)HeaderBuf[1];
+                if(!end || (end & 3)) goto not_imf;
 
-            long backup_pos = std::ftell(fp);
-            unsigned sum1 = 0, sum2 = 0;
-            std::fseek(fp, 2, SEEK_SET);
-            for(unsigned n=0; n<42; ++n)
-            {
-                unsigned value1 = std::fgetc(fp); value1 += std::fgetc(fp) << 8; sum1 += value1;
-                unsigned value2 = std::fgetc(fp); value2 += std::fgetc(fp) << 8; sum2 += value2;
+                long backup_pos = std::ftell(fp);
+                unsigned sum1 = 0, sum2 = 0;
+                std::fseek(fp, 2, SEEK_SET);
+                for(unsigned n=0; n<42; ++n)
+                {
+                    unsigned value1 = std::fgetc(fp); value1 += std::fgetc(fp) << 8; sum1 += value1;
+                    unsigned value2 = std::fgetc(fp); value2 += std::fgetc(fp) << 8; sum2 += value2;
+                }
+                std::fseek(fp, backup_pos, SEEK_SET);
+                if(sum1 > sum2)
+                {
+                    is_IMF = true;
+                    DeltaTicks = 1;
+                }
             }
-            std::fseek(fp, backup_pos, SEEK_SET);
-            if(sum1 > sum2)
-            {
-                is_IMF = true;
-                DeltaTicks = 1;
-            }
-           }
 
             if(!is_IMF)
             {
@@ -1227,9 +1346,9 @@ public:
                     std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
                     return false;
                 }
-                /*size_t  Fmt =*/ ReadBEInt(HeaderBuf+8,  2);
-                TrackCount = ReadBEInt(HeaderBuf+10, 2);
-                DeltaTicks = ReadBEInt(HeaderBuf+12, 2);
+                /*size_t  Fmt =*/ ReadBEint(HeaderBuf+8,  2);
+                TrackCount = ReadBEint(HeaderBuf+10, 2);
+                DeltaTicks = ReadBEint(HeaderBuf+12, 2);
             }
         }
         TrackData.resize(TrackCount);
@@ -1286,30 +1405,30 @@ public:
             }
             else
             {
-                if(is_GMF)
+                if(is_GMF || is_CMF) // Take the rest of the file
                 {
                     long pos = std::ftell(fp);
                     std::fseek(fp, 0, SEEK_END);
                     TrackLength = ftell(fp) - pos;
                     std::fseek(fp, pos, SEEK_SET);
                 }
-                else if(is_MUS)
+                else if(is_MUS) // Read TrackLength from file position 4
                 {
                     long pos = std::ftell(fp);
                     std::fseek(fp, 4, SEEK_SET);
                     TrackLength = std::fgetc(fp); TrackLength += (std::fgetc(fp) << 8);
                     std::fseek(fp, pos, SEEK_SET);
                 }
-                else
+                else // Read MTrk header
                 {
                     std::fread(HeaderBuf, 1, 8, fp);
                     if(std::memcmp(HeaderBuf, "MTrk", 4) != 0) goto InvFmt;
-                    TrackLength = ReadBEInt(HeaderBuf+4, 4);
+                    TrackLength = ReadBEint(HeaderBuf+4, 4);
                 }
                 // Read track data
                 TrackData[tk].resize(TrackLength);
                 std::fread(&TrackData[tk][0], 1, TrackLength, fp);
-                if(is_GMF || is_MUS)
+                if(is_GMF || is_MUS) // Note: CMF does include the track end tag.
                 {
                     TrackData[tk].insert(TrackData[tk].end(), EndTag+0, EndTag+4);
                 }
@@ -1367,17 +1486,15 @@ private:
         const int vol     = info.vol;
         const int midiins = info.midiins;
         const int insmeta = info.insmeta;
+        const adlinsdata& ains = GetAdlMetaIns(insmeta);
 
         AdlChannel::Location my_loc;
         my_loc.MidCh = MidCh;
         my_loc.note  = i->first;
 
-        for(std::map<unsigned short,unsigned short>::iterator
-            jnext = info.phys.begin();
-            jnext != info.phys.end();
-           )
+        for(auto jnext = info.phys.begin(); jnext != info.phys.end(); )
         {
-            std::map<unsigned short,unsigned short>::iterator j(jnext++);
+            auto j = jnext++;
             int c   = j->first;
             int ins = j->second;
             if(select_adlchn >= 0 && c != select_adlchn) continue;
@@ -1388,16 +1505,13 @@ private:
                 AdlChannel::LocationData& d = ch[c].users[my_loc];
                 d.sustained = false; // inserts if necessary
                 d.vibdelay  = 0;
-                d.kon_time_until_neglible = adlins[insmeta].ms_sound_kon;
+                d.kon_time_until_neglible = ains.ms_sound_kon;
                 d.ins       = ins;
             }
         }
-        for(std::map<unsigned short,unsigned short>::iterator
-            jnext = info.phys.begin();
-            jnext != info.phys.end();
-           )
+        for(auto jnext = info.phys.begin(); jnext != info.phys.end(); )
         {
-            std::map<unsigned short,unsigned short>::iterator j(jnext++);
+            auto j = jnext++;
             int c   = j->first;
             int ins = j->second;
             if(select_adlchn >= 0 && c != select_adlchn) continue;
@@ -1415,7 +1529,7 @@ private:
                     {
                         opl.NoteOff(c);
                         ch[c].koff_time_until_neglible =
-                            adlins[insmeta].ms_sound_koff;
+                            ains.ms_sound_koff;
                     }
                 }
                 else
@@ -1452,10 +1566,10 @@ private:
                 // Don't bend a sustained note
                 if(!d.sustained)
                 {
-                    double bend = Ch[MidCh].bend + adl[ins].finetune;
+                    double bend = Ch[MidCh].bend + GetAdlIns(ins).finetune;
                     double phase = 0.0;
 
-                    if((adlins[insmeta].flags & adlinsdata::Flag_Pseudo4op) && ins == adlins[insmeta].adlno2)
+                    if((ains.flags & adlinsdata::Flag_Pseudo4op) && ins == ains.adlno2)
                     {
                         phase = 0.125; // Detune the note slightly (this is what Doom does)
                     }
@@ -1552,7 +1666,7 @@ private:
             std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
             CurrentPosition.track[tk].ptr += length;
             if(evtype == 0x2F) { CurrentPosition.track[tk].status = -1; return; }
-            if(evtype == 0x51) { Tempo = InvDeltaTicks * fraction<long>( (long) ReadBEInt(data.data(), data.size())); return; }
+            if(evtype == 0x51) { Tempo = InvDeltaTicks * fraction<long>( (long) ReadBEint(data.data(), data.size())); return; }
             if(evtype == 6 && data == "loopStart") loopStart = true;
             if(evtype == 6 && data == "loopEnd"  ) loopEnd   = true;
             if(evtype == 9) current_device[tk] = ChooseDevice(data);
@@ -1588,7 +1702,7 @@ private:
             {
                 int note = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
-                //if(MidCh != 9) note -= 12; // HACK
+                //if(MidCh != 9) note -= 12; // HACK for OpenGL video for changing octaves
                 NoteOff(MidCh, note);
                 // On Note on, Keyoff the note first, just in case keyoff
                 // was omitted; this fixes Dance of sugar-plum fairy
@@ -1637,24 +1751,26 @@ private:
                     }
                 }
 
-                int meta = banks[AdlBank][midiins];
+                const unsigned meta    = GetAdlMetaNumber(midiins);
+                const adlinsdata& ains = GetAdlMetaIns(meta);
+
                 int tone = note;
-                if(adlins[meta].tone)
+                if(ains.tone)
                 {
-                    if(adlins[meta].tone < 20)
-                        tone += adlins[meta].tone;
-                    else if(adlins[meta].tone < 128)
-                        tone = adlins[meta].tone;
+                    if(ains.tone < 20)
+                        tone += ains.tone;
+                    else if(ains.tone < 128)
+                        tone = ains.tone;
                     else
-                        tone -= adlins[meta].tone-128;
+                        tone -= ains.tone-128;
                 }
-                int i[2] = { adlins[meta].adlno1, adlins[meta].adlno2 };
-                bool pseudo_4op = adlins[meta].flags & adlinsdata::Flag_Pseudo4op;
+                int i[2] = { ains.adlno1, ains.adlno2 };
+                bool pseudo_4op = ains.flags & adlinsdata::Flag_Pseudo4op;
 
                 if(AdlPercussionMode && PercussionMap[midiins & 0xFF]) i[1] = i[0];
 
                 static std::set<unsigned char> missing_warnings;
-                if(!missing_warnings.count(midiins) && (adlins[meta].flags & adlinsdata::Flag_NoSound))
+                if(!missing_warnings.count(midiins) && (ains.flags & adlinsdata::Flag_NoSound))
                 {
                     UI.PrintLn("[%i]Playing missing instrument %i", MidCh, midiins);
                     missing_warnings.insert(midiins);
@@ -1682,7 +1798,12 @@ private:
                             // Only use regular channels
                             int expected_mode = 0;
                             if(AdlPercussionMode)
-                                expected_mode = PercussionMap[midiins & 0xFF];
+                            {
+                                if(cmf_percussion_mode)
+                                    expected_mode = MidCh < 11 ? 0 : (3+MidCh-11); // CMF
+                                else
+                                    expected_mode = PercussionMap[midiins & 0xFF];
+                            }
                             if(opl.four_op_category[a] != expected_mode)
                                 continue;
                         }
@@ -1830,6 +1951,8 @@ private:
                     case 113: break; // Related to pitch-bender, used by missimp.mid in Duke3D
                     case  6: SetRPN(MidCh, value, true); break;
                     case 38: SetRPN(MidCh, value, false); break;
+
+                    case 103: cmf_percussion_mode = value; break; // CMF (ctrl 0x67) rhythm mode
                     default:
                         UI.PrintLn("Ctrl %d <- %d (ch %u)", ctrlno, value, MidCh);
                 }
@@ -2670,8 +2793,9 @@ public:
     void DoNote(int note)
     {
         if(adl_ins_list.empty()) FindAdlList();
-        int meta = adl_ins_list[ins_idx];
-        const adlinsdata& ains = adlins[meta];
+        const unsigned meta = adl_ins_list[ins_idx];
+        const adlinsdata& ains = GetAdlMetaIns(meta);
+
         int tone = (cur_gm & 128) ? (cur_gm & 127) : (note+50);
         if(ains.tone)
         {
@@ -2729,20 +2853,22 @@ public:
         UI.Color(7); std::fflush(stderr);
         for(unsigned a=0; a<adl_ins_list.size(); ++a)
         {
-            unsigned i = adl_ins_list[a];
+            const unsigned i = adl_ins_list[a];
+            const adlinsdata& ains = GetAdlMetaIns(i);
+
             char ToneIndication[8] = "   ";
-            if(adlins[i].tone)
+            if(ains.tone)
             {
-                if(adlins[i].tone < 20)
-                    sprintf(ToneIndication, "+%-2d", adlins[i].tone);
-                else if(adlins[i].tone < 128)
-                    sprintf(ToneIndication, "=%-2d", adlins[i].tone);
+                if(ains.tone < 20)
+                    sprintf(ToneIndication, "+%-2d", ains.tone);
+                else if(ains.tone < 128)
+                    sprintf(ToneIndication, "=%-2d", ains.tone);
                 else
-                    sprintf(ToneIndication, "-%-2d", adlins[i].tone-128);
+                    sprintf(ToneIndication, "-%-2d", ains.tone-128);
             }
             std::printf("%s%s%s%u\t",
                 ToneIndication,
-                adlins[i].adlno1 != adlins[i].adlno2 ? "[2]" : "   ",
+                ains.adlno1 != ains.adlno2 ? "[2]" : "   ",
                 (ins_idx == a) ? "->" : "\t",
                 i
             );
@@ -2775,10 +2901,11 @@ public:
                 if(p && *p) DoNote( (p - notes) - 12 );
     }   }
 
-    double Tick(double eat_delay, double mindelay)
+    double Tick(double /*eat_delay*/, double /*mindelay*/)
     {
         HandleInputChar( Input.PeekInput() );
-        return 0.1; //eat_delay;
+        //return eat_delay;
+        return 0.1;
     }
 };
 
@@ -2888,7 +3015,7 @@ int main(int argc, char** argv)
         std::printf(
             "Usage: adlmidi <midifilename> [ <options> ] [ <banknumber> [ <numcards> [ <numfourops>] ] ]\n"
             "       adlmidi <midifilename> -1   To enter instrument tester\n"
-            " -p Enables adlib percussion instrument mode\n"
+            " -p Enables adlib percussion instrument mode (use with CMF files)\n"
             " -t Enables tremolo amplification mode\n"
             " -v Enables vibrato amplification mode\n"
             " -s Enables scaling of modulator volumes\n"
@@ -2904,11 +3031,14 @@ int main(int argc, char** argv)
             "     Use banks 2-5 to play Descent \"q\" soundtracks.\n"
             "     Look up the relevant bank number from descent.sng.\n"
             "\n"
-            "     The fourth parameter can be used to specify the number\n"
+            "     <numfourops> can be used to specify the number\n"
             "     of four-op channels to use. Each four-op channel eats\n"
             "     the room of two regular channels. Use as many as required.\n"
             "     The Doom & Hexen sets require one or two, while\n"
             "     Miles four-op set requires the maximum of numcards*6.\n"
+            "\n"
+            "     When playing Creative Music Files (CMF), try the\n"
+            "     -p and -v options if it sounds wrong otherwise.\n"
             "\n"
             );
         return 0;
