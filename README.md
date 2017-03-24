@@ -1,11 +1,13 @@
 # adlmidi
 ADLMIDI is a MIDI player that uses OPL3 emulation.
 
+![http://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif](http://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif)
+
 ## Key features
 
 * OPL3 emulation with four-operator mode support
 * FM patches from a number of known PC games, copied from files typical to AIL = Miles Sound System / DMX / HMI = Human Machine Interfaces / Creative IBK.
-Stereo sound
+* Stereo sound
 * Reverb filter based on code from SoX, based on code from Freeverb. A copy of either project is not needed.
 * Number of simulated soundcards can be specified as 1-100 (maximum channels 1800!)
 * xterm-256color support
@@ -23,7 +25,8 @@ Stereo sound
 
 ## Usage
 
-```Usage: adlmidi <midifilename> [ <options> ] [ <banknumber> [ <numcards> [ <numfourops>] ] ]
+```
+Usage: adlmidi <midifilename> [ <options> ] [ <banknumber> [ <numcards> [ <numfourops>] ] ]
        adlmidi <midifilename> -1   To enter instrument tester
  -p Enables adlib percussion instrument mode (use with CMF files)
  -t Enables tremolo amplification mode
@@ -108,6 +111,7 @@ Stereo sound
 
      When playing Creative Music Files (CMF), try the
      -p and -v options if it sounds wrong otherwise.```
+```
 
 ## Copying and contributing
 
