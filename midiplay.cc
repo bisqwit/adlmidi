@@ -1237,6 +1237,7 @@ public:
         bool is_MUS = false; // MUS/DMX files (Doom)
         bool is_IMF = false; // IMF
         bool is_CMF = false; // Creative Music format (CMF/CTMF)
+        bool is_RSXX = false; // RSXX, such as Cartooners
         std::vector<unsigned char> MUS_instrumentList;
 
         if(std::memcmp(HeaderBuf, "GMF\1", 4) == 0)
@@ -1313,8 +1314,24 @@ public:
             //std::printf("CMF deltas %u ticks %u, basictempo = %u\n", deltas, ticks, basictempo);
             LogarithmicVolumes = true;
         }
+        else if(HeaderBuf[0] == 0x7D)
+        {
+            std::fseek(fp, 0x6D, SEEK_SET);
+            std::fread(HeaderBuf, 6, 1, fp);
+            if(std::memcmp(HeaderBuf, "rsxx}u", 6) == 0)
+            {
+                is_RSXX = true;
+                std::fprintf(stderr, "Detected RSXX format\n");
+                std::fseek(fp, 0x7D, SEEK_SET);
+                TrackCount = 1;
+                DeltaTicks = 60;
+            }
+            else
+                goto try_imf;
+        }
         else
         {
+        try_imf:
             // Try parsing as an IMF file
             if(1)
             {
@@ -1405,7 +1422,7 @@ public:
             }
             else
             {
-                if(is_GMF || is_CMF) // Take the rest of the file
+                if(is_GMF || is_CMF || is_RSXX) // Take the rest of the file
                 {
                     long pos = std::ftell(fp);
                     std::fseek(fp, 0, SEEK_END);
@@ -1433,7 +1450,8 @@ public:
                     TrackData[tk].insert(TrackData[tk].end(), EndTag+0, EndTag+4);
                 }
                 // Read next event time
-                CurrentPosition.track[tk].delay = ReadVarLen(tk);
+                if(!is_RSXX)
+                    CurrentPosition.track[tk].delay = ReadVarLen(tk);
             }
         }
         loopStart = true;
