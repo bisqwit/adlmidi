@@ -840,6 +840,7 @@ public:
         if(hertz < 0 || hertz > 131071) // Avoid infinite loop
             return;
         while(hertz >= 1023.5) { hertz /= 2.0; x += 0x400; } // Calculate octave
+
         x += (int)(hertz + 0.5);
         unsigned chn = Channels[cc];
         if(cc >= 18)
@@ -901,24 +902,27 @@ public:
             { true,  true  }  /* 4 op AM-AM ops 3&4 */
           };
 
-        bool do_modulator = do_ops[ mode ][ 0 ] || ScaleModulators;
-        bool do_carrier   = do_ops[ mode ][ 1 ] || ScaleModulators;
-
         if(CartoonersVolumes)
         {
-            Poke(card, 0x40+o1, do_modulator ? x - volume/2 : x);
+            Poke(card, 0x40+o1, x);
             if(o2 != 0xFFF)
-            Poke(card, 0x40+o2, do_carrier   ? y - volume/2 : y);
+            Poke(card, 0x40+o2, y - volume/2);
         }
         else
         {
+            bool do_modulator = do_ops[ mode ][ 0 ] || ScaleModulators;
+            bool do_carrier   = do_ops[ mode ][ 1 ] || ScaleModulators;
+
             Poke(card, 0x40+o1, do_modulator ? (x|63) - volume + volume*(x&63)/63 : x);
             if(o2 != 0xFFF)
             Poke(card, 0x40+o2, do_carrier   ? (y|63) - volume + volume*(y&63)/63 : y);
+            //Poke(card, 0x40+o1, do_modulator ? (x|63) - (63-(x&63))*volume/63 : x);
+            //if(o2 != 0xFFF)
+            //Poke(card, 0x40+o2, do_carrier   ? (y|63) - (63-(y&63))*volume/63 : y);
         }
 
         // Correct formula (ST3, AdPlug):
-        //   63-((63-(instrvol))/63)*chanvol
+        //   63 - ((63-instrvol)/63.0)*chanvol
         // Reduces to (tested identical):
         //   63 - chanvol + chanvol*instrvol/63
         // Also (slower, floats):
@@ -926,6 +930,7 @@ public:
     }
     void Touch(unsigned c, unsigned volume) // Volume maxes at 127*127*127
     {
+        // Produce a value in 0-63 range
         if(LogarithmicVolumes)
         {
             Touch_Real(c, volume*63/(127*127*127));
@@ -1723,6 +1728,17 @@ private:
                 int note = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 //if(MidCh != 9) note -= 12; // HACK for OpenGL video for changing octaves
+                if(CartoonersVolumes && vol != 0)
+                {
+                    // Check if this is just a note after-touch
+                    auto i = Ch[MidCh].activenotes.find(note);
+                    if(i != Ch[MidCh].activenotes.end())
+                    {
+                        i->second.vol = vol;
+                        NoteUpdate(MidCh, i, Upd_Volume);
+                        break;
+                    }
+                }
                 NoteOff(MidCh, note);
                 // On Note on, Keyoff the note first, just in case keyoff
                 // was omitted; this fixes Dance of sugar-plum fairy
@@ -1777,6 +1793,9 @@ private:
                 int tone = note;
                 if(ains.tone)
                 {
+                    // 0..19:    add x
+                    // 20..127:  set x
+                    // 128..255: subtract x-128
                     if(ains.tone < 20)
                         tone += ains.tone;
                     else if(ains.tone < 128)
@@ -1863,9 +1882,7 @@ private:
                 //UI.PrintLn("i1=%d:%d, i2=%d:%d", i[0],adlchannel[0], i[1],adlchannel[1]);
 
                 // Allocate active note for MIDI channel
-                std::pair<MIDIchannel::activenoteiterator,bool>
-                    ir = Ch[MidCh].activenotes.insert(
-                        std::make_pair(note, MIDIchannel::NoteInfo()));
+                auto ir = Ch[MidCh].activenotes.insert(std::make_pair(note, MIDIchannel::NoteInfo()));
                 ir.first->second.vol     = vol;
                 ir.first->second.tone    = tone;
                 ir.first->second.midiins = midiins;
@@ -1884,8 +1901,7 @@ private:
             {
                 int note = TrackData[tk][CurrentPosition.track[tk].ptr++];
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
-                MIDIchannel::activenoteiterator
-                    i = Ch[MidCh].activenotes.find(note);
+                auto i = Ch[MidCh].activenotes.find(note);
                 if(i == Ch[MidCh].activenotes.end())
                 {
                     // Ignore touch if note is not active
@@ -1942,8 +1958,8 @@ private:
                         break;
                     case 121: // Reset all controllers
                         Ch[MidCh].bend       = 0;
-                        Ch[MidCh].volume     = 100;
-                        Ch[MidCh].expression = 100;
+                        Ch[MidCh].volume     = CartoonersVolumes ? 127 : 100;
+                        Ch[MidCh].expression = CartoonersVolumes ? 127 : 100;
                         Ch[MidCh].sustain    = 0;
                         Ch[MidCh].vibrato    = 0;
                         Ch[MidCh].vibspeed   = 2*3.141592653*5.0;
@@ -1985,14 +2001,8 @@ private:
             {
                 // TODO: Verify, is this correct action?
                 int  vol = TrackData[tk][CurrentPosition.track[tk].ptr++];
-                for(MIDIchannel::activenoteiterator
-                    i = Ch[MidCh].activenotes.begin();
-                    i != Ch[MidCh].activenotes.end();
-                    ++i)
-                {
-                    // Set this pressure to all active notes on the channel
-                    i->second.vol = vol;
-                }
+                // Set this pressure to all active notes on the channel
+                for(auto& ch: Ch[MidCh].activenotes) { ch.second.vol = vol; }
                 NoteUpdate_All(MidCh, Upd_Volume);
                 break;
             }

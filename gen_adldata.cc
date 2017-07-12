@@ -399,9 +399,9 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
 
         char name2[512];
         if(is_fat)
-            sprintf(name2, "%s%c%u", prefix, percussive?'P':'M', gmno&127);
+            std::sprintf(name2, "%s%c%u", prefix, percussive?'P':'M', gmno&127);
         else
-            sprintf(name2, "%s%u", prefix, n);
+            std::sprintf(name2, "%s%u", prefix, n);
 
         insdata tmp;
         tmp.data[0] = (op1[ 9] << 7) // TREMOLO FLAG
@@ -513,7 +513,7 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
         unsigned char xxxxxxxx = insdata[27];
 
         char name2[512];
-        sprintf(name2, "%s%c%u", prefix, (gmno&128)?'P':'M', gmno&127);
+        std::sprintf(name2, "%s%c%u", prefix, (gmno&128)?'P':'M', gmno&127);
 
         struct insdata tmp[2];
         for(unsigned a=0; a<2; ++a)
@@ -604,7 +604,7 @@ static void LoadDoom(const char* fn, unsigned bank, const char* prefix)
         //printf("%3d %3d %3d %8s: ", a,b,c, name.c_str());
         int gmno = a<128 ? a : ((a|128)+35);
 
-        char name2[512]; sprintf(name2, "%s%c%u", prefix, (gmno<128?'M':'P'), gmno&127);
+        char name2[512]; std::sprintf(name2, "%s%c%u", prefix, (gmno<128?'M':'P'), gmno&127);
 
         Doom_opl_instr& ins = *(Doom_opl_instr*) &data[offset2];
 
@@ -702,7 +702,7 @@ static void LoadMiles(const char* fn, unsigned bank, const char* prefix)
 
         if(gmnumber2 != 0 && gmnumber2 != 0x7F) continue;
 
-        char name2[512]; sprintf(name2, "%s%c%u", prefix,
+        char name2[512]; std::sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
         insdata tmp[200];
@@ -772,7 +772,7 @@ static void LoadIBK(const char* fn, unsigned bank, const char* prefix, bool perc
                        : gmno < 128+35 ? -1
                        : gmno < 128+88 ? gmno-35
                        : -1;
-        char name2[512]; sprintf(name2, "%s%c%u", prefix,
+        char name2[512]; std::sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
         insdata tmp;
@@ -865,7 +865,7 @@ static void LoadJunglevision(const char* fn, unsigned bank, const char* prefix)
         std::string name;
         if(midi_index >= 0) name = std::string(1,'\377')+MidiInsName[midi_index];
 
-        char name2[512]; sprintf(name2, "%s%c%u", prefix,
+        char name2[512]; std::sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
         if(!data[offset])
@@ -921,7 +921,7 @@ static void LoadTMB(const char* fn, unsigned bank, const char* prefix)
         std::string name;
         if(midi_index >= 0) name = std::string(1,'\377')+MidiInsName[midi_index];
 
-        char name2[512]; sprintf(name2, "%s%c%u", prefix,
+        char name2[512]; std::sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
         size_t resno = InsertIns(tmp,tmp,tmp2, name, name2);
@@ -955,7 +955,7 @@ static void LoadBisqwit(const char* fn, unsigned bank, const char* prefix)
         std::string name;
         if(midi_index >= 0) name = std::string(1,'\377')+MidiInsName[midi_index];
 
-        char name2[512]; sprintf(name2, "%s%c%u", prefix,
+        char name2[512]; std::sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
         size_t resno = InsertIns(tmp[0],tmp[1],tmp2, name, name2);
@@ -968,16 +968,31 @@ void LoadEA(const char* fn, unsigned bank, const char* prefix)
 {
     FILE* fp = std::fopen(fn, "rb");
 
-    // Copy percussive instruments from bank 0
-    for(unsigned gmno=35; gmno<80; ++gmno)
-        progs[bank][0x80 + gmno] = progs[0][0x80 + gmno];
+    // Copy all instruments from bank 0
+    for(unsigned gmno=0; gmno<128; ++gmno) progs[bank][gmno] = progs[0][gmno];
+    for(unsigned gmno=35; gmno<80; ++gmno) progs[bank][0x80 + gmno] = progs[0][0x80 + gmno];
 
+    unsigned sources[20+8];
+    // Copy also the unused instruments
+    sources[20] = 0x245;
+    sources[21] = 0x24F;
+    sources[22] = 0x263;
+    sources[23] = 0x277;
+    sources[24] = 0x281;
+    sources[25] = 0x28B;
+    sources[26] = 0x29F;
+    sources[27] = 0x2A9;
     for(unsigned gmno=0; gmno<20; ++gmno)
     {
         std::fseek(fp, 0x150 + gmno, SEEK_SET);
         unsigned insno = std::fgetc(fp);
         std::fseek(fp, 0x187 + insno*2, SEEK_SET);
         unsigned offset = std::fgetc(fp); offset += std::fgetc(fp)*256;
+        sources[gmno] = offset;
+    }
+    for(unsigned gmno=0; gmno<20+8; ++gmno)
+    {
+        unsigned offset = sources[gmno];
         std::fseek(fp, offset, SEEK_SET);
         unsigned char bytes[10];
         std::fread(bytes, 1, 10, fp);
@@ -1007,15 +1022,23 @@ void LoadEA(const char* fn, unsigned bank, const char* prefix)
         tmp2.notenum   = 0;
         tmp2.pseudo4op = false;
 
-        std::string name = std::string(1,'\377')+MidiInsName[gmno];
-        char name2[512]; sprintf(name2, "%sM%u", prefix, gmno);
+        std::string name;
+        char name2[512];
+        if(gmno < 20)
+        {
+            std::sprintf(name2, "%sM%u", prefix, gmno);
+        }
+        else
+        {
+            std::sprintf(name2, "%sunk%04X", prefix, offset);
+        }
         size_t resno = InsertIns(tmp,tmp, tmp2, std::string(1,'\377')+name, name2);
         SetBank(bank, gmno, resno);
 
-        if(gmno == 10) { tmp2.notenum = 0x49; SetBank(bank, 0x80 + 0x36, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x36-35], std::string(1,'\377')+prefix+"P54")); }
-        if(gmno == 18) { tmp2.notenum = 0x17; SetBank(bank, 0x80 + 0x2A, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x2A-35], std::string(1,'\377')+prefix+"P42")); }
-        if(gmno == 16) { tmp2.notenum = 0x0C; SetBank(bank, 0x80 + 0x24, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x24-35], std::string(1,'\377')+prefix+"P36")); }
-        if(gmno == 17) { tmp2.notenum = 0x01; SetBank(bank, 0x80 + 0x26, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x26-35], std::string(1,'\377')+prefix+"P38")); }
+        if(gmno == 10) { /*tmp.finetune=0;*/ tmp2.notenum = 0x49; SetBank(bank, 0x80 + 0x36, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x36-35], std::string(1,'\377')+prefix+"P54")); }
+        if(gmno == 18) { /*tmp.finetune=0;*/ tmp2.notenum = 0x17; SetBank(bank, 0x80 + 0x2A, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x2A-35], std::string(1,'\377')+prefix+"P42")); }
+        if(gmno == 16) { /*tmp.finetune=0;*/ tmp2.notenum = 0x0C; SetBank(bank, 0x80 + 0x24, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x24-35], std::string(1,'\377')+prefix+"P36")); }
+        if(gmno == 17) { /*tmp.finetune=0;*/ tmp2.notenum = 0x01; SetBank(bank, 0x80 + 0x26, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x26-35], std::string(1,'\377')+prefix+"P38")); }
     }
 
     std::fclose(fp);

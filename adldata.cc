@@ -4,7 +4,7 @@
  * FROM A NUMBER OF SOURCES, MOSTLY PC GAMES.
  * PREPROCESSED, CONVERTED, AND POSTPROCESSED OFF-SCREEN.
  */
-const adldata adl[4131] =
+const adldata adl[4139] =
 { //    ,---------+-------- Wave select settings
   //    | ,-------÷-+------ Sustain/release rates
   //    | | ,-----÷-÷-+---- Attack/decay rates
@@ -4126,26 +4126,34 @@ const adldata adl[4131] =
     { 0x117F7CE,0x04CF9C0, 0x21,0x00, 0xF,+12 }, // 4110: raptP38; Acoustic Snare
     { 0x075FC01,0x037F800, 0x21,0x00, 0x1,+12 }, // 4111: raptP40; Electric Snare
     { 0x25E980C,0x306FB0F, 0x80,0x80, 0xF,+12 }, // 4112: raptP42; Closed High-Hat
-    { 0x01BF4E0,0x018F3E0, 0x8D,0x23, 0xA,+12 }, // 4113: eaCM0; ÿAcouGrandPiano
-    { 0x00FFFE4,0x00FFFE1, 0x8A,0xA9, 0x1,+0 }, // 4114: eaCM1; eaCM4; ÿBrightAcouGrand; ÿRhodes Piano
-    { 0x031FF10,0x004FF01, 0x07,0x25, 0xA,+12 }, // 4115: eaCM2; ÿElecGrandPiano
-    { 0x050F101,0x07CE401, 0x4F,0x22, 0x6,+12 }, // 4116: eaCM3; ÿHonky-tonkPiano
-    { 0x00361F0,0x02CE371, 0x86,0x1F, 0xA,+12 }, // 4117: eaCM5; ÿChorused Piano
-    { 0x00361B0,0x02CE3F3, 0x86,0x1F, 0x8,+12 }, // 4118: eaCM6; ÿHarpsichord
-    { 0x00331F2,0x02C53F4, 0x4B,0x21, 0x4,-12 }, // 4119: eaCM7; ÿClavinet
-    { 0x08FAEE2,0x02A8561, 0x11,0x23, 0xE,+12 }, // 4120: eaCM8; ÿCelesta
-    { 0x019D530,0x01B6171, 0x15,0x9B, 0xC,+12 }, // 4121: eaCM9; ÿGlockenspiel
-    { 0x00B4131,0x03B9261, 0x1C,0x99, 0xE,+0 }, // 4122: eaCM10; Tambourine; eaCP54; ÿMusic box
-    { 0x01F61B1,0x01B9261, 0x1C,0x9D, 0xE,+0 }, // 4123: eaCM11; ÿVibraphone
-    { 0x04C6321,0x00FC521, 0x18,0xA0, 0xC,+0 }, // 4124: eaCM12; ÿMarimba
-    { 0x060F207,0x072F212, 0x4F,0x21, 0x8,+0 }, // 4125: eaCM13; eaCM19; ÿChurch Organ; ÿXylophone
-    { 0x053F401,0x053F308, 0x40,0x64, 0x0,-6 }, // 4126: eaCM14; ÿTubular Bells
-    { 0x0FFF832,0x07FF511, 0x44,0x1F, 0xE,-18 }, // 4127: eaCM15; ÿDulcimer
-    { 0x04CA700,0x04FC600, 0x00,0x22, 0x0,+12 }, // 4128: eaCM16; Bass Drum 1; eaCP36; ÿHammond Organ
-    { 0x0F5F062,0x0F8F60E, 0x00,0x1F, 0xE,+12 }, // 4129: eaCM17; Acoustic Snare; eaCP38; ÿPercussive Organ
-    { 0x005FC4E,0x0F8F90C, 0x00,0x24, 0x0,+12 }, // 4130: eaCM18; Closed High Hat; eaCP42; ÿRock Organ
+    { 0x01BF4E0,0x018F3E0, 0x8D,0x23, 0xA,+12 }, // 4113: eaCM0; 
+    { 0x00FFFE4,0x00FFFE1, 0x8A,0xA9, 0x1,+0 }, // 4114: eaCM1; eaCM4; 
+    { 0x031FF10,0x004FF01, 0x07,0x25, 0xA,+12 }, // 4115: eaCM2; 
+    { 0x050F101,0x07CE401, 0x4F,0x22, 0x6,+12 }, // 4116: eaCM3; 
+    { 0x00361F0,0x02CE371, 0x86,0x1F, 0xA,+12 }, // 4117: eaCM5; 
+    { 0x00361B0,0x02CE3F3, 0x86,0x1F, 0x8,+12 }, // 4118: eaCM6; 
+    { 0x00331F2,0x02C53F4, 0x4B,0x21, 0x4,-12 }, // 4119: eaCM7; 
+    { 0x08FAEE2,0x02A8561, 0x11,0x23, 0xE,+12 }, // 4120: eaCM8; 
+    { 0x019D530,0x01B6171, 0x15,0x9B, 0xC,+12 }, // 4121: eaCM9; 
+    { 0x00B4131,0x03B9261, 0x1C,0x99, 0xE,+0 }, // 4122: eaCM10; ; Tambourine; eaCP54
+    { 0x01F61B1,0x01B9261, 0x1C,0x9D, 0xE,+0 }, // 4123: eaCM11; 
+    { 0x04C6321,0x00FC521, 0x18,0xA0, 0xC,+0 }, // 4124: eaCM12; 
+    { 0x060F207,0x072F212, 0x4F,0x21, 0x8,+0 }, // 4125: eaCM13; eaCM19; 
+    { 0x053F401,0x053F308, 0x40,0x64, 0x0,-6 }, // 4126: eaCM14; 
+    { 0x0FFF832,0x07FF511, 0x44,0x1F, 0xE,-18 }, // 4127: eaCM15; 
+    { 0x04CA700,0x04FC600, 0x00,0x22, 0x0,+12 }, // 4128: eaCM16; ; Bass Drum 1; eaCP36
+    { 0x0F5F062,0x0F8F60E, 0x00,0x1F, 0xE,+12 }, // 4129: eaCM17; ; Acoustic Snare; eaCP38
+    { 0x005FC4E,0x0F8F90C, 0x00,0x24, 0x0,+12 }, // 4130: eaCM18; ; Closed High Hat; eaCP42
+    { 0x005756E,0x0F8F601, 0x00,0x22, 0xE,+12 }, // 4131: eaCunk0245; 
+    { 0x011F131,0x043D418, 0x90,0xA5, 0x8,-12 }, // 4132: eaCunk024F; 
+    { 0x08FAEE0,0x00A8561, 0xE8,0x21, 0xE,+12 }, // 4133: eaCunk0263; 
+    { 0x02990F2,0x02C61F2, 0x16,0x22, 0xA,-12 }, // 4134: eaCunk0277; 
+    { 0x02BF4E0,0x048F3E0, 0x8D,0x1F, 0x8,+12 }, // 4135: eaCunk0281; 
+    { 0x023F331,0x09C4333, 0x45,0x25, 0x6,-12 }, // 4136: eaCunk028B; 
+    { 0x04CA700,0x04FC600, 0x00,0x2B, 0x0,-12 }, // 4137: eaCunk029F; 
+    { 0x0B5F704,0x002010C, 0x00,0x00, 0x8,+21 }, // 4138: eaCunk02A9; 
 };
-const struct adlinsdata adlins[4044] =
+const struct adlinsdata adlins[4052] =
 {
     // Amplitude begins at    0.0,
     // fades to 20% at 0.0s, keyoff fades to 20% in 0.0s.
@@ -20237,43 +20245,43 @@ const struct adlinsdata adlins[4044] =
 
     // Amplitude begins at  126.9, peaks  136.2 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4113,4113,  0, 0,  40000,    20 }, // 4022: eaCM0; ÿAcouGrandPiano
+    {4113,4113,  0, 0,  40000,    20 }, // 4022: eaCM0; 
 
     // Amplitude begins at  835.8, peaks  865.3 at 30.8s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4114,4114,  0, 0,  40000,     0 }, // 4023: eaCM1; eaCM4; ÿBrightAcouGrand; ÿRhodes Piano
+    {4114,4114,  0, 0,  40000,     0 }, // 4023: eaCM1; eaCM4; 
 
     // Amplitude begins at   68.5, peaks   80.0 at 0.0s,
     // fades to 20% at 0.4s, keyoff fades to 20% in 0.4s.
-    {4115,4115,  0, 0,    446,   446 }, // 4024: eaCM2; ÿElecGrandPiano
+    {4115,4115,  0, 0,    446,   446 }, // 4024: eaCM2; 
 
     // Amplitude begins at  173.2,
     // fades to 20% at 0.6s, keyoff fades to 20% in 0.6s.
-    {4116,4116,  0, 0,    580,   580 }, // 4025: eaCM3; ÿHonky-tonkPiano
+    {4116,4116,  0, 0,    580,   580 }, // 4025: eaCM3; 
 
     // Amplitude begins at  194.2, peaks  199.4 at 0.0s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4117,4117,  0, 0,  40000,     0 }, // 4026: eaCM5; ÿChorused Piano
+    {4117,4117,  0, 0,  40000,     0 }, // 4026: eaCM5; 
 
     // Amplitude begins at  194.2,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4118,4118,  0, 0,  40000,     0 }, // 4027: eaCM6; ÿHarpsichord
+    {4118,4118,  0, 0,  40000,     0 }, // 4027: eaCM6; 
 
     // Amplitude begins at    0.0, peaks  150.5 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4119,4119,  0, 0,  40000,     0 }, // 4028: eaCM7; ÿClavinet
+    {4119,4119,  0, 0,  40000,     0 }, // 4028: eaCM7; 
 
     // Amplitude begins at    7.4, peaks  153.5 at 0.0s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4120,4120,  0, 0,  40000,     6 }, // 4029: eaCM8; ÿCelesta
+    {4120,4120,  0, 0,  40000,     6 }, // 4029: eaCM8; 
 
     // Amplitude begins at    0.3, peaks  195.7 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4121,4121,  0, 0,  40000,     0 }, // 4030: eaCM9; ÿGlockenspiel
+    {4121,4121,  0, 0,  40000,     0 }, // 4030: eaCM9; 
 
     // Amplitude begins at   84.0, peaks  294.5 at 0.0s,
     // fades to 20% at 0.1s, keyoff fades to 20% in 0.1s.
-    {4122,4122,  0, 0,    126,   126 }, // 4031: eaCM10; ÿMusic box
+    {4122,4122,  0, 0,    126,   126 }, // 4031: eaCM10; 
 
     // Amplitude begins at   82.2, peaks  181.5 at 0.0s,
     // fades to 20% at 1.1s, keyoff fades to 20% in 1.1s.
@@ -20281,27 +20289,27 @@ const struct adlinsdata adlins[4044] =
 
     // Amplitude begins at   58.9, peaks  198.5 at 0.0s,
     // fades to 20% at 0.0s, keyoff fades to 20% in 0.0s.
-    {4123,4123,  0, 0,     40,     6 }, // 4033: eaCM11; ÿVibraphone
+    {4123,4123,  0, 0,     40,     6 }, // 4033: eaCM11; 
 
     // Amplitude begins at  130.0, peaks  163.9 at 0.0s,
     // fades to 20% at 0.5s, keyoff fades to 20% in 0.0s.
-    {4124,4124,  0, 0,    513,     0 }, // 4034: eaCM12; ÿMarimba
+    {4124,4124,  0, 0,    513,     0 }, // 4034: eaCM12; 
 
     // Amplitude begins at  163.4, peaks  166.3 at 0.0s,
     // fades to 20% at 1.2s, keyoff fades to 20% in 1.2s.
-    {4125,4125,  0, 0,   1226,  1226 }, // 4035: eaCM13; eaCM19; ÿChurch Organ; ÿXylophone
+    {4125,4125,  0, 0,   1226,  1226 }, // 4035: eaCM13; eaCM19; 
 
     // Amplitude begins at   96.0, peaks  105.6 at 0.0s,
     // fades to 20% at 1.5s, keyoff fades to 20% in 1.5s.
-    {4126,4126,  0, 0,   1506,  1506 }, // 4036: eaCM14; ÿTubular Bells
+    {4126,4126,  0, 0,   1506,  1506 }, // 4036: eaCM14; 
 
     // Amplitude begins at  192.0, peaks  203.7 at 0.0s,
     // fades to 20% at 0.0s, keyoff fades to 20% in 0.0s.
-    {4127,4127,  0, 0,     46,    46 }, // 4037: eaCM15; ÿDulcimer
+    {4127,4127,  0, 0,     46,    46 }, // 4037: eaCM15; 
 
     // Amplitude begins at  146.2,
     // fades to 20% at 0.1s, keyoff fades to 20% in 0.1s.
-    {4128,4128,  0, 0,    133,   133 }, // 4038: eaCM16; ÿHammond Organ
+    {4128,4128,  0, 0,    133,   133 }, // 4038: eaCM16; 
 
     // Amplitude begins at  137.8,
     // fades to 20% at 0.1s, keyoff fades to 20% in 0.1s.
@@ -20309,7 +20317,7 @@ const struct adlinsdata adlins[4044] =
 
     // Amplitude begins at  188.9,
     // fades to 20% at 0.2s, keyoff fades to 20% in 0.2s.
-    {4129,4129,  0, 0,    153,   153 }, // 4040: eaCM17; ÿPercussive Organ
+    {4129,4129,  0, 0,    153,   153 }, // 4040: eaCM17; 
 
     // Amplitude begins at  184.2,
     // fades to 20% at 0.2s, keyoff fades to 20% in 0.2s.
@@ -20317,11 +20325,43 @@ const struct adlinsdata adlins[4044] =
 
     // Amplitude begins at  104.6,
     // fades to 20% at 0.0s, keyoff fades to 20% in 0.0s.
-    {4130,4130,  0, 0,     20,    20 }, // 4042: eaCM18; ÿRock Organ
+    {4130,4130,  0, 0,     20,    20 }, // 4042: eaCM18; 
 
     // Amplitude begins at   96.9,
     // fades to 20% at 0.0s, keyoff fades to 20% in 0.0s.
     {4130,4130, 23, 0,     26,    26 }, // 4043: Closed High Hat; eaCP42
+
+    // Amplitude begins at  146.2,
+    // fades to 20% at 0.2s, keyoff fades to 20% in 0.2s.
+    {4131,4131,  0, 0,    160,   160 }, // 4044: eaCunk0245; 
+
+    // Amplitude begins at  115.9,
+    // fades to 20% at 0.5s, keyoff fades to 20% in 0.5s.
+    {4132,4132,  0, 0,    486,   486 }, // 4045: eaCunk024F; 
+
+    // Amplitude begins at    7.9, peaks  164.4 at 3.1s,
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
+    {4133,4133,  0, 0,  40000,    13 }, // 4046: eaCunk0263; 
+
+    // Amplitude begins at    0.0, peaks  171.4 at 0.3s,
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
+    {4134,4134,  0, 0,  40000,     0 }, // 4047: eaCunk0277; 
+
+    // Amplitude begins at  176.6, peaks  178.9 at 0.1s,
+    // fades to 20% at 1.7s, keyoff fades to 20% in 1.7s.
+    {4135,4135,  0, 0,   1726,  1726 }, // 4048: eaCunk0281; 
+
+    // Amplitude begins at    0.0, peaks  116.8 at 0.2s,
+    // fades to 20% at 0.8s, keyoff fades to 20% in 0.8s.
+    {4136,4136,  0, 0,    833,   833 }, // 4049: eaCunk028B; 
+
+    // Amplitude begins at   59.3, peaks   62.2 at 0.0s,
+    // fades to 20% at 0.1s, keyoff fades to 20% in 0.1s.
+    {4137,4137,  0, 0,     93,    93 }, // 4050: eaCunk029F; 
+
+    // Amplitude begins at    0.0,
+    // fades to 20% at 0.0s, keyoff fades to 20% in 0.0s.
+    {4138,4138,  0, 2,      0,     0 }, // 4051: eaCunk02A9; 
 
 };
 
@@ -21591,13 +21631,13 @@ const unsigned short banks[67][256] =
     },
     { // bank 66, EA (Cartooners)
 4022,4023,4024,4025,4023,4026,4027,4028,4029,4030,4031,4033,4034,4035,4036,4037,
-4038,4040,4042,4035,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+4038,4040,4042,4035,4044,4045,4046,4047,4048,4049,4050,   0,  29,  30,  31,  32,
+  33,  34,  35,  36,  37,  38,  39,  34,  40,  41,  42,  43,  44,  45,  46,  47,
+  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,
+  64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,
+  80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,
+  96,  97,  98,  99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
+ 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127,
    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
    0,   0,   0, 128,4039, 129,4041, 131, 130, 132,4043, 132, 134, 132, 135, 132,
