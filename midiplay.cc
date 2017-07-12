@@ -18,6 +18,9 @@
 
 #include <assert.h>
 
+#define SUPPORT_VIDEO_OUTPUT
+#define SUPPORT_PUZZLE_GAME
+
 #ifdef __DJGPP__
 # include <conio.h>
 # include <pc.h>
@@ -66,6 +69,9 @@ static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
 static std::string PCMfilepath = "adlmidi.wav";
+static std::string VidFilepath = "adlmidi.mkv";
+static bool WriteVideoFile = false;
+
 static bool ScaleModulators = false;
 static unsigned WindowLines = 0;
 static bool WritingToTTY;
@@ -183,6 +189,605 @@ static const adldata& GetAdlIns(unsigned short insno)
 }
 
 
+static const char MIDIsymbols[256+1] =
+"PPPPPPhcckmvmxbd"  // Ins  0-15
+"oooooahoGGGGGGGG"  // Ins 16-31
+"BBBBBBBBVVVVVHHM"  // Ins 32-47
+"SSSSOOOcTTTTTTTT"  // Ins 48-63
+"XXXXTTTFFFFFFFFF"  // Ins 64-79
+"LLLLLLLLpppppppp"  // Ins 80-95
+"XXXXXXXXGGGGGTSS"  // Ins 96-111
+"bbbbMMMcGXXXXXXX"  // Ins 112-127
+"????????????????"  // Prc 0-15
+"????????????????"  // Prc 16-31
+"???DDshMhhhCCCbM"  // Prc 32-47
+"CBDMMDDDMMDDDDDD"  // Prc 48-63
+"DDDDDDDDDDDDDDDD"  // Prc 64-79
+"DD??????????????"  // Prc 80-95
+"????????????????"  // Prc 96-111
+"????????????????"; // Prc 112-127
+
+static const char PercussionMap[256] =
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GM
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 3 = bass drum
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 4 = snare
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 5 = tom
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 6 = cymbal
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 7 = hihat
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GP0
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GP16
+//2 3 4 5 6 7 8 940 1 2 3 4 5 6 7
+"\0\0\0\3\3\7\4\7\4\5\7\5\7\5\7\5"//GP32
+//8 950 1 2 3 4 5 6 7 8 960 1 2 3
+"\5\6\5\6\6\0\5\6\0\6\0\6\5\5\5\5"//GP48
+//4 5 6 7 8 970 1 2 3 4 5 6 7 8 9
+"\5\0\0\0\0\0\7\0\0\0\0\0\0\0\0\0"//GP64
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+
+class Input
+{
+#ifdef __WIN32__
+    void* inhandle;
+#endif
+#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
+    struct termio back;
+#endif
+public:
+    Input()
+    {
+#ifdef __WIN32__
+        inhandle = GetStdHandle(STD_INPUT_HANDLE);
+#endif
+#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
+        ioctl(0, TCGETA, &back);
+        struct termio term = back;
+        term.c_lflag &= ~(ICANON|ECHO);
+        term.c_cc[VMIN] = 0; // 0=no block, 1=do block
+        if(ioctl(0, TCSETA, &term) < 0)
+            fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+#endif
+    }
+    ~Input()
+    {
+#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
+        if(ioctl(0, TCSETA, &back) < 0)
+            fcntl(0, F_SETFL, fcntl(0, F_GETFL) &~ O_NONBLOCK);
+#endif
+    }
+
+    char PeekInput()
+    {
+#ifdef __DJGPP__
+        if(kbhit()) { int c = getch(); return c ? c : getch(); }
+#endif
+#ifdef __WIN32__
+        DWORD nread=0;
+        INPUT_RECORD inbuf[1];
+        while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
+        {
+            ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
+            if(inbuf[0].EventType==KEY_EVENT
+            && inbuf[0].Event.KeyEvent.bKeyDown)
+            {
+                char c = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
+                unsigned s = inbuf[0].Event.KeyEvent.wVirtualScanCode;
+                if(c == 0) c = s;
+                return c;
+        }   }
+#endif
+#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
+        char c = 0;
+        if(read(0, &c, 1) == 1) return c;
+#endif
+        return '\0';
+    }
+} Input;
+
+#ifdef SUPPORT_PUZZLE_GAME
+#include "puzzlegame.inc"
+#endif
+
+#ifdef SUPPORT_VIDEO_OUTPUT
+class UIfontBase {};
+static unsigned UnicodeToASCIIapproximation(unsigned n) { return n; }
+//#include "6x9.inc"
+#include "9x15.inc"
+#endif
+
+class UserInterface
+{
+public:
+    static constexpr unsigned NColumns = 1216/20;
+  #ifdef SUPPORT_VIDEO_OUTPUT
+    static constexpr unsigned VidWidth  = 1216, VidHeight = 2160;
+    static constexpr unsigned FontWidth =   20, FontHeight = 45;
+    static constexpr unsigned TxWidth   = (VidWidth/FontWidth), TxHeight = (VidHeight/FontHeight);
+    unsigned int   PixelBuffer[VidWidth*VidHeight] = {0};
+    unsigned short CharBuffer[TxWidth*TxHeight] = {0};
+    bool           DirtyCells[TxWidth*TxHeight] = {false};
+    unsigned       NDirty = 0;
+  #endif
+  #ifdef __WIN32__
+    void* handle;
+  #endif
+    int x, y, color, txtline, maxy;
+
+    // Text:
+    char background[NColumns][1 + 23*MaxCards];
+    unsigned char backgroundcolor[NColumns][1 + 23*MaxCards];
+    bool          touched[1 + 23*MaxCards]{false};
+    // Notes:
+    char slots[NColumns][1 + 23*MaxCards];
+    unsigned char slotcolors[NColumns][1 + 23*MaxCards];
+
+    bool cursor_visible;
+    char stderr_buffer[256];
+public:
+    UserInterface(): x(0), y(0), color(-1), txtline(0),
+          maxy(0), cursor_visible(true)
+    {
+        GuessInitialWindowHeight();
+      #ifdef __WIN32__
+        handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        GotoXY(41,13);
+        CONSOLE_SCREEN_BUFFER_INFO tmp;
+        GetConsoleScreenBufferInfo(handle,&tmp);
+        if(tmp.dwCursorPosition.X != 41)
+        {
+            // Console is not obeying controls! Probably cygwin xterm.
+            handle = 0;
+        }
+        else
+        {
+            WindowLines = tmp.dwSize.Y;
+            //COORD size = { NColumns, 23*NumCards+5 };
+            //SetConsoleScreenBufferSize(handle,size);
+        }
+      #endif
+      #if (!defined(__WIN32__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
+        std::signal(SIGWINCH, SigWinchHandler);
+      #endif
+      #ifdef __DJGPP__
+        color = 7;
+      #endif
+        std::memset(slots, '.',      sizeof(slots));
+        std::memset(background, '.', sizeof(background));
+        std::memset(backgroundcolor, 1, sizeof(backgroundcolor));
+        setbuffer(stderr, stderr_buffer, sizeof(stderr_buffer));
+        RawPrn("\r"); // Ensure cursor is at the x=0 we imagine it being
+        Print(0, 7, true, "Hit Ctrl-C to quit");
+    }
+    void HideCursor()
+    {
+        if(!cursor_visible) return;
+        cursor_visible = false;
+      #ifdef __WIN32__
+        if(handle)
+        {
+          const CONSOLE_CURSOR_INFO info = {100,false};
+          SetConsoleCursorInfo(handle,&info);
+          if(!DoingInstrumentTesting)
+              CheckTetris();
+          return;
+        }
+      #endif
+        if(!DoingInstrumentTesting)
+            CheckTetris();
+#ifdef __DJGPP__
+        { _setcursortype(_NOCURSOR);return;  }
+#endif
+        RawPrn("\33[?25l"); // hide cursor
+    }
+    void ShowCursor()
+    {
+        if(cursor_visible) return;
+        cursor_visible = true;
+        GotoXY(0,maxy); Color(7);
+      #ifdef __WIN32__
+        if(handle)
+        {
+          const CONSOLE_CURSOR_INFO info = {100,true};
+          SetConsoleCursorInfo(handle,&info);
+          return;
+        }
+      #endif
+#ifdef __DJGPP__
+        { _setcursortype(_NORMALCURSOR);return;  }
+#endif
+        RawPrn("\33[?25h"); // show cursor
+        std::fflush(stderr);
+    }
+    void VidPut(char c)
+    {
+    #ifndef SUPPORT_VIDEO_OUTPUT
+        c = c;
+    #else
+        unsigned clr = color, tx = x, ty = y;
+        unsigned cell_index = ty*TxWidth + tx;
+        if(cell_index < TxWidth*TxHeight)
+        {
+            unsigned short what = (clr << 8) + (unsigned(c) & 0xFF);
+            if(what != CharBuffer[cell_index])
+            {
+                CharBuffer[cell_index] = what;
+                if(!DirtyCells[cell_index])
+                {
+                    DirtyCells[cell_index] = true;
+                    ++NDirty;
+                }
+            }
+        }
+    #endif
+    }
+    #ifdef SUPPORT_VIDEO_OUTPUT
+    static unsigned VidTranslateColor(unsigned c)
+    {
+        static const unsigned colors[16] =
+        {
+            0x000000,0x00005F,0x00AA00,0x5F5FAF,
+            0xAA0000,0xAA00AA,0x87875F,0xAAAAAA,
+            0x005F87,0x5555FF,0x55FF55,0x55FFFF,
+            0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF
+        };
+        return colors[c % 16];
+    }
+    void VidRenderCh(unsigned x,unsigned y, unsigned attr, const unsigned char* bitmap)
+    {
+        unsigned bg = VidTranslateColor(attr >> 4), fg = VidTranslateColor(attr);
+        for(unsigned line=0; line<FontHeight; ++line)
+        {
+            unsigned int* pix = PixelBuffer + (y*FontHeight+line)*VidWidth + x*FontWidth;
+
+            unsigned char bm = bitmap[line*15/FontHeight];
+            for(unsigned w=0; w<FontWidth; ++w)
+            {
+                int shift0 = 7 - w    *9/FontWidth;
+                int shift1 = 7 - (w-1)*9/FontWidth;
+                int shift2 = 7 - (w+1)*9/FontWidth;
+                bool flag = (shift0 >= 0 && (bm & (1u << shift0)));
+                if(!flag && (attr & 8))
+                {
+                    flag = (shift1 >= 0 && (bm & (1u << shift1)))
+                        || (shift2 >= 0 && (bm & (1u << shift2)));
+                }
+                pix[w] = flag ? fg : bg;
+            }
+        }
+    }
+    void VidRender()
+    {
+        static const font9x15 font;
+        if(NDirty)
+        {
+            #pragma omp parallel for schedule(static)
+            for(unsigned scan=0; scan<TxWidth*TxHeight; ++scan)
+                if(DirtyCells[scan])
+                {
+                    --NDirty;
+                    DirtyCells[scan] = false;
+                    VidRenderCh(scan%TxWidth, scan/TxWidth,
+                                CharBuffer[scan] >> 8,
+                                font.GetBitmap() + 15 * font.GetIndex(CharBuffer[scan] & 0xFF));
+                }
+        }
+    }
+    #endif
+    void PutC(char c)
+    {
+      #ifdef __WIN32__
+        if(handle) WriteConsole(handle,&c,1, 0,0);
+        else
+      #endif
+        {
+      #ifdef __DJGPP__
+          putch(c);
+      #else
+          std::fputc(c, stderr);
+      #endif
+        }
+        VidPut(c);
+        ++x; // One letter drawn. Update cursor position.
+    }
+    #ifdef __DJGPP__
+    #define RawPrn cprintf
+    #else
+    static void RawPrn(const char* fmt, ...) __attribute__((format(printf,1,2)))
+    {
+        // Note: should essentially match PutC, except without updates to x
+        va_list ap;
+        va_start(ap, fmt);
+        vfprintf(stderr, fmt, ap);
+        va_end(ap);
+    }
+    #endif
+    int Print(unsigned beginx, unsigned color, bool ln, const char* fmt, va_list ap)
+    {
+        char Line[1024];
+      #ifndef __CYGWIN__
+        int nchars = vsnprintf(Line, sizeof(Line), fmt, ap);
+      #else
+        int nchars = std::vsprintf(Line, fmt, ap); /* SECURITY: POSSIBLE BUFFER OVERFLOW (Cygwin) */
+      #endif
+        //if(nchars == 0) return nchars;
+
+        HideCursor();
+        for(unsigned tx = beginx; tx < NColumns; ++tx)
+        {
+            int n = tx-beginx; // Index into Line[]
+            if(n < nchars && Line[n] != '\n')
+            {
+                GotoXY(tx, txtline);
+                Color( backgroundcolor[tx][txtline] = (/*Line[n] == '.' ? 1 :*/ color) );
+                PutC( background[tx][txtline] = Line[n] );
+            }
+            else //if(background[tx][txtline]!='.' && slots[tx][txtline]=='.')
+            {
+                if(!ln) break;
+                GotoXY(tx,txtline);
+                Color( backgroundcolor[tx][txtline] = 1);
+                PutC( background[tx][txtline] = '.' );
+            }
+        }
+        std::fflush(stderr);
+
+        if(ln)
+        {
+            txtline = (txtline + 1) % WinHeight();
+        }
+
+        return nchars;
+    }
+    int Print(unsigned beginx, unsigned color, bool ln, const char* fmt, ...) __attribute__((format(printf,5,6)))
+    {
+        va_list ap;
+        va_start(ap, fmt);
+        int r = Print(beginx, color, ln, fmt, ap);
+        va_end(ap);
+        return r;
+    }
+    int PrintLn(const char* fmt, ...) __attribute__((format(printf,2,3)))
+    {
+        va_list ap;
+        va_start(ap, fmt);
+        int r = Print(2/*column*/, 8/*color*/, true/*line*/, fmt, ap);
+        va_end(ap);
+        return r;
+    }
+    void IllustrateNote(int adlchn, int note, int ins, int pressure, double bend)
+    {
+        HideCursor();
+    #if 1
+        int notex = 2 + (note+55)%(NColumns-3);
+        int limit = WinHeight(), minline = 3;
+
+        int notey = minline + adlchn;
+        notey %= std::max(1, limit-minline);
+        notey += minline;
+        notey %= limit;
+
+        char illustrate_char = background[notex][notey];
+        if(pressure > 0)
+        {
+            illustrate_char = MIDIsymbols[ins];
+            if(bend < 0) illustrate_char = '<';
+            if(bend > 0) illustrate_char = '>';
+        }
+        else if(pressure < 0)
+        {
+            illustrate_char = '%';
+        }
+        // Special exceptions for '.' (background slot)
+        //                        '&' (tetris edges)
+        Draw(notex,notey,
+            pressure!=0
+                ? AllocateColor(ins)        /* use note's color if active */
+                : illustrate_char=='.' ? backgroundcolor[notex][notey]
+                : illustrate_char=='&' ? 1
+                : 8,
+            illustrate_char);
+    #endif
+        std::fflush(stderr);
+    }
+
+    void Draw(int notex,int notey, int color, char ch)
+    {
+        if(slots[notex][notey] != ch
+        || slotcolors[notex][notey] != color)
+        {
+            slots[notex][notey] = ch;
+            slotcolors[notex][notey] = color;
+            GotoXY(notex, notey);
+            Color(color);
+            PutC(ch);
+
+            if(!touched[notey])
+            {
+                touched[notey] = true;
+
+                GotoXY(0, notey);
+                for(int tx=0; tx<int(NColumns); ++tx)
+                {
+                    if(slots[tx][notey] != '.')
+                    {
+                        Color(slotcolors[tx][notey]);
+                        PutC(slots[tx][notey]);
+                    }
+                    else
+                    {
+                        Color(backgroundcolor[tx][notey]);
+                        PutC(background[tx][notey]);
+                    }
+                }
+            }
+        }
+    }
+
+    void IllustrateVolumes(double left, double right)
+    {
+        const unsigned maxy = WinHeight();
+        const unsigned white_threshold  = maxy/23;
+        const unsigned red_threshold    = maxy*4/23;
+        const unsigned yellow_threshold = maxy*8/23;
+
+        double amp[2] = {left*maxy, right*maxy};
+        for(unsigned y=2; y<maxy; ++y)
+            for(unsigned w=0; w<2; ++w)
+            {
+                char c = amp[w] > (maxy-1)-y ? '|' : background[w][y+1];
+                Draw(w,y+1,
+                     c=='|' ? y<white_threshold ? 15
+                            : y<red_threshold ? 12
+                            : y<yellow_threshold ? 14
+                            : 10 : (c=='.' ? 1 : 8),
+                     c);
+            }
+        std::fflush(stderr);
+    }
+
+    // Move tty cursor to the indicated position.
+    // Movements will be done in relative terms
+    // to the current cursor position only.
+    void GotoXY(int newx, int newy)
+    {
+        // Record the maximum line count seen
+        if(newy > maxy) maxy = newy;
+        // Go down with '\n' (resets cursor at beginning of line)
+        while(newy > y)
+        {
+            std::fputc('\n', stderr); y+=1; x=0;
+        }
+      #ifdef __WIN32__
+        if(handle)
+        {
+          CONSOLE_SCREEN_BUFFER_INFO tmp;
+          GetConsoleScreenBufferInfo(handle, &tmp);
+          COORD tmp2 = { x = newx, tmp.dwCursorPosition.Y } ;
+          if(newy < y) { tmp2.Y -= (y-newy); y = newy; }
+          SetConsoleCursorPosition(handle, tmp2);
+        }
+      #endif
+#ifdef __DJGPP__
+        { gotoxy(x=newx, wherey()-(y-newy)); y=newy; return; }
+#endif
+        // Go up with \33[A
+        if(newy < y) { RawPrn("\33[%dA", y-newy); y = newy; }
+        // Adjust X coordinate
+        if(newx != x)
+        {
+            // Use '\r' to go to column 0
+            if(newx == 0) // || (newx<10 && std::abs(newx-x)>=10))
+                { std::fputc('\r', stderr); x = 0; }
+            // Go left  with \33[D
+            if(newx < x) RawPrn("\33[%dD", x-newx);
+            // Go right with \33[C
+            if(newx > x) RawPrn("\33[%dC", newx-x);
+            x = newx;
+        }
+    }
+    // Set color (4-bit). Bits: 1=blue, 2=green, 4=red, 8=+intensity
+    void Color(int newcolor)
+    {
+        if(color != newcolor)
+        {
+          #ifdef __WIN32__
+            if(handle)
+              SetConsoleTextAttribute(handle, newcolor);
+            else
+          #endif
+#ifdef __DJGPP__
+            textattr(newcolor);
+            if(0)
+#endif
+            {
+              static const char map[8+1] = "04261537";
+              RawPrn("\33[0;%s40;3%c", (newcolor&8) ? "1;" : "", map[newcolor&7]);
+              // If xterm-256color is used, try using improved colors:
+              //        Translate 8 (dark gray) into #003366 (bluish dark cyan)
+              //        Translate 1 (dark blue) into #000033 (darker blue)
+              if(newcolor==8) RawPrn(";38;5;24;25");
+              if(newcolor==6) RawPrn(";38;5;101;25");
+              if(newcolor==3) RawPrn(";38;5;61;25");
+              if(newcolor==1) RawPrn(";38;5;17;25");
+              RawPrn("m");
+            }
+            color = newcolor;
+        }
+    }
+    // Choose a permanent color for given instrument
+    int AllocateColor(int ins)
+    {
+        static char ins_colors[256] = { 0 }, ins_color_counter = 0;
+        if(ins_colors[ins])
+            return ins_colors[ins];
+        if(ins & 0x80)
+        {
+            static const char shuffle[] = {2,3,4,5,6,7};
+            return ins_colors[ins] = shuffle[ins_color_counter++ % 6];
+        }
+        else
+        {
+            static const char shuffle[] = {10,11,12,13,14,15};
+            return ins_colors[ins] = shuffle[ins_color_counter++ % 6];
+        }
+    }
+
+    bool DoCheckTetris()
+    {
+    #ifdef SUPPORT_PUZZLE_GAME
+        static ADLMIDI_PuzzleGame::TetrisAI    player(2);
+        static ADLMIDI_PuzzleGame::TetrisAI    computer(31);
+
+        int a = player.GameLoop();
+        int b = computer.GameLoop();
+
+        if(a >= 0 && b >= 0)
+        {
+            player.incoming   += b;
+            computer.incoming += a;
+        }
+        return player.DelayOpinion() >= 0
+            && computer.DelayOpinion() >= 0;
+    #else
+        return true;
+    #endif
+    }
+
+    bool TetrisLaunched = false;
+    bool CheckTetris()
+    {
+        if(TetrisLaunched) return DoCheckTetris();
+        return true;
+    }
+} UI;
+
+#ifdef SUPPORT_PUZZLE_GAME
+namespace ADLMIDI_PuzzleGame
+{
+    static void PutCell(int x, int y, unsigned cell)
+    {
+        static const unsigned char valid_attrs[] = {8,6,5,3};
+        unsigned char ch = cell, attr = cell >> 8;
+        int height = WinHeight();//std::min(NumCards*18, 50u);
+        y = std::max(0, int(std::min(height, 40) - 25 + y));
+        if(ch == 0xDB) ch = '#';
+        if(ch == 0xB0) ch = '*';
+        if(attr != 1) attr = valid_attrs[attr % sizeof(valid_attrs)];
+
+        //bool diff = UI.background[x][y] != UI.slots[x][y];
+        UI.backgroundcolor[x][y] = attr;
+        UI.background[x][y]      = ch;
+        UI.GotoXY(x,y);
+        UI.Color(attr);
+        UI.PutC(ch);
+        //UI.Draw(x,y, attr, ch);
+    }
+}
+#endif
+
 struct OPL3
 {
     unsigned NumChannels;
@@ -251,7 +856,7 @@ public:
     }
     void Touch_Real(unsigned c, unsigned volume)
     {
-        if(volume > 63) volume = 63;
+        //if(volume > 63) volume = 63;
         unsigned card = c/23, cc = c%23;
         unsigned i = ins[c];
         unsigned o1 = Operators[cc*2+0];
@@ -414,13 +1019,15 @@ public:
         /**/
         if (WritingToTTY)
         {
-            fprintf(stdout, "Channels used as:\n");
+            UI.PrintLn("Channels used as:");
+            std::string s;
             for(size_t a=0; a<four_op_category.size(); ++a)
             {
-                fprintf(stdout, " %d", four_op_category[a]);
-                if(a%23 == 22) fprintf(stdout, "\n");
+                s += ' ';
+                s += std::to_string(four_op_category[a]);
+                if(a%23 == 22) { UI.PrintLn("%s", s.c_str()); s.clear(); }
             }
-            fflush(stdout);
+            if(!s.empty()) { UI.PrintLn("%s", s.c_str()); }
         }
         /**/
         /*
@@ -452,625 +1059,6 @@ public:
         Silence();
     }
 };
-
-static const char MIDIsymbols[256+1] =
-"PPPPPPhcckmvmxbd"  // Ins  0-15
-"oooooahoGGGGGGGG"  // Ins 16-31
-"BBBBBBBBVVVVVHHM"  // Ins 32-47
-"SSSSOOOcTTTTTTTT"  // Ins 48-63
-"XXXXTTTFFFFFFFFF"  // Ins 64-79
-"LLLLLLLLpppppppp"  // Ins 80-95
-"XXXXXXXXGGGGGTSS"  // Ins 96-111
-"bbbbMMMcGXXXXXXX"  // Ins 112-127
-"????????????????"  // Prc 0-15
-"????????????????"  // Prc 16-31
-"???DDshMhhhCCCbM"  // Prc 32-47
-"CBDMMDDDMMDDDDDD"  // Prc 48-63
-"DDDDDDDDDDDDDDDD"  // Prc 64-79
-"DD??????????????"  // Prc 80-95
-"????????????????"  // Prc 96-111
-"????????????????"; // Prc 112-127
-
-static const char PercussionMap[256] =
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GM
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 3 = bass drum
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 4 = snare
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 5 = tom
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 6 = cymbal
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" // 7 = hihat
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GP0
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GP16
-//2 3 4 5 6 7 8 940 1 2 3 4 5 6 7
-"\0\0\0\3\3\7\4\7\4\5\7\5\7\5\7\5"//GP32
-//8 950 1 2 3 4 5 6 7 8 960 1 2 3
-"\5\6\5\6\6\0\5\6\0\6\0\6\5\5\5\5"//GP48
-//4 5 6 7 8 970 1 2 3 4 5 6 7 8 9
-"\5\0\0\0\0\0\7\0\0\0\0\0\0\0\0\0"//GP64
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-
-class Input
-{
-#ifdef __WIN32__
-    void* inhandle;
-#endif
-#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-    struct termios back;
-#endif
-public:
-    Input()
-    {
-#ifdef __WIN32__
-        inhandle = GetStdHandle(STD_INPUT_HANDLE);
-#endif
-#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-        ioctl(0, TIOCSCTTY, &back);
-        struct termios term = back;
-        term.c_lflag &= ~(ICANON|ECHO);
-        term.c_cc[VMIN] = 0; // 0=no block, 1=do block
-        if(ioctl(0, TCSANOW, &term) < 0)
-            fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
-#endif
-    }
-    ~Input()
-    {
-#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-        if(ioctl(0, TCSANOW, &back) < 0)
-            fcntl(0, F_SETFL, fcntl(0, F_GETFL) &~ O_NONBLOCK);
-#endif
-    }
-
-    char PeekInput()
-    {
-#ifdef __DJGPP__
-        if(kbhit()) { int c = getch(); return c ? c : getch(); }
-#endif
-#ifdef __WIN32__
-        DWORD nread=0;
-        INPUT_RECORD inbuf[1];
-        while(PeekConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread)&&nread)
-        {
-            ReadConsoleInput(inhandle,inbuf,sizeof(inbuf)/sizeof(*inbuf),&nread);
-            if(inbuf[0].EventType==KEY_EVENT
-            && inbuf[0].Event.KeyEvent.bKeyDown)
-            {
-                char c = inbuf[0].Event.KeyEvent.uChar.AsciiChar;
-                unsigned s = inbuf[0].Event.KeyEvent.wVirtualScanCode;
-                if(c == 0) c = s;
-                return c;
-        }   }
-#endif
-#if (!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__)
-        char c = 0;
-        if(read(0, &c, 1) == 1) return c;
-#endif
-        return '\0';
-    }
-} Input;
-
-class UserInterface
-{
-public:
-  #ifdef __WIN32__
-    void* handle;
-  #endif
-    int x, y, color, txtline, maxy;
-    char background[80][1 + 23*MaxCards];
-    char slots[80][1 + 23*MaxCards];
-    unsigned char slotcolors[80][1 + 23*MaxCards];
-    bool cursor_visible;
-public:
-    #ifdef __DJGPP__
-    # define prn cprintf
-    #endif
-    UserInterface(): x(0), y(0), color(-1), txtline(1),
-          maxy(0), cursor_visible(true)
-    {
-        GuessInitialWindowHeight();
-      #ifdef __WIN32__
-        handle = GetStdHandle(STD_OUTPUT_HANDLE);
-        GotoXY(41,13);
-        CONSOLE_SCREEN_BUFFER_INFO tmp;
-        GetConsoleScreenBufferInfo(handle,&tmp);
-        if(tmp.dwCursorPosition.X != 41)
-        {
-            // Console is not obeying controls! Probably cygwin xterm.
-            handle = 0;
-        }
-        else
-        {
-            WindowLines = tmp.dwSize.Y;
-            //COORD size = { 80, 23*NumCards+5 };
-            //SetConsoleScreenBufferSize(handle,size);
-        }
-      #endif
-      #if (!defined(__WIN32__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
-        std::signal(SIGWINCH, SigWinchHandler);
-      #endif
-      #ifdef __DJGPP__
-        color = 7;
-      #endif
-        std::memset(slots, '.',      sizeof(slots));
-        std::memset(background, '.', sizeof(background));
-        std::fputc('\r', stderr); // Ensure cursor is at x=0
-        GotoXY(0,0); Color(15);
-        prn("Hit Ctrl-C to quit\r");
-    }
-    void HideCursor()
-    {
-        if(!cursor_visible) return;
-        cursor_visible = false;
-      #ifdef __WIN32__
-        if(handle)
-        {
-          const CONSOLE_CURSOR_INFO info = {100,false};
-          SetConsoleCursorInfo(handle,&info);
-          if(!DoingInstrumentTesting)
-              CheckTetris();
-          return;
-        }
-      #endif
-        if(!DoingInstrumentTesting)
-            CheckTetris();
-#ifdef __DJGPP__
-        { _setcursortype(_NOCURSOR);return;  }
-#endif
-        prn("\33[?25l"); // hide cursor
-    }
-    void ShowCursor()
-    {
-        if(cursor_visible) return;
-        cursor_visible = true;
-        GotoXY(0,maxy); Color(7);
-      #ifdef __WIN32__
-        if(handle)
-        {
-          const CONSOLE_CURSOR_INFO info = {100,true};
-          SetConsoleCursorInfo(handle,&info);
-          return;
-        }
-      #endif
-#ifdef __DJGPP__
-        { _setcursortype(_NORMALCURSOR);return;  }
-#endif
-        prn("\33[?25h"); // show cursor
-        std::fflush(stderr);
-    }
-    void PrintLn(const char* fmt, ...) __attribute__((format(printf,2,3)))
-    {
-        va_list ap;
-        va_start(ap, fmt);
-        char Line[512];
-      #ifndef __CYGWIN__
-        int nchars = vsnprintf(Line, sizeof(Line), fmt, ap);
-      #else
-        int nchars = std::vsprintf(Line, fmt, ap); /* SECURITY: POSSIBLE BUFFER OVERFLOW */
-      #endif
-        va_end(ap);
-
-        if(nchars == 0) return;
-
-        const int beginx = 2;
-
-        HideCursor();
-        GotoXY(beginx,txtline);
-        for(x=beginx; x-beginx<nchars && x < 80; ++x)
-        {
-            if(Line[x-beginx] == '\n') break;
-            Color(Line[x-beginx] == '.' ? 1 : 8);
-        #ifdef __DJGPP__
-            putch( background[x][txtline] = Line[x-beginx] );
-        #else
-            std::fputc( background[x][txtline] = Line[x-beginx], stderr);
-        #endif
-        }
-        for(int tx=x; tx<80; ++tx)
-        {
-            if(background[tx][txtline]!='.' && slots[tx][txtline]=='.')
-            {
-                GotoXY(tx,txtline);
-                Color(1);
-             #ifdef __DJGPP__
-                putch(background[tx][txtline] = '.');
-             #else
-                std::fputc(background[tx][txtline] = '.', stderr);
-             #endif
-                ++x;
-            }
-        }
-        std::fflush(stderr);
-
-        txtline=(1 + txtline) % WinHeight();
-    }
-    void IllustrateNote(int adlchn, int note, int ins, int pressure, double bend)
-    {
-        HideCursor();
-        int notex = 2 + (note+55)%77;
-        int notey = 1 + adlchn % WinHeight();
-        char illustrate_char = background[notex][notey];
-        if(pressure > 0)
-        {
-            illustrate_char = MIDIsymbols[ins];
-            if(bend < 0) illustrate_char = '<';
-            if(bend > 0) illustrate_char = '>';
-        }
-        else if(pressure < 0)
-        {
-            illustrate_char = '%';
-        }
-        Draw(notex,notey,
-            pressure?AllocateColor(ins):
-            (illustrate_char=='.'?1:
-             illustrate_char=='&'?1: 8),
-            illustrate_char);
-    }
-
-    void Draw(int notex,int notey, int color, char ch)
-    {
-        if(slots[notex][notey] != ch
-        || slotcolors[notex][notey] != color)
-        {
-            slots[notex][notey] = ch;
-            slotcolors[notex][notey] = color;
-            GotoXY(notex, notey);
-            Color(color);
-        #ifdef __WIN32__
-            if(handle) WriteConsole(handle,&ch,1, 0,0);
-            else
-        #endif
-        #ifdef __DJGPP__
-            if(1) putch(ch); else
-        #endif
-            {
-              std::fputc(ch, stderr);
-              std::fflush(stderr);
-            }
-            ++x;
-        }
-    }
-
-    void IllustrateVolumes(double left, double right)
-    {
-        const unsigned maxy = WinHeight();
-        const unsigned white_threshold  = maxy/23;
-        const unsigned red_threshold    = maxy*4/23;
-        const unsigned yellow_threshold = maxy*8/23;
-
-        double amp[2] = {left*maxy, right*maxy};
-        for(unsigned y=0; y<maxy; ++y)
-            for(unsigned w=0; w<2; ++w)
-            {
-                char c = amp[w] > (maxy-1)-y ? '|' : background[w][y+1];
-                Draw(w,y+1,
-                     c=='|' ? y<white_threshold ? 15
-                            : y<red_threshold ? 12
-                            : y<yellow_threshold ? 14
-                            : 10 : (c=='.' ? 1 : 8),
-                     c);
-            }
-    }
-
-    // Move tty cursor to the indicated position.
-    // Movements will be done in relative terms
-    // to the current cursor position only.
-    void GotoXY(int newx, int newy)
-    {
-        if(newy > maxy) maxy = newy;
-        while(newy > y)
-        {
-            std::fputc('\n', stderr); y+=1; x=0;
-        }
-      #ifdef __WIN32__
-        if(handle)
-        {
-          CONSOLE_SCREEN_BUFFER_INFO tmp;
-          GetConsoleScreenBufferInfo(handle, &tmp);
-          COORD tmp2 = { x = newx, tmp.dwCursorPosition.Y } ;
-          if(newy < y) { tmp2.Y -= (y-newy); y = newy; }
-          SetConsoleCursorPosition(handle, tmp2);
-        }
-      #endif
-#ifdef __DJGPP__
-        { gotoxy(x=newx, wherey()-(y-newy)); y=newy; return; }
-#endif
-        if(newy < y) { prn("\33[%dA", y-newy); y = newy; }
-        if(newx != x)
-        {
-            if(newx == 0 || (newx<10 && std::abs(newx-x)>=10))
-                { std::fputc('\r', stderr); x = 0; }
-            if(newx < x) prn("\33[%dD", x-newx);
-            if(newx > x) prn("\33[%dC", newx-x);
-            x = newx;
-        }
-    }
-    // Set color (4-bit). Bits: 1=blue, 2=green, 4=red, 8=+intensity
-    void Color(int newcolor)
-    {
-        if(color != newcolor)
-        {
-          #ifdef __WIN32__
-            if(handle)
-              SetConsoleTextAttribute(handle, newcolor);
-            else
-          #endif
-#ifdef __DJGPP__
-            textattr(newcolor);
-            if(0)
-#endif
-            {
-              static const char map[8+1] = "04261537";
-              prn("\33[0;%s40;3%c",
-                  (newcolor&8) ? "1;" : "", map[newcolor&7]);
-              // If xterm-256color is used, try using improved colors:
-              //        Translate 8 (dark gray) into #003366 (bluish dark cyan)
-              //        Translate 1 (dark blue) into #000033 (darker blue)
-              if(newcolor==8) prn(";38;5;24;25");
-              if(newcolor==1) prn(";38;5;17;25");
-              std::fputc('m', stderr);
-            }
-            color=newcolor;
-        }
-    }
-    // Choose a permanent color for given instrument
-    int AllocateColor(int ins)
-    {
-        static char ins_colors[256] = { 0 }, ins_color_counter = 0;
-        if(ins_colors[ins])
-            return ins_colors[ins];
-        if(ins & 0x80)
-        {
-            static const char shuffle[] = {2,3,4,5,6,7};
-            return ins_colors[ins] = shuffle[ins_color_counter++ % 6];
-        }
-        else
-        {
-            static const char shuffle[] = {10,11,12,13,14,15};
-            return ins_colors[ins] = shuffle[ins_color_counter++ % 6];
-        }
-    }
-
-    void CheckTetris()
-    {
-        static const unsigned MH = 17;
-        extern UserInterface UI;
-        static char area[12][MH]={{0}};
-        static int emptycount;
-        static const char empty[5][13]=
-            {"!..........!", "!..SINGLE..!", "!..DOUBLE..!",
-             "!..TRIPLE..!", "!..TETRIS..!"};
-        static struct Tetris
-        {
-            static int block(int bl,int rot,int x,int y)
-            {
-                static const unsigned short shapes[4][7] =
-                {{0xCC,0x8C4,0x4444,0x264,0xE4, 0x8E, 0x2E},
-                 {0xCC,0x6C, 0xF0,  0xC6, 0x4C4,0xC88,0x88C},
-                 {0xCC,0x8C4,0x4444,0x264,0x4E0,0xE2, 0xE8},
-                 {0xCC,0x6C, 0xF0,  0xC6, 0x464,0x226,0x622}};
-                return shapes[rot][bl] & (1 << (y*4+x));
-            }
-            static inline bool bounds(int x,int y,bool fix=true)
-                { return x>=0 && y>=0 && (x<12 || !fix) && y < (int)MH; }
-            static bool edge(int x,int y) { return x==0||x==11||y >= (int)(MH-1); }
-            static void init_area()
-                { for(int x=12; x-->0; ) for(int y=MH; y-->0; ) area[x][y]=edge(x,y)?2:0; }
-            static void plotp(int bl,int rot, int x,int y, int color, bool fix)
-                { for(int by=0; by<4; ++by) for(int bx=0; bx<4; ++bx)
-                    if(bounds(x+bx,y+by,fix)&&block(bl,rot,bx,by)) setp(x+bx,y+by,color, fix); }
-            static bool testp(int bl,int rot, int x,int y)
-                { for(int by=0; by<4; ++by) for(int bx=0; bx<4; ++bx)
-                    if(block(bl,rot,bx,by)
-                    && (x+bx<=0||x+bx>10
-                    || (bounds(x+bx,y+by) && area[x+bx][y+by])))
-                      return false;
-                  return true; }
-            static void setp(int x,int y, int color, bool fix=true)
-            {
-                if(fix) area[x][y] = color;
-                static int counter=0; ++counter;
-                int c = color==2&&y<(int)(MH-1) ? (counter<700?':':'&')
-                       :color==2                ? (counter<500?'-':'&')
-                       :color==-1? '+' // shadow
-                       :color    ? '#'
-                       : (x<12?empty[emptycount][x]:'.');
-                x+=2; y+=std::max(0,(int)WinHeight()-25);
-                UI.background[x][y]=c;
-                UI.Draw(x, y, color>2?color:1, c);
-            }
-            static void make_full_lines_empty()
-            {
-                bool fullline[MH];
-                emptycount=0;
-                for(int y=1; !edge(6,y); ++y)
-                {
-                    int x=1; while(x<=10 && area[x][y]>0) ++x;
-                    if((fullline[y] = x>10)) ++emptycount;
-                }
-                for(int y=1; !edge(6,y); ++y)
-                    if(fullline[y]) for(int x=1; x<=10; ++x) setp(x,y,0);
-            }
-            static void cascade_lines()
-            {
-                emptycount=0;
-                int y=MH-2; while(edge(6,y)) --y;
-                for(int srcy=y; srcy>0; --srcy)
-                {
-                    int x=1; while(x<=10 && !area[x][srcy]) ++x;
-                    bool empty=x>10;
-                    if(srcy!=y) for(int x=1; x<=10; ++x) setp(x,y,area[x][srcy]);
-                    if(!empty) --y;
-                }
-                for(; y>1; --y) for(int x=1; x<=10; ++x) setp(x,y,0);
-            }
-            static int calcshadowy(int bl,int rot,int x,int y)
-            {
-                while(testp(bl,rot,x,y+1)) ++y;
-                return y;
-            }
-        } tetris;
-        static int gamestate=-1, curblock, currot, curx, cury, dropping;
-        static int delaycounter=-1, score, lines, combo=0;
-    #ifdef __DJGPP__
-        static long delaytime=0;
-    #endif
-        static int scorewipe=0, focuswipe=0, shadowy=0, next1=0, next2=0;
-        if(NumCards < 2) gamestate=1;
-        switch(gamestate)
-        {
-            case -1: case 53: // reset game
-                tetris.init_area(); gamestate=0; score=lines=0;
-                next1 = std::rand()%7; next2 = std::rand()%7;
-                shadowy = 25; break;
-            case 0: // spawn new block
-                curblock=next1; next1=next2; currot = 0;
-                curx = 4; cury = delaycounter<0 ? -10 : 0; gamestate=1;
-                dropping=delaycounter=emptycount=0;
-                if(!tetris.testp(curblock,currot,curx,cury)) { cury=0; gamestate=50; break; }
-                if(cury>=0) // keep the shadow "secret" until the game really starts
-                {
-                    shadowy=tetris.calcshadowy(curblock,currot,curx,cury);
-                    tetris.plotp(curblock,currot,curx,shadowy,-1,0);
-                }
-                tetris.plotp(curblock,currot,curx,cury, 8,0);
-            #ifdef __DJGPP__
-                delaytime=BIOStimer;
-            #endif
-                //passthru
-            case 1: // handle input
-            {
-                int level = 50 - (lines/10)/5;
-                if(1)
-                {
-                    int y=std::rand()%MH, x=tetris.edge(6,y)?std::rand()%12:(std::rand()%2)*11;
-                    tetris.setp(x,y,area[x][y]);
-                }
-                for(;;)
-                {
-                    int mr=currot,mx=curx,my=cury, move=0;
-                    for(;;)
-                    {
-                        char ch = Input.PeekInput();
-                        if(!ch) break;
-                        switch(ch)
-                        {
-                            case 'b':
-                                FakeDOSshell = true;
-                                //passthru
-                            case 'q': case 'Q': case 3:
-                            #if !((!defined(__WIN32__) || defined(__CYGWIN__)) && !defined(__DJGPP__))
-                            case 27:
-                            #endif
-                                QuitFlag=true; break;
-                            case '!': SkipForward = 30; break;
-                            case 'w':case 'H':case 'A': mr=(currot+1)%4; move=1; break;
-                            case 'a':case 'K':case 'D': mx=curx-1; move=1; break;
-                            case 'd':case 'M':case 'C': mx=curx+1; move=1; break;
-                            case 's':case 'P':case 'B': case ' ':
-                                dropping = (ch == ' ') ? 2 : 1;
-                        }
-                        if(move) break;
-                    }
-                #ifdef __DJGPP__
-                    delaycounter = (BIOStimer-delaytime) > NewTimerFreq*level/50 ? level : 0;
-                #endif
-                    if(!move && (dropping || ++delaycounter>=level))
-                        { my=cury+1; move=1; delaycounter=0; }
-                    if(scorewipe>0 && --scorewipe==0)
-                    {
-                        UI.GotoXY(15,(int)WinHeight());
-                        fprintf(stderr,"%*s",7,""); std::fflush(stderr);
-                        UI.GotoXY(15,(int)WinHeight()+1);
-                        fprintf(stderr,"%*s",5,""); std::fflush(stderr);
-                    }
-                    if(focuswipe>0 && --focuswipe==0)
-                        for(unsigned y=0; y<24 && y<MH; ++y)
-                            for(int x=1; x<=10; ++x)
-                                if(area[x][y]==11)
-                                    tetris.setp(x,y,3); // Color of affixed blocks
-                    if(!move) break;
-                    if(tetris.testp(curblock,mr,mx,my))
-                    {
-                        bool x_changed = curx != mx || currot != mr;
-                        if(x_changed && shadowy < (int)(MH-1))
-                        {
-                            tetris.plotp(curblock,currot,curx,shadowy,0,0); // hide shadow from old location
-                        }
-                        tetris.plotp(curblock,currot,curx,cury,0,0); // remove block from old location
-                        currot=mr; curx=mx; cury=my;
-                        if(x_changed)
-                        {
-                            shadowy=tetris.calcshadowy(curblock,currot,curx,cury);
-                            tetris.plotp(curblock,currot,curx,shadowy,-1,0); // show shadow
-                        }
-                        tetris.plotp(curblock,currot,curx,cury,8,0); // show block in new location
-                    }
-                    else if(my==cury+1)
-                    {
-                        tetris.plotp(curblock,currot,curx,shadowy,0,0); // remove the shadow
-                        tetris.plotp(curblock,currot,curx,cury,11,1); // affix the block
-                        gamestate=2; focuswipe=3;
-                        break;
-                    }
-                    if(dropping==1) dropping=0; else break;
-                }
-                break;
-            }
-            case 2: tetris.make_full_lines_empty(); gamestate=3;
-            case 3: case 52:
-            {
-                int increment = "\0\1\4\11\31"[emptycount]*100;
-                if(emptycount) increment += combo++ * 50; else combo=0;
-                increment += cury*2; score += increment; lines += emptycount;
-                int yb = std::max(0,(int)WinHeight()-25) + MH;
-                UI.GotoXY(2,yb);
-                UI.Color(15); prn("Score:"); std::fflush(stderr);
-                UI.Color(14); prn("%6u",score); std::fflush(stderr);
-                UI.GotoXY(2,yb+1);
-                UI.Color(15); prn("Lines:"); std::fflush(stderr);
-                UI.Color(14); prn("%6u",lines); std::fflush(stderr);
-                UI.GotoXY(15,yb);
-                UI.Color(10); prn("%+d",increment); std::fflush(stderr);
-                UI.GotoXY(15, yb-5);
-                UI.Color(15); prn("Next:"); std::fflush(stderr);
-                next2=std::rand()%7;
-                tetris.plotp(next1,0, 13,MH-4, 0,0);
-                tetris.plotp(next2,0, 13,MH-4, 8,0);
-                if(emptycount)
-                {
-                    UI.GotoXY(15,MH);
-                    prn("%+d",emptycount); std::fflush(stderr);
-                }
-                scorewipe=14;
-                // fallthru (set next state 4, state 53)
-            }
-            default: ++gamestate; break;
-            case 12: if(emptycount) tetris.cascade_lines(); emptycount=gamestate=0; break;
-            case 50:
-                if(cury < (int)(MH-1))
-                    { for(int x=1; x<=10; ++x) tetris.setp(x,cury,4); ++cury; break; }
-                cury=-4; gamestate=51; break;
-            case 51:
-                if(cury < (int)(MH-1))
-                    { for(int x=1; x<=10; ++x) tetris.setp(x,cury,0); ++cury; break; }
-                emptycount=combo=score=lines=cury=0;
-                gamestate=52; // reset score display
-                break;
-        }
-    }
-private:
-    #ifndef __DJGPP__
-    void prn(const char* fmt, ...)
-    {
-        va_list ap;
-        va_start(ap, fmt);
-        vfprintf(stderr, fmt, ap);
-        va_end(ap);
-    }
-    #endif
-} UI;
 
 class MIDIplay
 {
@@ -1224,7 +1212,7 @@ public:
     bool LoadMIDI(const std::string& filename)
     {
         std::FILE* fp = std::fopen(filename.c_str(), "rb");
-        if(!fp) { std::perror(filename.c_str()); return false; }
+        if(!fp) { std::fprintf(stderr, "\n"); std::perror(filename.c_str()); return false; }
         const unsigned HeaderSize = 4+4+2+2+2; // 14
         char HeaderBuf[HeaderSize]="";
     riffskip:;
@@ -1325,6 +1313,7 @@ public:
                 std::fseek(fp, 0x7D, SEEK_SET);
                 TrackCount = 1;
                 DeltaTicks = 60;
+                LogarithmicVolumes = true;
             }
             else
                 goto try_imf;
@@ -1658,10 +1647,11 @@ private:
             loopEnd         = false;
             CurrentPosition = LoopBeginPosition;
             shortest        = 0;
+
+            /* If the -nl commandline option was given, quit now */
             if(QuitWithoutLooping)
             {
                 QuitFlag = true;
-                //^ HACK: QUIT WITHOUT LOOPING
             }
         }
     }
@@ -2621,6 +2611,12 @@ struct FourChars
 
 static void SendStereoAudio(unsigned long count, int* samples)
 {
+    if(count > MaxSamplesAtTime)
+    {
+        SendStereoAudio(MaxSamplesAtTime, samples);
+        SendStereoAudio(count-MaxSamplesAtTime, samples+MaxSamplesAtTime);
+        return;
+    }
 #if 0
     if(count % 2 == 1)
     {
@@ -2768,6 +2764,47 @@ static void SendStereoAudio(unsigned long count, int* samples)
 
         //if(std::ftell(fp) >= 48000*4*10*60)
         //    raise(SIGINT);
+    }
+    if(WriteVideoFile)
+    {
+        static constexpr unsigned framerate = 15;
+        static FILE* fp = nullptr;
+        static unsigned long samples_carry = 0;
+
+        if(!fp)
+        {
+            std::string cmdline =
+                "ffmpeg -f rawvideo"
+                " -pixel_format bgra "
+                " -video_size " + std::to_string(UI.VidWidth) + "x" + std::to_string(UI.VidHeight) +
+                " -framerate " + std::to_string(framerate) +
+                " -i -"
+                " -c:v h264"
+                " -aspect " + std::to_string(UI.VidWidth) + "/" + std::to_string(UI.VidHeight) +
+                " -pix_fmt yuv420p"
+                " -preset superfast -partitions all -refs 2 -tune animation -y '" + VidFilepath + "'"; // FIXME: escape filename
+            cmdline += " >/dev/null 2>/dev/null";
+            fp = popen(cmdline.c_str(), "w");
+        }
+        if(fp)
+        {
+            samples_carry += count;
+            while(samples_carry >= PCM_RATE / framerate)
+            {
+                UI.VidRender();
+
+                const unsigned char* source = (const unsigned char*)&UI.PixelBuffer;
+                std::size_t bytes_remain    = sizeof(UI.PixelBuffer);
+                while(bytes_remain)
+                {
+                    int r = std::fwrite(source, 1, bytes_remain, fp);
+                    if(r == 0) break;
+                    bytes_remain -= r;
+                    source       += r;
+                }
+                samples_carry -= PCM_RATE / framerate;
+            }
+        }
     }
 #ifndef __WIN32__
     AudioBuffer_lock.Unlock();
@@ -3003,25 +3040,20 @@ int main(int argc, char** argv)
     // The lag between visual content and audio content equals
     // the sum of these two buffers.
 
-    UI.Color(15); std::fflush(stderr);
     WritingToTTY = isatty(STDOUT_FILENO);
     if (WritingToTTY)
     {
-        std::printf(
+        UI.Print(0, 15,true,
 #ifdef __DJGPP__
-            "ADLMIDI_A: MIDI player for OPL3 hardware\n"
+            "ADLMIDI_A: MIDI player for OPL3 hardware"
 #else
-            "ADLMIDI: MIDI player for Linux and Windows with OPL3 emulation\n"
+            "ADLMIDI: MIDI (etc.) player with OPL3 emulation"
 #endif
         );
-        std::fflush(stdout);
     }
-    UI.Color(3); std::fflush(stderr);
     if (WritingToTTY)
     {
-        std::printf(
-            "(C) -- http://iki.fi/bisqwit/source/adlmidi.html\n");
-        std::fflush(stdout);
+        UI.Print(0,3, true, "(C) -- http://iki.fi/bisqwit/source/adlmidi.html");
     }
     UI.Color(7); std::fflush(stderr);
 
@@ -3038,7 +3070,8 @@ int main(int argc, char** argv)
             " -v Enables vibrato amplification mode\n"
             " -s Enables scaling of modulator volumes\n"
             " -nl Quit without looping\n"
-            " -w Write WAV file rather than playing\n"
+            " -w [<filename>] Write WAV file rather than playing\n"
+            " -d [<filename>] Write video file using ffmpeg\n"
         );
         for(unsigned a=0; a<sizeof(banknames)/sizeof(*banknames); ++a)
             std::printf("%10s%2u = %s\n",
@@ -3061,6 +3094,8 @@ int main(int argc, char** argv)
             );
         return 0;
     }
+
+    std::srand(std::time(0));
 
     while(argc > 2)
     {
@@ -3087,6 +3122,19 @@ int main(int argc, char** argv)
                 if(std::strtol(argv[3], &endptr, 10) < 0 || (endptr && *endptr))
                 {
                     PCMfilepath = argv[3];
+                    had_option  = true;
+                }
+            }
+        }
+        else if(!std::strcmp("-d", argv[2]))
+        {
+            WriteVideoFile = true;
+            if (argc > 3 && argv[3][0] != '\0' && (argv[3][0] != '-' || argv[3][1] == '\0'))
+            {
+                char* endptr = 0;
+                if(std::strtol(argv[3], &endptr, 10) < 0 || (endptr && *endptr))
+                {
+                    VidFilepath = argv[3];
                     had_option  = true;
                 }
             }
@@ -3139,10 +3187,11 @@ int main(int argc, char** argv)
         if(AdlBank >= NumBanks)
         {
             std::fprintf(stderr, "bank number may only be 0..%u.\n", NumBanks-1);
+            UI.ShowCursor();
             return 0;
         }
         if(WritingToTTY)
-            std::printf("FM instrument bank %u selected.\n", AdlBank);
+            UI.PrintLn("FM instrument bank %u selected.", AdlBank);
     }
 
     unsigned n_fourop[2] = {0,0}, n_total[2] = {0,0};
@@ -3156,9 +3205,8 @@ int main(int argc, char** argv)
     }
     if (WritingToTTY)
     {
-        std::printf("This bank has %u/%u four-op melodic instruments and %u/%u percussive ones.\n",
-            n_fourop[0], n_total[0],
-            n_fourop[1], n_total[1]);
+        UI.PrintLn("This bank has %u/%u four-op melodic instruments", n_fourop[0], n_total[0]);
+        UI.PrintLn("          and %u/%u percussive ones.", n_fourop[1], n_total[1]);
     }
 
     if(argc >= 4)
@@ -3167,6 +3215,7 @@ int main(int argc, char** argv)
         if(NumCards < 1 || NumCards > MaxCards)
         {
             std::fprintf(stderr, "number of cards may only be 1..%u.\n", MaxCards);
+            UI.ShowCursor();
             return 0;
         }
     }
@@ -3177,6 +3226,7 @@ int main(int argc, char** argv)
         {
             std::fprintf(stderr, "number of four-op channels may only be 0..%u when %u OPL3 cards are used.\n",
                 6*NumCards, NumCards);
+            UI.ShowCursor();
             return 0;
         }
     }
@@ -3188,21 +3238,27 @@ int main(int argc, char** argv)
           : (NumCards==1 ? 1 : NumCards*4);
     if (WritingToTTY)
     {
-        std::printf(
-            "Simulating %u OPL3 cards for a total of %u operators.\n"
-            "Setting up the operators as %u four-op channels, %u dual-op channels",
-            NumCards, NumCards*36,
-            NumFourOps, (AdlPercussionMode ? 15 : 18) * NumCards - NumFourOps*2);
+        UI.PrintLn("Simulating %u OPL3 cards for a total of %u operators.", NumCards, NumCards*36);
+        std::string s = "Operator set-up: "
+                       + std::to_string(NumFourOps)
+                       + " 4op, "
+                       + std::to_string((AdlPercussionMode ? 15 : 18) * NumCards - NumFourOps*2)
+                       + " 2op";
         if(AdlPercussionMode)
-            std::printf(", %u percussion channels", NumCards * 5);
-        std::printf("\n");
-        std::fflush(stdout);
+            s += ", " + std::to_string(NumCards * 5) + " percussion";
+        s += " channels";
+        UI.PrintLn("%s", s.c_str());
     }
 
     MIDIplay player;
     player.ChooseDevice("");
+
+    UI.Color(7);
     if(!player.LoadMIDI(argv[1]))
+    {
+        UI.ShowCursor();
         return 2;
+    }
 
     if(n_fourop[0] >= n_total[0]*15/16 && NumFourOps == 0)
     {
@@ -3238,6 +3294,7 @@ int main(int argc, char** argv)
 
     Tester InstrumentTester(player.opl);
 
+    UI.TetrisLaunched = true;
     for(double delay=0; !QuitFlag; )
     {
     #ifndef __DJGPP__
@@ -3286,12 +3343,18 @@ int main(int argc, char** argv)
             //    AudioBuffer.size() * .5e3 / obtained.freq);
         #ifndef __WIN32__
             const SDL_AudioSpec& spec_ = (WritePCMfile ? spec : obtained);
-            while(AudioBuffer.size() > spec_.samples + (spec_.freq*2) * OurHeadRoomLength)
+            for(unsigned grant=0; AudioBuffer.size() > spec_.samples + (spec_.freq*2) * OurHeadRoomLength; ++grant)
             {
                 if(!WritePCMfile)
-                    SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
+                {
+                    if(UI.CheckTetris() || grant%4==0)
+                    {
+                        SDL_Delay(1); // std::min(10.0, 1e3 * eat_delay) );
+                    }
+                }
                 else
                 {
+                    for(unsigned n=0; n<128; ++n) UI.CheckTetris();
                     AudioBuffer_lock.Lock();
                     AudioBuffer.clear();
                     AudioBuffer_lock.Unlock();
@@ -3321,6 +3384,7 @@ int main(int argc, char** argv)
             ? InstrumentTester.Tick(eat_delay, mindelay)
             : player.Tick(eat_delay, mindelay);
 
+        UI.GotoXY(0,0);
         UI.ShowCursor();
 
         delay = nextdelay;
