@@ -63,6 +63,7 @@ static bool HighTremoloMode   = false;
 static bool HighVibratoMode   = false;
 static bool AdlPercussionMode = false;
 static bool LogarithmicVolumes = false;
+static bool CartoonersVolumes = false;
 static bool QuitFlag = false, FakeDOSshell = false;
 static unsigned SkipForward = 0;
 static bool DoingInstrumentTesting = false;
@@ -856,7 +857,7 @@ public:
     }
     void Touch_Real(unsigned c, unsigned volume)
     {
-        //if(volume > 63) volume = 63;
+        if(volume > 63) volume = 63;
         unsigned card = c/23, cc = c%23;
         unsigned i = ins[c];
         unsigned o1 = Operators[cc*2+0];
@@ -903,9 +904,19 @@ public:
         bool do_modulator = do_ops[ mode ][ 0 ] || ScaleModulators;
         bool do_carrier   = do_ops[ mode ][ 1 ] || ScaleModulators;
 
-        Poke(card, 0x40+o1, do_modulator ? (x|63) - volume + volume*(x&63)/63 : x);
-        if(o2 != 0xFFF)
-        Poke(card, 0x40+o2, do_carrier   ? (y|63) - volume + volume*(y&63)/63 : y);
+        if(CartoonersVolumes)
+        {
+            Poke(card, 0x40+o1, do_modulator ? x - volume/2 : x);
+            if(o2 != 0xFFF)
+            Poke(card, 0x40+o2, do_carrier   ? y - volume/2 : y);
+        }
+        else
+        {
+            Poke(card, 0x40+o1, do_modulator ? (x|63) - volume + volume*(x&63)/63 : x);
+            if(o2 != 0xFFF)
+            Poke(card, 0x40+o2, do_carrier   ? (y|63) - volume + volume*(y&63)/63 : y);
+        }
+
         // Correct formula (ST3, AdPlug):
         //   63-((63-(instrvol))/63)*chanvol
         // Reduces to (tested identical):
@@ -917,7 +928,7 @@ public:
     {
         if(LogarithmicVolumes)
         {
-            Touch_Real(c, volume*127/(127*127*127));
+            Touch_Real(c, volume*63/(127*127*127));
         }
         else
         {
@@ -1314,6 +1325,7 @@ public:
                 TrackCount = 1;
                 DeltaTicks = 60;
                 LogarithmicVolumes = true;
+                CartoonersVolumes = true;
             }
             else
                 goto try_imf;

@@ -964,6 +964,63 @@ static void LoadBisqwit(const char* fn, unsigned bank, const char* prefix)
     std::fclose(fp);
 }
 
+void LoadEA(const char* fn, unsigned bank, const char* prefix)
+{
+    FILE* fp = std::fopen(fn, "rb");
+
+    // Copy percussive instruments from bank 0
+    for(unsigned gmno=35; gmno<80; ++gmno)
+        progs[bank][0x80 + gmno] = progs[0][0x80 + gmno];
+
+    for(unsigned gmno=0; gmno<20; ++gmno)
+    {
+        std::fseek(fp, 0x150 + gmno, SEEK_SET);
+        unsigned insno = std::fgetc(fp);
+        std::fseek(fp, 0x187 + insno*2, SEEK_SET);
+        unsigned offset = std::fgetc(fp); offset += std::fgetc(fp)*256;
+        std::fseek(fp, offset, SEEK_SET);
+        unsigned char bytes[10];
+        std::fread(bytes, 1, 10, fp);
+
+        insdata tmp;
+        tmp.data[0] = bytes[0]; // reg 0x20: modulator AM/VIG/EG/KSR
+        tmp.data[8] = bytes[1]; // reg 0x40: modulator ksl/attenuation
+        tmp.data[2] = bytes[2]; // reg 0x60: modulator attack/decay
+        tmp.data[4] = bytes[3]; // reg 0x80: modulator sustain/release
+
+        tmp.data[1] = bytes[4]; // reg 0x20: carrier AM/VIG/EG/KSR
+        tmp.data[9] = bytes[5]; // reg 0x40: carrier   ksl/attenuation
+        tmp.data[3] = bytes[6]; // reg 0x60: carrier attack/decay
+        tmp.data[5] = bytes[7]; // reg 0x80: carrier sustain/release
+
+        // bytes[1] will be written directly to register 0x40
+        // bytes[5] will be written directly to register 0x43
+        // When touching volume, register 0x43 <- bytes[5] - midivolume/4
+
+        tmp.data[10] = bytes[8]; // reg 0xC0 (feedback and connection)
+
+        tmp.finetune = bytes[9]+12; // finetune
+        tmp.data[6] = 0;        // reg 0xE0: modulator, never seems to be set
+        tmp.data[7] = 0;        // reg 0xE0: carrier,   never seems to be set
+
+        ins tmp2{};
+        tmp2.notenum   = 0;
+        tmp2.pseudo4op = false;
+
+        std::string name = std::string(1,'\377')+MidiInsName[gmno];
+        char name2[512]; sprintf(name2, "%sM%u", prefix, gmno);
+        size_t resno = InsertIns(tmp,tmp, tmp2, std::string(1,'\377')+name, name2);
+        SetBank(bank, gmno, resno);
+
+        if(gmno == 10) { tmp2.notenum = 0x49; SetBank(bank, 0x80 + 0x36, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x36-35], std::string(1,'\377')+prefix+"P54")); }
+        if(gmno == 18) { tmp2.notenum = 0x17; SetBank(bank, 0x80 + 0x2A, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x2A-35], std::string(1,'\377')+prefix+"P42")); }
+        if(gmno == 16) { tmp2.notenum = 0x0C; SetBank(bank, 0x80 + 0x24, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x24-35], std::string(1,'\377')+prefix+"P36")); }
+        if(gmno == 17) { tmp2.notenum = 0x01; SetBank(bank, 0x80 + 0x26, InsertIns(tmp,tmp,tmp2, std::string(1,'\377')+MidiInsName[0x80+0x26-35], std::string(1,'\377')+prefix+"P38")); }
+    }
+
+    std::fclose(fp);
+}
+
 #include "dbopl.h"
 
 std::vector<int> sampleBuf;
@@ -1285,6 +1342,8 @@ int main()
 
     LoadTMB("tmb_files/bloodtmb.tmb", 65, "bld");
 
+    LoadEA("misc_files/cartooners-adlib-decrypted.dat", 66, "eaC");
+
     static const char* const banknames[] =
     {// 0
      "AIL (Star Control 3, Albion, Empire 2, Sensible Soccer, Settlers 2, many others)",
@@ -1358,7 +1417,8 @@ int main()
      "TMB (Duke Nukem 3D)",
      "TMB (Shadow Warrior)",
      "DMX (Raptor)",
-     "TMB (Blood)"
+     "TMB (Blood)",
+     "EA (Cartooners)"
     };
 
 #if 0
@@ -1416,22 +1476,22 @@ int main()
             if(i->second.first != c) continue;
             printf("    { ");
 
-            unsigned carrier_E862 =
+            unsigned modulator_E862 =
                 (i->first.data[6] << 24)
               + (i->first.data[4] << 16)
               + (i->first.data[2] << 8)
               + (i->first.data[0] << 0);
-            unsigned modulator_E862 =
+            unsigned carrier_E862 =
                 (i->first.data[7] << 24)
               + (i->first.data[5] << 16)
               + (i->first.data[3] << 8)
               + (i->first.data[1] << 0);
             printf("0x%07X,0x%07X, 0x%02X,0x%02X, 0x%X,%+d",
-                carrier_E862,
                 modulator_E862,
-                i->first.data[8],
-                i->first.data[9],
-                i->first.data[10],
+                carrier_E862,
+                i->first.data[8], // modulator_40
+                i->first.data[9], // carrier_40
+                i->first.data[10], // feedconn
                 i->first.finetune);
 
             std::string names;
