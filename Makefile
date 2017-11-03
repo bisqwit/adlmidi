@@ -12,8 +12,8 @@ DEBUG=-Ofast -g -fopenmp -march=native
 
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
-CPPFLAGS += $(shell pkg-config --cflags sdl)
-LDLIBS   += $(shell pkg-config --libs sdl)
+CPPFLAGS += $(shell pkg-config --cflags sdl2)
+LDLIBS   += $(shell pkg-config --libs sdl2)
 #CPPFLAGS += $(SDL)
 
 #LDLIBS += -lwinmm
