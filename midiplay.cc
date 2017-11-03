@@ -2600,7 +2600,7 @@ namespace WindowsAudio
 #else
 static std::deque<short> AudioBuffer;
 static MutexType AudioBuffer_lock;
-static void SDL_AudioCallback(void*, Uint8* stream, int len)
+static void AdlAudioCallback(void*, Uint8* stream, int len)
 {
     SDL_LockAudio();
     short* target = (short*) stream;
@@ -3056,7 +3056,7 @@ int main(int argc, char** argv)
 {
 #endif
     // How long is SDL buffer, in seconds?
-    // The smaller the value, the more often SDL_AudioCallBack()
+    // The smaller the value, the more often AdlAudioCallBack()
     // is called.
     const double AudioBufferLength = 0.045;
     // How much do WE buffer, in seconds? The smaller the value,
@@ -3181,7 +3181,7 @@ int main(int argc, char** argv)
     spec.format   = AUDIO_S16SYS;
     spec.channels = 2;
     spec.samples  = spec.freq * AudioBufferLength;
-    spec.callback = SDL_AudioCallback;
+    spec.callback = AdlAudioCallback;
     if (!WritePCMfile)
     {
         // Set up SDL
