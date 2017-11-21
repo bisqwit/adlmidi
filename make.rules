@@ -1,4 +1,4 @@
-VERSION=1.2.5
+VERSION=1.2.6
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -91,7 +91,8 @@ ARCHFILES=\
 	tmb_files/d3dtimbr.tmb \
 	tmb_files/swtimbr.tmb \
 	tmb_files/bloodtmb.tmb \
-	raptor/genmidi.op2
+	raptor/genmidi.op2 \
+	misc_files/cartooners-adlib-decrypted.dat
 
 INSTALLPROGS=adlmidi
 
