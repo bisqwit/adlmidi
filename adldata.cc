@@ -9205,7 +9205,7 @@ const struct adlinsdata adlins[4052] =
 
     // Amplitude begins at 2321.5, peaks 2946.2 at 38.3s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1119,1120,  0, 1,  40000,     0 }, // 1262: dMM18; hxMM18; musM18; raptM18; Rock Organ
+    {1119,1120,  0, 1,  40000,    40 }, // 1262: dMM18; hxMM18; musM18; raptM18; Rock Organ
 
     // Amplitude begins at    1.2, peaks 1141.6 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.2s.
@@ -9217,15 +9217,15 @@ const struct adlinsdata adlins[4052] =
 
     // Amplitude begins at    0.0, peaks 3066.3 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1123,1124,  0, 1,  40000,     0 }, // 1265: dMM21; hxMM21; musM21; raptM21; Accordion
+    {1123,1124,  0, 1,  40000,    20 }, // 1265: dMM21; hxMM21; musM21; raptM21; Accordion
 
     // Amplitude begins at    0.0, peaks 1840.1 at 0.1s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     {1125,1125,  0, 0,  40000,    26 }, // 1266: dMM22; hxMM22; musM22; raptM22; Harmonica
 
     // Amplitude begins at    3.5, peaks 2545.1 at 24.6s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1126,1127,  0, 1,  40000,     0 }, // 1267: dMM23; hxMM23; musM23; raptM23; Tango Accordion
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.1s.
+    {1126,1127,  0, 1,  40000,   120 }, // 1267: dMM23; hxMM23; musM23; raptM23; Tango Accordion
 
     // Amplitude begins at 2747.7, peaks 2877.4 at 0.1s,
     // fades to 20% at 3.4s, keyoff fades to 20% in 3.4s.
@@ -9308,8 +9308,8 @@ const struct adlinsdata adlins[4052] =
     {1148,1148,  0, 0,  40000,   266 }, // 1287: dMM43; hxMM43; musM43; raptM43; Contrabass
 
     // Amplitude begins at  257.5, peaks 2551.5 at 13.1s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1149,1150,  0, 1,  40000,     0 }, // 1288: dMM44; hxMM44; musM44; raptM44; Tremolo Strings
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.3s.
+    {1149,1150,  0, 1,  40000,   273 }, // 1288: dMM44; hxMM44; musM44; raptM44; Tremolo Strings
 
     // Amplitude begins at    7.6, peaks 3000.2 at 0.0s,
     // fades to 20% at 0.2s, keyoff fades to 20% in 0.2s.
@@ -9324,12 +9324,12 @@ const struct adlinsdata adlins[4052] =
     {1153,1153,  0, 0,    713,   713 }, // 1291: dMM47; hxMM47; musM47; * Timpani
 
     // Amplitude begins at    2.4, peaks 2270.8 at 4.3s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1154,1155,  0, 1,  40000,     0 }, // 1292: dMM48; hxMM48; musM48; raptM48; String Ensemble 1
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.2s.
+    {1154,1155,  0, 1,  40000,   206 }, // 1292: dMM48; hxMM48; musM48; raptM48; String Ensemble 1
 
     // Amplitude begins at    0.0, peaks 2271.5 at 2.4s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1156,1157,  0, 1,  40000,     0 }, // 1293: dMM49; hxMM49; musM49; String Ensemble 2
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.3s.
+    {1156,1157,  0, 1,  40000,   280 }, // 1293: dMM49; hxMM49; musM49; String Ensemble 2
 
     // Amplitude begins at    6.6, peaks 1238.5 at 0.0s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 1.1s.
@@ -9340,8 +9340,8 @@ const struct adlinsdata adlins[4052] =
     {1159,1160,  0, 1,  40000,   233 }, // 1295: dMM51; hxMM51; musM51; Synth Strings 2
 
     // Amplitude begins at    2.0, peaks 1697.5 at 36.8s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1161,1162,  0, 1,  40000,     0 }, // 1296: dMM52; hxMM52; musM52; Choir Aahs
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.5s.
+    {1161,1162,  0, 1,  40000,   546 }, // 1296: dMM52; hxMM52; musM52; Choir Aahs
 
     // Amplitude begins at    3.7, peaks 1617.4 at 0.0s,
     // fades to 20% at 1.8s, keyoff fades to 20% in 1.8s.
@@ -9377,7 +9377,7 @@ const struct adlinsdata adlins[4052] =
 
     // Amplitude begins at    3.5, peaks 2970.0 at 0.0s,
     // fades to 20% at 0.8s, keyoff fades to 20% in 0.0s.
-    {1173,1174,  0, 1,    813,    13 }, // 1305: dMM61; hxMM61; musM61; raptM61; Brass Section
+    {1173,1174,  0, 1,    813,     6 }, // 1305: dMM61; hxMM61; musM61; raptM61; Brass Section
 
     // Amplitude begins at  791.8, peaks 2418.0 at 0.1s,
     // fades to 20% at 3.1s, keyoff fades to 20% in 3.1s.
@@ -9452,12 +9452,12 @@ const struct adlinsdata adlins[4052] =
     {1194,1194,  0, 0,  40000,     6 }, // 1323: dMM79; hxMM79; musM79; raptM79; Ocarina
 
     // Amplitude begins at 1495.4, peaks 3551.9 at 3.8s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1195,1196,  0, 1,  40000,     0 }, // 1324: dMM80; hxMM80; musM80; raptM80; Lead 1 (square)
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.1s.
+    {1195,1196,  0, 1,  40000,    86 }, // 1324: dMM80; hxMM80; musM80; raptM80; Lead 1 (square)
 
     // Amplitude begins at 3010.3, peaks 4634.9 at 2.4s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1197,1198,  0, 1,  40000,     0 }, // 1325: dMM81; hxMM81; musM81; raptM81; Lead 2 (sawtooth)
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.1s.
+    {1197,1198,  0, 1,  40000,   100 }, // 1325: dMM81; hxMM81; musM81; raptM81; Lead 2 (sawtooth)
 
     // Amplitude begins at    0.8, peaks 3304.0 at 25.7s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.1s.
@@ -9472,8 +9472,8 @@ const struct adlinsdata adlins[4052] =
     {1202,1202,  0, 0,  40000,     0 }, // 1328: dMM84; hxMM84; musM84; Lead 5 (charang)
 
     // Amplitude begins at 3242.2, peaks 5355.9 at 0.0s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.6s.
-    {1203,1204,  0, 1,  40000,   560 }, // 1329: dMM85; hxMM85; musM85; raptM85; Lead 6 (voice)
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.4s.
+    {1203,1204,  0, 1,  40000,   353 }, // 1329: dMM85; hxMM85; musM85; raptM85; Lead 6 (voice)
 
     // Amplitude begins at   11.6, peaks 2172.0 at 0.2s,
     // fades to 20% at 1.7s, keyoff fades to 20% in 0.0s.
@@ -9484,8 +9484,8 @@ const struct adlinsdata adlins[4052] =
     {1207,1207,  0, 0,  40000,    73 }, // 1331: dMM87; dMM88; hxMM87; hxMM88; musM87; musM88; raptM87; raptM88; * Lead 8 (bass & lead)
 
     // Amplitude begins at    0.0, peaks 6348.3 at 16.3s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1208,1209,  0, 1,  40000,     0 }, // 1332: dMM89; hxMM89; musM89; raptM89; Pad 2 (warm)
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.2s.
+    {1208,1209,  0, 1,  40000,   246 }, // 1332: dMM89; hxMM89; musM89; raptM89; Pad 2 (warm)
 
     // Amplitude begins at 1418.2, peaks 1826.0 at 0.0s,
     // fades to 20% at 2.0s, keyoff fades to 20% in 2.0s.
@@ -9517,7 +9517,7 @@ const struct adlinsdata adlins[4052] =
 
     // Amplitude begins at    0.0, peaks 1623.6 at 0.3s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {1218,1219,  0, 1,  40000,     0 }, // 1340: dMM97; hxMM97; musM97; raptM97; FX 2 (soundtrack)
+    {1218,1219,  0, 1,  40000,    33 }, // 1340: dMM97; hxMM97; musM97; raptM97; FX 2 (soundtrack)
 
     // Amplitude begins at 1791.1, peaks 2994.3 at 0.0s,
     // fades to 20% at 1.0s, keyoff fades to 20% in 1.0s.
@@ -20028,8 +20028,8 @@ const struct adlinsdata adlins[4052] =
     {4102,4102,  0, 0,  40000,   440 }, // 3967: raptM47; * Timpani
 
     // Amplitude begins at    5.5, peaks 2271.8 at 0.5s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
-    {4103,4104,  0, 1,  40000,     0 }, // 3968: raptM49; String Ensemble 2
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.3s.
+    {4103,4104,  0, 1,  40000,   280 }, // 3968: raptM49; String Ensemble 2
 
     // Amplitude begins at    0.3, peaks  946.3 at 1.1s,
     // fades to 20% at 1.1s, keyoff fades to 20% in 0.0s.
@@ -20040,8 +20040,8 @@ const struct adlinsdata adlins[4052] =
     {4106,4106,  0, 0,  40000,   426 }, // 3970: raptM51; Synth Strings 2
 
     // Amplitude begins at  744.2, peaks 3356.0 at 0.6s,
-    // fades to 20% at 40.0s, keyoff fades to 20% in 0.2s.
-    {4107,1162,  0, 1,  40000,   153 }, // 3971: raptM52; Choir Aahs
+    // fades to 20% at 40.0s, keyoff fades to 20% in 0.3s.
+    {4107,1162,  0, 1,  40000,   280 }, // 3971: raptM52; Choir Aahs
 
     // Amplitude begins at 1473.8, peaks 1476.2 at 0.0s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
