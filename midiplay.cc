@@ -220,9 +220,9 @@ static const char PercussionMap[256] =
 "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GP0
 "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"//GP16
 //2 3 4 5 6 7 8 940 1 2 3 4 5 6 7
-"\0\0\0\3\3\7\4\7\4\5\7\5\7\5\7\5"//GP32
+"\0\0\0\3\3\0\0\7\0\5\7\5\0\5\7\5"//GP32
 //8 950 1 2 3 4 5 6 7 8 960 1 2 3
-"\5\6\5\6\6\0\5\6\0\6\0\6\5\5\5\5"//GP48
+"\5\6\5\0\6\0\5\6\0\6\0\6\5\5\5\5"//GP48
 //4 5 6 7 8 970 1 2 3 4 5 6 7 8 9
 "\5\0\0\0\0\0\7\0\0\0\0\0\0\0\0\0"//GP64
 "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
@@ -740,7 +740,7 @@ public:
     {
     #ifdef SUPPORT_PUZZLE_GAME
         static ADLMIDI_PuzzleGame::TetrisAI    player(2);
-        static ADLMIDI_PuzzleGame::TetrisAI    computer(31);
+        static ADLMIDI_PuzzleGame::TetrisHuman computer(31);
 
         int a = player.GameLoop();
         int b = computer.GameLoop();
@@ -1318,60 +1318,61 @@ public:
             //std::printf("CMF deltas %u ticks %u, basictempo = %u\n", deltas, ticks, basictempo);
             LogarithmicVolumes = true;
         }
-        else if(HeaderBuf[0] == 0x7D)
+        else
         {
-            std::fseek(fp, 0x6D, SEEK_SET);
-            std::fread(HeaderBuf, 6, 1, fp);
-            if(std::memcmp(HeaderBuf, "rsxx}u", 6) == 0)
+            // Try parsing as EA RSXX file
+            char rsxxbuf[8];
+            {long p = std::ftell(fp);
+            std::fseek(fp, HeaderBuf[0]-0x10, SEEK_SET);
+            std::fread(rsxxbuf, 6, 1, fp);
+            std::fseek(fp, p, SEEK_SET);}
+            if(std::memcmp(rsxxbuf, "rsxx}u", 6) == 0)
             {
                 is_RSXX = true;
                 std::fprintf(stderr, "Detected RSXX format\n");
-                std::fseek(fp, 0x7D, SEEK_SET);
+                std::fseek(fp, HeaderBuf[0], SEEK_SET);
                 TrackCount = 1;
                 DeltaTicks = 60;
                 LogarithmicVolumes = true;
                 CartoonersVolumes = true;
             }
             else
-                goto try_imf;
-        }
-        else
-        {
-        try_imf:
-            // Try parsing as an IMF file
-            if(1)
             {
-                unsigned end = (unsigned char)HeaderBuf[0] + 256*(unsigned char)HeaderBuf[1];
-                if(!end || (end & 3)) goto not_imf;
-
-                long backup_pos = std::ftell(fp);
-                unsigned sum1 = 0, sum2 = 0;
-                std::fseek(fp, 2, SEEK_SET);
-                for(unsigned n=0; n<42; ++n)
+                // Try parsing as an IMF file
+                if(1)
                 {
-                    unsigned value1 = std::fgetc(fp); value1 += std::fgetc(fp) << 8; sum1 += value1;
-                    unsigned value2 = std::fgetc(fp); value2 += std::fgetc(fp) << 8; sum2 += value2;
-                }
-                std::fseek(fp, backup_pos, SEEK_SET);
-                if(sum1 > sum2)
-                {
-                    is_IMF = true;
-                    DeltaTicks = 1;
-                }
-            }
+                    unsigned end = (unsigned char)HeaderBuf[0] + 256*(unsigned char)HeaderBuf[1];
+                    if(!end || (end & 3)) goto not_imf;
 
-            if(!is_IMF)
-            {
-            not_imf:
-                if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
-                { InvFmt:
-                    std::fclose(fp);
-                    std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
-                    return false;
+                    long backup_pos = std::ftell(fp);
+                    unsigned sum1 = 0, sum2 = 0;
+                    std::fseek(fp, 2, SEEK_SET);
+                    for(unsigned n=0; n<42; ++n)
+                    {
+                        unsigned value1 = std::fgetc(fp); value1 += std::fgetc(fp) << 8; sum1 += value1;
+                        unsigned value2 = std::fgetc(fp); value2 += std::fgetc(fp) << 8; sum2 += value2;
+                    }
+                    std::fseek(fp, backup_pos, SEEK_SET);
+                    if(sum1 > sum2)
+                    {
+                        is_IMF = true;
+                        DeltaTicks = 1;
+                    }
                 }
-                /*size_t  Fmt =*/ ReadBEint(HeaderBuf+8,  2);
-                TrackCount = ReadBEint(HeaderBuf+10, 2);
-                DeltaTicks = ReadBEint(HeaderBuf+12, 2);
+
+                if(!is_IMF)
+                {
+                not_imf:
+                    if(std::memcmp(HeaderBuf, "MThd\0\0\0\6", 8) != 0)
+                    { InvFmt:
+                        std::fclose(fp);
+                        std::fprintf(stderr, "%s: Invalid format\n", filename.c_str());
+                        return false;
+                    }
+                    /*size_t  Fmt =*/ ReadBEint(HeaderBuf+8,  2);
+                    TrackCount = ReadBEint(HeaderBuf+10, 2);
+                    DeltaTicks = ReadBEint(HeaderBuf+12, 2);
+                }
             }
         }
         TrackData.resize(TrackCount);
@@ -1597,6 +1598,8 @@ private:
                     {
                         phase = 0.125; // Detune the note slightly (this is what Doom does)
                     }
+
+                    //phase -= 12; // hack
 
                     if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
                         bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
