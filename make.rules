@@ -1,4 +1,4 @@
-VERSION=1.2.6
+VERSION=1.2.6.1
 ARCHNAME=adlmidi-$(VERSION)
 ARCHDIR=archives/
 NOGZIPARCHIVES=1
@@ -13,6 +13,7 @@ ARCHFILES=\
 	progdesc.php \
 	make.rules \
 	fraction \
+	puzzlegame.inc \
 	\
 	bnk_files/drum.bnk \
 	bnk_files/file131.bnk \
