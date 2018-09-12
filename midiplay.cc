@@ -358,7 +358,7 @@ public:
         std::memset(slots, '.',      sizeof(slots));
         std::memset(background, '.', sizeof(background));
         std::memset(backgroundcolor, 1, sizeof(backgroundcolor));
-        setbuffer(stderr, stderr_buffer, sizeof(stderr_buffer));
+        std::setvbuf(stderr, stderr_buffer, _IOFBF, sizeof(stderr_buffer));
         RawPrn("\r"); // Ensure cursor is at the x=0 we imagine it being
         Print(0, 7, true, "Hit Ctrl-C to quit");
     }
