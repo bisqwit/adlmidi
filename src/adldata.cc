@@ -6,9 +6,9 @@
  */
 const adldata adl[4139] =
 { //    ,---------+-------- Wave select settings
-  //    | ,-------÷-+------ Sustain/release rates
-  //    | | ,-----÷-÷-+---- Attack/decay rates
-  //    | | | ,---÷-÷-÷-+-- AM/VIB/EG/KSR/Multiple bits
+  //    | ,-------+-+------ Sustain/release rates
+  //    | | ,-----+-+-+---- Attack/decay rates
+  //    | | | ,---+-+-+-+-- AM/VIB/EG/KSR/Multiple bits
   //    | | | |   | | | |
   //    | | | |   | | | |     ,----+-- KSL/attenuation settings
   //    | | | |   | | | |     |    |    ,----- Feedback/connection bits
@@ -5107,7 +5107,7 @@ const struct adlinsdata adlins[4052] =
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     { 284, 284,  0, 0,  40000,    20 }, // 237: BisqM79; f13GM79; f50GM79; nemM79; Ocarina
 
-    // Amplitude begins at 2530.2, peaks 2817.4 at 1.2s,
+    // Amplitude begins at 2530.2, peaks 2817.4 at 0.8s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     { 285, 286,  0, 0,  40000,     0 }, // 238: BisqM80; b50M80; b51M80; f20GM80; f31GM80; f36GM80; f49GM80; qGM80; Lead 1 squareea; gm080
 
@@ -15091,11 +15091,11 @@ const struct adlinsdata adlins[4052] =
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     {2690,2691,  0, 0,  40000,     0 }, // 2733: f49GM30; Distorton Guitar
 
-    // Amplitude begins at 3830.4, peaks 4071.4 at 0.0s,
+    // Amplitude begins at 3830.4, peaks 4071.4 at 2.9s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     {2692,2693,  0, 0,  40000,     0 }, // 2734: f49GM31; Guitar Harmonics
 
-    // Amplitude begins at 3474.7, peaks 4071.4 at 0.6s,
+    // Amplitude begins at 3474.7, peaks 4071.4 at 5.5s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     {2694,2695,  0, 0,  40000,     0 }, // 2735: f49GM33; Electric Bass 1
 
@@ -15127,7 +15127,7 @@ const struct adlinsdata adlins[4052] =
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     { 287,2706,  0, 0,  40000,    20 }, // 2742: f49GM79; Ocarina
 
-    // Amplitude begins at 1625.0, peaks 1826.5 at 0.1s,
+    // Amplitude begins at 1625.0, peaks 1826.5 at 1.9s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     {2707,2708,  0, 0,  40000,    20 }, // 2743: f49GM85; Lead 6 voice
 
@@ -17867,7 +17867,7 @@ const struct adlinsdata adlins[4052] =
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.1s.
     {3496,3497,  0, 0,  40000,    53 }, // 3427: fat4M79; Ocarina
 
-    // Amplitude begins at 2530.2, peaks 2817.4 at 1.2s,
+    // Amplitude begins at 2530.2, peaks 2817.4 at 0.8s,
     // fades to 20% at 40.0s, keyoff fades to 20% in 0.0s.
     {3498,3499,  0, 0,  40000,     0 }, // 3428: fat4M80; Lead 1 squareea
 
