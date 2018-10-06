@@ -4,16 +4,19 @@ ARCHDIR=archives/
 NOGZIPARCHIVES=1
 
 ARCHFILES=\
-	midiplay.cc \
-	dbopl.cpp dbopl.h \
-	adldata.cc adldata.hh \
-	dumpbank.cc dumpmiles.cc \
-	gen_adldata.cc \
+	src/midiplay.cc \
+	src/dbopl.cpp src/dbopl.h \
+	src/adldata.cc src/adldata.hh \
+	src/fraction \
+	puzzlegame.inc \
+	\
+	utils/dumpbank.cc \
+	utils/dumpmiles.cc \
+	utils/gen_adldata.cc \
+	\
 	midiplay.bas \
 	progdesc.php \
 	make.rules \
-	fraction \
-	puzzlegame.inc \
 	\
 	bnk_files/drum.bnk \
 	bnk_files/file131.bnk \
@@ -99,35 +102,37 @@ INSTALLPROGS=adlmidi
 
 all: adlmidi gen_adldata dumpmiles dumpbank
 
-adlmidi: midiplay.o dbopl.o adldata.o
+adlmidi: tmp/midiplay.o tmp/dbopl.o tmp/adldata.o
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS)
 
-midiplay.o: midiplay.cc dbopl.h adldata.hh
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@ 
+tmp/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh tmp
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@
 
-dbopl.o: dbopl.cpp dbopl.h
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
+tmp/dbopl.o: src/dbopl.cpp src/dbopl.h tmp
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
-adldata.o: adldata.cc adldata.hh
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
+tmp/adldata.o: src/adldata.cc src/adldata.hh tmp
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
-gen_adldata: gen_adldata.o dbopl.o
+gen_adldata: tmp/gen_adldata.o tmp/dbopl.o
 	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
-gen_adldata.o: gen_adldata.cc dbopl.h
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
+tmp/gen_adldata.o: utils/gen_adldata.cc src/dbopl.h tmp
+	$(CXX) $(CPPFLAGS) -I./src $<  $(DEBUG)  -c -o $@
 
-dumpmiles: dumpmiles.o
+dumpmiles: tmp/dumpmiles.o
 	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
-dumpmiles.o: dumpmiles.cc
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
+tmp/dumpmiles.o: utils/dumpmiles.cc tmp
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
-dumpbank: dumpbank.o
+dumpbank: tmp/dumpbank.o
 	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
-dumpbank.o: dumpbank.cc
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@ 
+tmp/dumpbank.o: utils/dumpbank.cc tmp
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
+tmp:
+	mkdir $@
 
 include depfun.mak
