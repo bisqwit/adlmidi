@@ -10,6 +10,8 @@
 #include <map>
 #include <set>
 
+#define ADL_UNUSED(x) static_cast<void>(x)
+
 std::map<unsigned,
     std::map<unsigned, unsigned>
         > Correlate;
@@ -360,6 +362,9 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
     /*printf("version=%u %u %u %u %u\n",
         version, entries_used,total_entries,name_offset,data_offset);*/
 
+    ADL_UNUSED(version);
+    ADL_UNUSED(total_entries);
+
     for(unsigned n=0; n<entries_used; ++n)
     {
         const size_t offset1 = name_offset + n*12;
@@ -380,6 +385,8 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         const unsigned char* op2 = &data[offset2+15];
         const unsigned char waveform_mod = data[offset2+28];
         const unsigned char waveform_car = data[offset2+29];
+
+        ADL_UNUSED(mode);
 
         /*printf("%5d %3d %8s mode=%02X voice=%02X: ", data_index,usage_flag, name.c_str(),
             mode,voice_num);*/
@@ -490,6 +497,8 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
         int offset2  = *(int*)&records[offset1 + 20];
         if(used == 0) continue;
 
+        ADL_UNUSED(attrib);
+
         std::string name;
         for(unsigned p=0; p<12; ++p)
         {
@@ -511,6 +520,8 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
         unsigned char xxP24NNN = insdata[25];
         unsigned char TTTTTTTT = insdata[26];
         unsigned char xxxxxxxx = insdata[27];
+
+        ADL_UNUSED(xxxxxxxx);
 
         char name2[512];
         std::sprintf(name2, "%s%c%u", prefix, (gmno&128)?'P':'M', gmno&127);
@@ -775,6 +786,8 @@ static void LoadIBK(const char* fn, unsigned bank, const char* prefix, bool perc
         char name2[512]; std::sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
+        ADL_UNUSED(midi_index);
+
         insdata tmp;
         tmp.data[0] = data[offset2+0];
         tmp.data[1] = data[offset2+1];
@@ -940,6 +953,8 @@ static void LoadBisqwit(const char* fn, unsigned bank, const char* prefix)
                        : gmno < 128+35 ? -1
                        : gmno < 128+88 ? gmno-35
                        : -1;
+
+        ADL_UNUSED(offset);
 
         struct ins tmp2;
         tmp2.notenum = std::fgetc(fp);
@@ -1586,7 +1601,6 @@ int main()
     std::map<unsigned, std::vector<unsigned> > bank_data;
     for(unsigned bank=0; bank<bankcount; ++bank)
     {
-        bool redundant = true;
         std::vector<unsigned> data(256);
         for(unsigned p=0; p<256; ++p)
         {
