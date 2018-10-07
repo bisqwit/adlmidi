@@ -141,7 +141,7 @@ true);
         return
           (index < 160)
           ? ((index <  127) ? index - 0 : Help(index,InRecursion))
-          : ((index <  256) ? index - 33 : Help(index,InRecursion))
+          : ((index <  255) ? index - 33 : Help(index,InRecursion))
         ;
     }
     uint_least8_t operator[] (uint_least8_t index) const { return Find(index, false); }
@@ -152,8 +152,10 @@ struct font9x15: public UIfontBase
     virtual const unsigned char* GetBitmap() const { return ns_font9x15::bitmap; }
     virtual unsigned GetIndex(char32_t c) const { return ns_font9x15::unicode_to_bitmap_index[c]; }
 };
+#if 0// UNUSED. Enable back when using
 static UIfontBase* Getfont9x15()
 {
     static font9x15 f;
     return &f;
 }
+#endif
