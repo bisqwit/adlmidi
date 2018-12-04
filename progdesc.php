@@ -11,7 +11,7 @@ $text = array(
    'purpose:1. Purpose' => "
 
 <div style=\"float:right;width:542px;text-align:justify;margin-left:30px\">
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif\"
+<img src=\"https://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif\"
 alt=\"adlmidi screenshot\"
 title=\"adlmidi playing Tifa theme from FF7\">
 <br>
