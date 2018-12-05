@@ -10,6 +10,8 @@
 #include <map>
 #include <set>
 
+#define ADL_UNUSED(x) static_cast<void>(x)
+
 std::map<unsigned,
     std::map<unsigned, unsigned>
         > Correlate;
@@ -360,6 +362,9 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
     /*printf("version=%u %u %u %u %u\n",
         version, entries_used,total_entries,name_offset,data_offset);*/
 
+    ADL_UNUSED(version);
+    ADL_UNUSED(total_entries);
+
     for(unsigned n=0; n<entries_used; ++n)
     {
         const size_t offset1 = name_offset + n*12;
@@ -380,6 +385,8 @@ static void LoadBNK(const char* fn, unsigned bank, const char* prefix, bool is_f
         const unsigned char* op2 = &data[offset2+15];
         const unsigned char waveform_mod = data[offset2+28];
         const unsigned char waveform_car = data[offset2+29];
+
+        ADL_UNUSED(mode);
 
         /*printf("%5d %3d %8s mode=%02X voice=%02X: ", data_index,usage_flag, name.c_str(),
             mode,voice_num);*/
@@ -490,6 +497,8 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
         int offset2  = *(int*)&records[offset1 + 20];
         if(used == 0) continue;
 
+        ADL_UNUSED(attrib);
+
         std::string name;
         for(unsigned p=0; p<12; ++p)
         {
@@ -511,6 +520,8 @@ static void LoadBNK2(const char* fn, unsigned bank, const char* prefix,
         unsigned char xxP24NNN = insdata[25];
         unsigned char TTTTTTTT = insdata[26];
         unsigned char xxxxxxxx = insdata[27];
+
+        ADL_UNUSED(xxxxxxxx);
 
         char name2[512];
         std::sprintf(name2, "%s%c%u", prefix, (gmno&128)?'P':'M', gmno&127);
@@ -775,6 +786,8 @@ static void LoadIBK(const char* fn, unsigned bank, const char* prefix, bool perc
         char name2[512]; std::sprintf(name2, "%s%c%u", prefix,
             (gmno<128?'M':'P'), gmno&127);
 
+        ADL_UNUSED(midi_index);
+
         insdata tmp;
         tmp.data[0] = data[offset2+0];
         tmp.data[1] = data[offset2+1];
@@ -940,6 +953,8 @@ static void LoadBisqwit(const char* fn, unsigned bank, const char* prefix)
                        : gmno < 128+35 ? -1
                        : gmno < 128+88 ? gmno-35
                        : -1;
+
+        ADL_UNUSED(offset);
 
         struct ins tmp2;
         tmp2.notenum = std::fgetc(fp);
@@ -1268,104 +1283,104 @@ int main()
 ");
     size_t nosound = InsertNoSoundIns();
 
-    LoadMiles("opl_files/sc3.opl",  0, "G"); // Our "standard" bank! Same as file22.opl
+    LoadMiles("fm_banks/opl_files/sc3.opl",  0, "G"); // Our "standard" bank! Same as file22.opl
 
-    LoadBisqwit("op3_files/bisqwit.adlraw", 1, "Bisq");
+    LoadBisqwit("fm_banks/op3_files/bisqwit.adlraw", 1, "Bisq");
 
-    LoadBNK("bnk_files/melodic.bnk", 2, "HMIGM", false, false); // same as file156.bnk
-    LoadBNK("bnk_files/drum.bnk",    2, "HMIGP", false, true);
-    LoadBNK("bnk_files/intmelo.bnk", 3, "intM", false, false);
-    LoadBNK("bnk_files/intdrum.bnk", 3, "intP", false, true);
-    LoadBNK("bnk_files/hammelo.bnk", 4, "hamM", false, false);
-    LoadBNK("bnk_files/hamdrum.bnk", 4, "hamP", false, true);
-    LoadBNK("bnk_files/rickmelo.bnk",5, "rickM", false, false);
-    LoadBNK("bnk_files/rickdrum.bnk",5, "rickP", false, true);
+    LoadBNK("fm_banks/bnk_files/melodic.bnk", 2, "HMIGM", false, false); // same as file156.bnk
+    LoadBNK("fm_banks/bnk_files/drum.bnk",    2, "HMIGP", false, true);
+    LoadBNK("fm_banks/bnk_files/intmelo.bnk", 3, "intM", false, false);
+    LoadBNK("fm_banks/bnk_files/intdrum.bnk", 3, "intP", false, true);
+    LoadBNK("fm_banks/bnk_files/hammelo.bnk", 4, "hamM", false, false);
+    LoadBNK("fm_banks/bnk_files/hamdrum.bnk", 4, "hamP", false, true);
+    LoadBNK("fm_banks/bnk_files/rickmelo.bnk",5, "rickM", false, false);
+    LoadBNK("fm_banks/bnk_files/rickdrum.bnk",5, "rickP", false, true);
 
-    LoadBNK("bnk_files/d2melo.bnk",  6, "b6M", false, false);
-    LoadBNK("bnk_files/d2drum.bnk",  6, "b6P", false, true);
-    LoadBNK("bnk_files/normmelo.bnk", 7, "b7M", false, false);
-    LoadBNK("bnk_files/normdrum.bnk", 7, "b7P", false, true); // same as file122.bnk
-    LoadBNK("bnk_files/ssmelo.bnk",  8, "b8M", false, false);
-    LoadBNK("bnk_files/ssdrum.bnk",  8, "b8P", false, true);
+    LoadBNK("fm_banks/bnk_files/d2melo.bnk",  6, "b6M", false, false);
+    LoadBNK("fm_banks/bnk_files/d2drum.bnk",  6, "b6P", false, true);
+    LoadBNK("fm_banks/bnk_files/normmelo.bnk", 7, "b7M", false, false);
+    LoadBNK("fm_banks/bnk_files/normdrum.bnk", 7, "b7P", false, true); // same as file122.bnk
+    LoadBNK("fm_banks/bnk_files/ssmelo.bnk",  8, "b8M", false, false);
+    LoadBNK("fm_banks/bnk_files/ssdrum.bnk",  8, "b8P", false, true);
 
-    LoadBNK("bnk_files/file131.bnk", 9, "b9M", false, false);
-    LoadBNK("bnk_files/file132.bnk", 9, "b9P", false, true);
-    LoadBNK("bnk_files/file133.bnk", 10,"b10P", false, true);
-    LoadBNK("bnk_files/file134.bnk", 10,"b10M", false, false);
-    LoadBNK("bnk_files/file142.bnk", 11, "b11P", false, true);
-    LoadBNK("bnk_files/file143.bnk", 11, "b11M", false, false);
-    LoadBNK("bnk_files/file144.bnk", 12, "b12P", false, true);
-    LoadBNK("bnk_files/file145.bnk", 12, "b12M", false, false);
-    LoadBNK("bnk_files/file167.bnk", 13, "b13P", false, true);
-    LoadBNK("bnk_files/file168.bnk", 13, "b13M", false, false);
+    LoadBNK("fm_banks/bnk_files/file131.bnk", 9, "b9M", false, false);
+    LoadBNK("fm_banks/bnk_files/file132.bnk", 9, "b9P", false, true);
+    LoadBNK("fm_banks/bnk_files/file133.bnk", 10,"b10P", false, true);
+    LoadBNK("fm_banks/bnk_files/file134.bnk", 10,"b10M", false, false);
+    LoadBNK("fm_banks/bnk_files/file142.bnk", 11, "b11P", false, true);
+    LoadBNK("fm_banks/bnk_files/file143.bnk", 11, "b11M", false, false);
+    LoadBNK("fm_banks/bnk_files/file144.bnk", 12, "b12P", false, true);
+    LoadBNK("fm_banks/bnk_files/file145.bnk", 12, "b12M", false, false);
+    LoadBNK("fm_banks/bnk_files/file167.bnk", 13, "b13P", false, true);
+    LoadBNK("fm_banks/bnk_files/file168.bnk", 13, "b13M", false, false);
 
-    LoadDoom("doom2/genmidi.op2", 14, "dM");
-    LoadDoom("doom2/genmidi.htc", 15, "hxM"); // same as genmidi.hxn
-    LoadDoom("doom2/default.op2", 16, "mus");
+    LoadDoom("fm_banks/doom2/genmidi.op2", 14, "dM");
+    LoadDoom("fm_banks/doom2/genmidi.htc", 15, "hxM"); // same as genmidi.hxn
+    LoadDoom("fm_banks/doom2/default.op2", 16, "mus");
 
-    LoadMiles("opl_files/file17.opl", 17, "f17G");
-    LoadMiles("opl_files/warcraft.ad", 18, "sG"); // same as file44, warcraft.opl
-    LoadMiles("opl_files/file19.opl", 19, "f19G");
-    LoadMiles("opl_files/file20.opl", 20, "f20G");
-    LoadMiles("opl_files/file21.opl", 21, "f21G");
-    LoadMiles("opl_files/nemesis.opl", 22, "nem");
-    LoadMiles("opl_files/file23.opl", 23, "f23G");
-    LoadMiles("opl_files/file24.opl", 24, "f24G");
-    LoadMiles("opl_files/file25.opl", 25, "f25G");
-    LoadMiles("opl_files/file26.opl", 26, "f26G");
-    LoadMiles("opl_files/file27.opl", 27, "f27G");
-    LoadMiles("opl_files/nhlpa.opl", 28, "nhl");
-    LoadMiles("opl_files/file29.opl", 29, "f29G");
-    LoadMiles("opl_files/file30.opl", 30, "f30G");
-    LoadMiles("opl_files/file31.opl", 31, "f31G");
-    LoadMiles("opl_files/file32.opl", 32, "f32G");
-    LoadMiles("opl_files/file13.opl", 33, "f13G");
-    LoadMiles("opl_files/file34.opl", 34, "f34G");
-    LoadMiles("opl_files/file35.opl", 35, "f35G");
-    LoadMiles("opl_files/file36.opl", 36, "f36G");
-    LoadMiles("opl_files/file37.opl", 37, "f37G");
-    LoadMiles("opl_files/simfarm.opl", 38, "qG");
-    LoadMiles("opl_files/simfarm.ad", 39, "mG"); // same as file18.opl
-    LoadMiles("opl_files/file12.opl", 40, "f12G");
-    LoadMiles("opl_files/file41.opl", 41, "f41G");
-    LoadMiles("opl_files/file42.opl", 42, "f42G");
-    LoadMiles("opl_files/file47.opl", 43, "f47G");
-    LoadMiles("opl_files/file48.opl", 44, "f48G");
-    LoadMiles("opl_files/file49.opl", 45, "f49G");
-    LoadMiles("opl_files/file50.opl", 46, "f50G");
-    LoadMiles("opl_files/file53.opl", 47, "f53G");
-    LoadMiles("opl_files/file54.opl", 48, "f54G");
+    LoadMiles("fm_banks/opl_files/file17.opl", 17, "f17G");
+    LoadMiles("fm_banks/opl_files/warcraft.ad", 18, "sG"); // same as file44, warcraft.opl
+    LoadMiles("fm_banks/opl_files/file19.opl", 19, "f19G");
+    LoadMiles("fm_banks/opl_files/file20.opl", 20, "f20G");
+    LoadMiles("fm_banks/opl_files/file21.opl", 21, "f21G");
+    LoadMiles("fm_banks/opl_files/nemesis.opl", 22, "nem");
+    LoadMiles("fm_banks/opl_files/file23.opl", 23, "f23G");
+    LoadMiles("fm_banks/opl_files/file24.opl", 24, "f24G");
+    LoadMiles("fm_banks/opl_files/file25.opl", 25, "f25G");
+    LoadMiles("fm_banks/opl_files/file26.opl", 26, "f26G");
+    LoadMiles("fm_banks/opl_files/file27.opl", 27, "f27G");
+    LoadMiles("fm_banks/opl_files/nhlpa.opl", 28, "nhl");
+    LoadMiles("fm_banks/opl_files/file29.opl", 29, "f29G");
+    LoadMiles("fm_banks/opl_files/file30.opl", 30, "f30G");
+    LoadMiles("fm_banks/opl_files/file31.opl", 31, "f31G");
+    LoadMiles("fm_banks/opl_files/file32.opl", 32, "f32G");
+    LoadMiles("fm_banks/opl_files/file13.opl", 33, "f13G");
+    LoadMiles("fm_banks/opl_files/file34.opl", 34, "f34G");
+    LoadMiles("fm_banks/opl_files/file35.opl", 35, "f35G");
+    LoadMiles("fm_banks/opl_files/file36.opl", 36, "f36G");
+    LoadMiles("fm_banks/opl_files/file37.opl", 37, "f37G");
+    LoadMiles("fm_banks/opl_files/simfarm.opl", 38, "qG");
+    LoadMiles("fm_banks/opl_files/simfarm.ad", 39, "mG"); // same as file18.opl
+    LoadMiles("fm_banks/opl_files/file12.opl", 40, "f12G");
+    LoadMiles("fm_banks/opl_files/file41.opl", 41, "f41G");
+    LoadMiles("fm_banks/opl_files/file42.opl", 42, "f42G");
+    LoadMiles("fm_banks/opl_files/file47.opl", 43, "f47G");
+    LoadMiles("fm_banks/opl_files/file48.opl", 44, "f48G");
+    LoadMiles("fm_banks/opl_files/file49.opl", 45, "f49G");
+    LoadMiles("fm_banks/opl_files/file50.opl", 46, "f50G");
+    LoadMiles("fm_banks/opl_files/file53.opl", 47, "f53G");
+    LoadMiles("fm_banks/opl_files/file54.opl", 48, "f54G");
 
-    LoadMiles("opl_files/sample.ad",  49, "MG"); // same as file51.opl
-    LoadMiles("opl_files/sample.opl", 50, "oG"); // same as file40.opl
-    LoadMiles("opl_files/file15.opl", 51, "f15G");
-    LoadMiles("opl_files/file16.opl", 52, "f16G");
+    LoadMiles("fm_banks/opl_files/sample.ad",  49, "MG"); // same as file51.opl
+    LoadMiles("fm_banks/opl_files/sample.opl", 50, "oG"); // same as file40.opl
+    LoadMiles("fm_banks/opl_files/file15.opl", 51, "f15G");
+    LoadMiles("fm_banks/opl_files/file16.opl", 52, "f16G");
 
-    LoadBNK2("bnk_files/file159.bnk", 53, "b50", "gm","gps"); // fat-opl3
-    LoadBNK2("bnk_files/file159.bnk", 54, "b51", "gm","gpo");
+    LoadBNK2("fm_banks/bnk_files/file159.bnk", 53, "b50", "gm","gps"); // fat-opl3
+    LoadBNK2("fm_banks/bnk_files/file159.bnk", 54, "b51", "gm","gpo");
 
-    LoadIBK("ibk_files/soccer-genmidi.ibk", 55, "b55M", false);
-    LoadIBK("ibk_files/soccer-percs.ibk",   55, "b55P", true);
-    LoadIBK("ibk_files/game.ibk",           56, "b56", false);
-    LoadIBK("ibk_files/mt_fm.ibk",          57, "b57", false);
+    LoadIBK("fm_banks/ibk_files/soccer-genmidi.ibk", 55, "b55M", false);
+    LoadIBK("fm_banks/ibk_files/soccer-percs.ibk",   55, "b55P", true);
+    LoadIBK("fm_banks/ibk_files/game.ibk",           56, "b56", false);
+    LoadIBK("fm_banks/ibk_files/mt_fm.ibk",          57, "b57", false);
 
-    LoadJunglevision("op3_files/fat2.op3", 58, "fat2");
-    LoadJunglevision("op3_files/fat4.op3", 59, "fat4");
-    LoadJunglevision("op3_files/jv_2op.op3", 60, "b60");
-    LoadJunglevision("op3_files/wallace.op3", 61, "b61");
+    LoadJunglevision("fm_banks/op3_files/fat2.op3", 58, "fat2");
+    LoadJunglevision("fm_banks/op3_files/fat4.op3", 59, "fat4");
+    LoadJunglevision("fm_banks/op3_files/jv_2op.op3", 60, "b60");
+    LoadJunglevision("fm_banks/op3_files/wallace.op3", 61, "b61");
 
-    LoadTMB("tmb_files/d3dtimbr.tmb", 62, "duke");
-    LoadTMB("tmb_files/swtimbr.tmb",  63, "sw");
+    LoadTMB("fm_banks/tmb_files/d3dtimbr.tmb", 62, "duke");
+    LoadTMB("fm_banks/tmb_files/swtimbr.tmb",  63, "sw");
 
-    LoadDoom("raptor/genmidi.op2", 64, "rapt");
-    //LoadBNK("bnk_files/grassman1.bnk", 63, "b63", false);
-    //LoadBNK("bnk_files/grassman2.bnk", 64, "b64", false);
+    LoadDoom("fm_banks/raptor/genmidi.op2", 64, "rapt");
+    //LoadBNK("fm_banks/bnk_files/grassman1.bnk", 63, "b63", false);
+    //LoadBNK("fm_banks/bnk_files/grassman2.bnk", 64, "b64", false);
 
-    //LoadIBK("ibk_files/nitemare_3d.ibk",  65, "b65G", false); // Seems to be identical to wallace.op3 despite different format!
+    //LoadIBK("fm_banks/ibk_files/nitemare_3d.ibk",  65, "b65G", false); // Seems to be identical to wallace.op3 despite different format!
 
-    LoadTMB("tmb_files/bloodtmb.tmb", 65, "bld");
+    LoadTMB("fm_banks/tmb_files/bloodtmb.tmb", 65, "bld");
 
-    LoadEA("misc_files/cartooners-adlib-decrypted.dat", 66, "eaC");
+    LoadEA("fm_banks/misc_files/cartooners-adlib-decrypted.dat", 66, "eaC");
 
     static const char* const banknames[] =
     {// 0
@@ -1482,9 +1497,9 @@ int main()
         "} adl[] =\n"*/
         "const adldata adl[%u] =\n"
         "{ //    ,---------+-------- Wave select settings\n"
-        "  //    | ,-------÷-+------ Sustain/release rates\n"
-        "  //    | | ,-----÷-÷-+---- Attack/decay rates\n"
-        "  //    | | | ,---÷-÷-÷-+-- AM/VIB/EG/KSR/Multiple bits\n"
+        "  //    | ,-------+-+------ Sustain/release rates\n"
+        "  //    | | ,-----+-+-+---- Attack/decay rates\n"
+        "  //    | | | ,---+-+-+-+-- AM/VIB/EG/KSR/Multiple bits\n"
         "  //    | | | |   | | | |\n"
         "  //    | | | |   | | | |     ,----+-- KSL/attenuation settings\n"
         "  //    | | | |   | | | |     |    |    ,----- Feedback/connection bits\n"
@@ -1586,7 +1601,6 @@ int main()
     std::map<unsigned, std::vector<unsigned> > bank_data;
     for(unsigned bank=0; bank<bankcount; ++bank)
     {
-        bool redundant = true;
         std::vector<unsigned> data(256);
         for(unsigned p=0; p<256; ++p)
         {

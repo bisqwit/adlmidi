@@ -4,4 +4,6 @@ dumpbank
 dumpmiles
 gen_adldata
 .depend
+/tmp
+*.user*
 
