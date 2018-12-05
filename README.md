@@ -1,7 +1,7 @@
 # adlmidi
 ADLMIDI is a MIDI player that uses OPL3 emulation.
 
-![http://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif](http://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif)
+![https://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif](https://bisqwit.iki.fi/jutut/kuvat/programming_examples/midiplay.gif)
 
 ## Key features
 
