@@ -15,6 +15,7 @@
 #include <vector> // vector
 #include <deque>  // deque
 #include <cmath>  // exp, log, ceil
+#include <ctime>
 
 #include <assert.h>
 
