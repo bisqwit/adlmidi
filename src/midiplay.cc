@@ -71,8 +71,10 @@ static bool DoingInstrumentTesting = false;
 static bool QuitWithoutLooping = false;
 static bool WritePCMfile = false;
 static std::string PCMfilepath = "adlmidi.wav";
+#ifdef SUPPORT_VIDEO_OUTPUT
 static std::string VidFilepath = "adlmidi.mkv";
 static bool WriteVideoFile = false;
+#endif
 
 static bool ScaleModulators = false;
 static unsigned WindowLines = 0;
@@ -2791,6 +2793,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
         //if(std::ftell(fp) >= 48000*4*10*60)
         //    raise(SIGINT);
     }
+#ifdef SUPPORT_VIDEO_OUTPUT
     if(WriteVideoFile)
     {
         static constexpr unsigned framerate = 15;
@@ -2832,6 +2835,7 @@ static void SendStereoAudio(unsigned long count, int* samples)
             }
         }
     }
+#endif
 #ifndef __WIN32__
     AudioBuffer_lock.Unlock();
 #else
@@ -3097,7 +3101,9 @@ int main(int argc, char** argv)
             " -s Enables scaling of modulator volumes\n"
             " -nl Quit without looping\n"
             " -w [<filename>] Write WAV file rather than playing\n"
+#ifdef SUPPORT_VIDEO_OUTPUT
             " -d [<filename>] Write video file using ffmpeg\n"
+#endif
         );
         for(unsigned a=0; a<sizeof(banknames)/sizeof(*banknames); ++a)
             std::printf("%10s%2u = %s\n",
@@ -3154,6 +3160,7 @@ int main(int argc, char** argv)
         }
         else if(!std::strcmp("-d", argv[2]))
         {
+#ifdef SUPPORT_VIDEO_OUTPUT
             WriteVideoFile = true;
             if (argc > 3 && argv[3][0] != '\0' && (argv[3][0] != '-' || argv[3][1] == '\0'))
             {
@@ -3164,6 +3171,9 @@ int main(int argc, char** argv)
                     had_option  = true;
                 }
             }
+#else
+            std::fprintf(stderr, "Video output not enabled at compilation time; -d option ignored\n");
+#endif
         }
         else if(!std::strcmp("-s", argv[2]))
             ScaleModulators = true;
