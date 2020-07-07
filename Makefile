@@ -18,7 +18,7 @@ LDLIBS   += $(shell pkg-config --libs sdl2)
 
 #LDLIBS += -lwinmm
 
-CPPFLAGS += -std=c++1y -pedantic -Wall -Wextra
+CPPFLAGS += -std=c++14 -pedantic -Wall -Wextra
 
 include make.rules
 
