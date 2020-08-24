@@ -63,6 +63,9 @@ static unsigned NumCards   = 2;
 static bool HighTremoloMode   = false;
 static bool HighVibratoMode   = false;
 static bool AdlPercussionMode = false;
+#ifndef __DJGPP__
+static bool ReverbIsOn = true;
+#endif
 static bool LogarithmicVolumes = false;
 static bool CartoonersVolumes = false;
 static bool QuitFlag = false, FakeDOSshell = false;
@@ -2703,27 +2706,6 @@ static void SendStereoAudio(unsigned long count, int* samples)
     return;}
 #endif
 
-    // Convert input to float format
-    std::vector<float> dry[2];
-    for(unsigned w=0; w<2; ++w)
-    {
-        dry[w].resize(count);
-        float a = average_flt[w];
-        for(unsigned long p = 0; p < count; ++p)
-        {
-            int   s = samples[p*2+w];
-            dry[w][p] = (s - a) * double(0.3/32768.0);
-        }
-        // ^  Note: ftree-vectorize causes an error in this loop on g++-4.4.5
-        reverb_data.chan[w].input_fifo.insert(
-        reverb_data.chan[w].input_fifo.end(),
-            dry[w].begin(), dry[w].end());
-    }
-    // Reverbify it
-    for(unsigned w=0; w<2; ++w)
-        reverb_data.chan[w].Process(count);
-
-    // Convert to signed 16-bit int format and put to playback queue
 #ifdef __WIN32__
     std::vector<short> AudioBuffer(count*2);
     const size_t pos = 0;
@@ -2732,17 +2714,52 @@ static void SendStereoAudio(unsigned long count, int* samples)
     size_t pos = AudioBuffer.size();
     AudioBuffer.resize(pos + count*2);
 #endif
-    for(unsigned long p = 0; p < count; ++p)
+
+    if(ReverbIsOn)
+    {
+        // Convert input to float format
+        std::vector<float> dry[2];
         for(unsigned w=0; w<2; ++w)
         {
-            float out = ((1 - reverb_data.wetonly) * dry[w][p] +
-                .5 * (reverb_data.chan[0].out[w][p]
-                    + reverb_data.chan[1].out[w][p])) * 32768.0f
-                 + average_flt[w];
-            AudioBuffer[pos+p*2+w] =
-                out<-32768.f ? -32768 :
-                out>32767.f ?  32767 : out;
+            dry[w].resize(count);
+            float a = average_flt[w];
+            for(unsigned long p = 0; p < count; ++p)
+            {
+                int   s = samples[p*2+w];
+                dry[w][p] = (s - a) * double(0.3/32768.0);
+            }
+            // ^  Note: ftree-vectorize causes an error in this loop on g++-4.4.5
+            reverb_data.chan[w].input_fifo.insert(
+            reverb_data.chan[w].input_fifo.end(),
+                dry[w].begin(), dry[w].end());
         }
+        // Reverbify it
+        for(unsigned w=0; w<2; ++w)
+            reverb_data.chan[w].Process(count);
+
+        // Convert to signed 16-bit int format and put to playback queue
+        for(unsigned long p = 0; p < count; ++p)
+            for(unsigned w=0; w<2; ++w)
+            {
+                float out = ((1 - reverb_data.wetonly) * dry[w][p] +
+                    .5 * (reverb_data.chan[0].out[w][p]
+                        + reverb_data.chan[1].out[w][p])) * 32768.0f
+                     + average_flt[w];
+                AudioBuffer[pos+p*2+w] =
+                    out<-32768.f ? -32768 :
+                    out>32767.f ?  32767 : out;
+            }
+    }
+    else
+    {
+        for(unsigned long p = 0; p < count; ++p)
+            for(unsigned w = 0; w < 2; ++w)
+            {
+                AudioBuffer[pos + p * 2 + w] = samples[p * 2 + w];
+            }
+    }
+
+
     if(WritePCMfile)
     {
         /* HACK: Cheat on DOSBox recording: Record audio separately on Windows. */
@@ -3100,6 +3117,9 @@ int main(int argc, char** argv)
             " -v Enables vibrato amplification mode\n"
             " -s Enables scaling of modulator volumes\n"
             " -nl Quit without looping\n"
+#ifndef __DJGPP__
+            " -nr Disables the reverb effect\n"
+#endif
             " -w [<filename>] Write WAV file rather than playing\n"
 #ifdef SUPPORT_VIDEO_OUTPUT
             " -d [<filename>] Write video file using ffmpeg\n"
@@ -3178,6 +3198,10 @@ int main(int argc, char** argv)
         }
         else if(!std::strcmp("-s", argv[2]))
             ScaleModulators = true;
+#ifndef __DJGPP__
+        else if(!std::strcmp("-nr", argv[2]))
+            ReverbIsOn = false;
+#endif
         else break;
 
         std::copy(argv + (had_option ? 4 : 3), argv + argc,
