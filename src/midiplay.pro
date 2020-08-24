@@ -16,16 +16,18 @@ win32:{
 }
 INCLUDEPATH += $$PWD/include/
 
+DEFINES += SUPPORT_VIDEO_OUTPUT SUPPORT_PUZZLE_GAME
+
 TARGET = adlmidi
 
 SOURCES += \
     adldata.cc \
     adlinput.cc \
+    adlui.cc \
     dbopl.cpp \
     midiplay.cc
 
 HEADERS += \
-    ../include/adlinput.h \
     adldata.hh \
     adlpriv.hh \
     dbopl.h \
@@ -34,4 +36,6 @@ HEADERS += \
     6x9.inc \
     8x16.inc \
     9x15.inc \
-    ../include/adlcpp.h
+    ../include/adlcpp.h \
+    ../include/adlinput.h \
+    ../include/adlui.h

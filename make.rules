@@ -8,6 +8,7 @@ ARCHFILES=\
 	src/midiplay.cc \
 	src/adlpriv.hh \
 	src/adlinput.cc include/adlinput.h \
+	src/adlui.cc include/adlui.h \
 	src/dbopl.cpp src/dbopl.h \
 	src/adldata.cc src/adldata.hh \
 	src/fraction \
@@ -106,11 +107,11 @@ ARCHFILES=\
 
 INSTALLPROGS=adlmidi
 
-CPPFLAGS += -I./include/ -DADLMIDI_BUILD
+CPPFLAGS += -I./include/ -DADLMIDI_BUILD -DSUPPORT_VIDEO_OUTPUT -DSUPPORT_PUZZLE_GAME
 
 all: adlmidi gen_adldata dumpmiles dumpbank
 
-adlmidi: obj/midiplay.o obj/dbopl.o obj/adldata.o obj/adlinput.o
+adlmidi: obj/midiplay.o obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS)
 
 obj/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh
@@ -123,6 +124,9 @@ obj/adldata.o: src/adldata.cc src/adldata.hh
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
 obj/adlinput.o: src/adlinput.cc include/adlinput.h
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
+
+obj/adlui.o: src/adlui.cc include/adlui.h
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
 gen_adldata: obj/gen_adldata.o obj/dbopl.o
