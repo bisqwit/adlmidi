@@ -14,6 +14,7 @@ LIBS += -fopenmp
 win32:{
     LIBS += -lwinmm -static-libgcc -static-libstdc++ -static -lpthread
 }
+INCLUDEPATH += $$PWD/include/
 
 TARGET = adlmidi
 
@@ -24,9 +25,11 @@ SOURCES += \
 
 HEADERS += \
     adldata.hh \
+    adlpriv.hh \
     dbopl.h \
     fraction \
     puzzlegame.inc \
     6x9.inc \
     8x16.inc \
-    9x15.inc
+    9x15.inc \
+    ../include/adlcpp.h
