@@ -6,7 +6,9 @@ NOGZIPARCHIVES=1
 ARCHFILES=\
 	include/adlcpp.h \
 	src/midiplay.cc \
-	src/dbopl.cpp src/dbopl.h src/adlpriv.hh \
+	src/adlpriv.hh \
+	src/adlinput.cc include/adlinput.h \
+	src/dbopl.cpp src/dbopl.h \
 	src/adldata.cc src/adldata.hh \
 	src/fraction \
 	src/puzzlegame.inc \
@@ -104,11 +106,11 @@ ARCHFILES=\
 
 INSTALLPROGS=adlmidi
 
-CPPFLAGS += -I./include/
+CPPFLAGS += -I./include/ -DADLMIDI_BUILD
 
 all: adlmidi gen_adldata dumpmiles dumpbank
 
-adlmidi: obj/midiplay.o obj/dbopl.o obj/adldata.o
+adlmidi: obj/midiplay.o obj/dbopl.o obj/adldata.o obj/adlinput.o
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS)
 
 obj/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh
@@ -118,6 +120,9 @@ obj/dbopl.o: src/dbopl.cpp src/dbopl.h
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
 obj/adldata.o: src/adldata.cc src/adldata.hh
+	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
+
+obj/adlinput.o: src/adlinput.cc include/adlinput.h
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
 gen_adldata: obj/gen_adldata.o obj/dbopl.o

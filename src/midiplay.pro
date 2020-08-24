@@ -20,10 +20,12 @@ TARGET = adlmidi
 
 SOURCES += \
     adldata.cc \
+    adlinput.cc \
     dbopl.cpp \
     midiplay.cc
 
 HEADERS += \
+    ../include/adlinput.h \
     adldata.hh \
     adlpriv.hh \
     dbopl.h \
