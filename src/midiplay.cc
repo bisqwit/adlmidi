@@ -2431,9 +2431,9 @@ struct Reverb /* This reverb implementation is based on Freeverb impl. in Sox */
     std::deque<float> input_fifo;
 
     void Create(double sample_rate_Hz,
-        double wet_gain_dB,
-        double room_scale, double reverberance, double fhf_damping, /* 0..1 */
-        double pre_delay_s, double stereo_depth,
+        float wet_gain_dB,
+        float room_scale, float reverberance, float fhf_damping, /* 0..1 */
+        float pre_delay_s, float stereo_depth,
         size_t buffer_size)
     {
         size_t delay = pre_delay_s  * sample_rate_Hz + .5;
@@ -2461,24 +2461,115 @@ struct Reverb /* This reverb implementation is based on Freeverb impl. in Sox */
         input_fifo.erase(input_fifo.begin(), input_fifo.begin() + length);
     }
 };
+static union ReverbSpecs
+{
+    float array[7];
+    struct byname
+    {
+        float do_reverb    = 1.0f; // boolean...
+        float wet_gain_db  = 6.0f; // wet_gain_dB  (-10..10)
+        float room_scale   = 0.7f; // room_scale   (0..1)
+        float reverberance = 0.6f; // reverberance (0..1)
+        float hf_damping   = 0.8f; // hf_damping   (0..1)
+        float pre_delay_s  = 0.f;   // pre_delay_s  (0.. 0.5)
+        float stereo_depth = 1.f;   // stereo_depth (0..1)
+    } byname = {1.f, 6.f, .7f, .6f, .8f, 0.f, 1.f};
+} ReverbSpecs;
 static struct MyReverbData
 {
-    bool wetonly;
+    float  wetonly;
     Reverb chan[2];
 
-    MyReverbData() : wetonly(false)
+    MyReverbData()
     {
-        for(size_t i=0; i<2; ++i)
+        ReInit();
+    }
+    void ReInit()
+    {
+        wetonly = ReverbSpecs.byname.do_reverb;
+        for(std::size_t i=0; i<2; ++i)
+        {
             chan[i].Create(PCM_RATE,
-                6.0,  // wet_gain_dB  (-10..10)
-                .7,   // room_scale   (0..1)
-                .6,   // reverberance (0..1)
-                .8,   // hf_damping   (0..1)
-                .000, // pre_delay_s  (0.. 0.5)
-                1,   // stereo_depth (0..1)
+                ReverbSpecs.byname.wet_gain_db,
+                ReverbSpecs.byname.room_scale,
+                ReverbSpecs.byname.reverberance,
+                ReverbSpecs.byname.hf_damping,
+                ReverbSpecs.byname.pre_delay_s,
+                ReverbSpecs.byname.stereo_depth,
                 MaxSamplesAtTime);
+        }
     }
 } reverb_data;
+
+static void ParseReverb(std::string_view specs)
+{
+    while(!specs.empty())
+    {
+        std::size_t colon = specs.find(':');
+        if(colon == 0)
+        {
+            specs.remove_prefix(1);
+            continue;
+        }
+        if(colon == specs.npos)
+        {
+            colon = specs.size();
+        }
+        std::string_view term(&specs[0], colon);
+        if(!term.empty())
+        {
+            std::size_t eq = specs.find('=');
+            std::size_t key_end     = (eq == specs.npos) ? specs.size() : eq;
+            std::size_t value_begin = (eq == specs.npos) ? specs.size() : (eq+1);
+            std::string_view key(&term[0], key_end);
+            std::string_view value(&term[value_begin], term.size()-value_begin);
+            float floatvalue = std::strtof(&value[0], nullptr); // FIXME: Requires specs to be nul-terminated
+            //if(!value.empty())
+            //    std::from_chars(&value[0], &value[value.size()], floatvalue); // Not implemented in GCC
+
+            // Create a hash of the key
+            //Good: start=0x266191FB6907,mul=0x1,add=0x3238000,perm=0xF3B47F00, mod=21,shift=12   distance = 21  min=0 max=20
+            std::uint_fast64_t a=0xF5A9AADABAC7, b=0xC08F0800, c=0xA06C000, d=0x336A683E37B6, result=a + d*key.size();
+            unsigned mod=19, shift=3;
+            for(unsigned char ch: key)
+            {
+                result += ch;
+                result = (result ^ (result >> (1 + 1 * ((shift>>0) & 7)))) * b;
+                result = (result ^ (result >> (1 + 1 * ((shift>>3) & 7)))) * c;
+            }
+            unsigned index = result % mod;
+            // switch(index) {
+            // case 0: index = 2; break; // room, room_scale, scale, room-scale, roomscale
+            // case 1: index = 1; break; // g
+            // case 2: index = 6; break; // stereo, depth, stereo_depth, stereo-depth, stereodepth, width, s
+            // case 3: index = 3; break; // reverberance, factor, f
+            // case 4: index = 0; break; // none, off
+            // case 5: index = 0; break; // false
+            // case 6: index = 4; break; // hf, hf_damping, hf-damping, damping, dampening
+            // case 7: index = 0; break; // no
+            // case 8: index = 6; break; // wide
+            // case 9: index = 5; break; // delay, pre_delay, pre-delay, predelay, seconds, wait
+            // case 10: index = 4; break; // damp, d
+            // case 11: index = 1; break; // gain, wet_gain, wetgain, wet
+            // case 13: index = 2; break; // r
+            // case 15: index = 3; break; // amount
+            // case 16: index = 3; break; // reverb
+            // case 18: index = 5; break; // w
+            // }
+            index = (05733727145604003612 >> (index * 3)) & 7;
+            if(index < 7) ReverbSpecs.array[index] = floatvalue;
+        }
+        specs.remove_prefix(colon);
+    }
+    std::fprintf(stderr, "Reverb settings: Wet-dry=%g gain=%g room=%g reverb=%g damping=%g delay=%g stereo=%g\n",
+        ReverbSpecs.array[0],
+        ReverbSpecs.byname.wet_gain_db,
+        ReverbSpecs.byname.room_scale,
+        ReverbSpecs.byname.reverberance,
+        ReverbSpecs.byname.hf_damping,
+        ReverbSpecs.byname.pre_delay_s,
+        ReverbSpecs.byname.stereo_depth);
+}
 
 #ifdef __WIN32__
 namespace WindowsAudio
@@ -2736,8 +2827,10 @@ static void SendStereoAudio(unsigned long count, int* samples)
         for(unsigned w=0; w<2; ++w)
         {
             float out = ((1 - reverb_data.wetonly) * dry[w][p] +
+                          reverb_data.wetonly * (
                 .5 * (reverb_data.chan[0].out[w][p]
-                    + reverb_data.chan[1].out[w][p])) * 32768.0f
+                    + reverb_data.chan[1].out[w][p]))
+                        ) * 32768.0f
                  + average_flt[w];
             AudioBuffer[pos+p*2+w] =
                 out<-32768.f ? -32768 :
@@ -3095,11 +3188,15 @@ int main(int argc, char** argv)
         std::printf(
             "Usage: adlmidi <midifilename> [ <options> ] [ <banknumber> [ <numcards> [ <numfourops>] ] ]\n"
             "       adlmidi <midifilename> -1   To enter instrument tester\n"
-            " -p Enables adlib percussion instrument mode (use with CMF files)\n"
-            " -t Enables tremolo amplification mode\n"
-            " -v Enables vibrato amplification mode\n"
-            " -s Enables scaling of modulator volumes\n"
-            " -nl Quit without looping\n"
+            " -p              Enables adlib percussion instrument mode (use with CMF files)\n"
+            " -t              Enables tremolo amplification mode\n"
+            " -v              Enables vibrato amplification mode\n"
+            " -s              Enables scaling of modulator volumes\n"
+            " -nl             Quit without looping\n"
+#ifndef __DJGPP__
+            " -reverb <specs> Controls reverb (default: gain=6:room=.7:factor=.6:damping=.8:predelay=0:stereo=1)\n"
+            " -reverb none    Disables reverb (also -nr)\n"
+#endif
             " -w [<filename>] Write WAV file rather than playing\n"
 #ifdef SUPPORT_VIDEO_OUTPUT
             " -d [<filename>] Write video file using ffmpeg\n"
@@ -3142,6 +3239,15 @@ int main(int argc, char** argv)
             HighTremoloMode = true;
         else if(!std::strcmp("-nl", argv[2]))
             QuitWithoutLooping = true;
+#ifndef __DJGPP__
+        else if(!std::strcmp("-nr", argv[2]))
+            ParseReverb("none");
+        else if(!std::strcmp("-reverb", argv[2]))
+        {
+            ParseReverb(argv[3]);
+            had_option = true;
+        }
+#endif
         else if(!std::strcmp("-w", argv[2]))
         {
             WritePCMfile = true;
@@ -3320,6 +3426,7 @@ int main(int argc, char** argv)
 
     const double mindelay = 1 / (double)PCM_RATE;
     const double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
+    reverb_data.ReInit();
 
 #ifdef __WIN32
     WindowsAudio::Open(PCM_RATE, 2, 16);
@@ -3448,7 +3555,6 @@ int main(int argc, char** argv)
 #endif
 
 #endif /* djgpp */
-
     if(FakeDOSshell)
     {
         fprintf(stderr,
