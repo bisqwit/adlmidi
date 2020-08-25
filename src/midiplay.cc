@@ -1015,7 +1015,7 @@ int main(int argc, char** argv)
         {
             if(NumCards == 1)
             {
-                player.opl.cards[0].Generate(0, SendStereoAudio, n_samples);
+                player.Generate(0, 0, SendStereoAudio, n_samples);
             }
             else if(n_samples > 0)
             {
@@ -1033,7 +1033,7 @@ int main(int argc, char** argv)
                 };
                 for(unsigned card = 0; card < NumCards; ++card)
                 {
-                    player.opl.cards[card].Generate(
+                    player.Generate(card,
                         0,
                         Mix::AddStereoAudio,
                         n_samples);

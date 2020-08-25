@@ -7,10 +7,11 @@
 #include "../include/adlplay.h"
 #include "../include/adlcpp.h"
 #include "../include/adlui.h"
+#include "../include/adlinput.h"
 
 
 extern ADL_UserInterface UI;
-extern ADL_UserInterface Input;
+extern ADL_Input Input;
 
 
 static const unsigned short Operators[23*2] =
@@ -291,13 +292,13 @@ void OPL3::Silence() // Silence all OPL channels.
 void OPL3::Reset()
 {
 #ifndef __DJGPP__
-    for(unsigned card=0; card<NumCards; ++card)
+    for(unsigned card=0; card<cards.size(); ++card)
     {
         delete cards[card];
         cards[card] = nullptr;
     }
     cards.resize(NumCards);
-    for(unsigned card=0; card<NumCards; ++card)
+    for(unsigned card=0; card<cards.size(); ++card)
     {
         cards[card] = new DBOPL::Handler;
     }
@@ -1574,6 +1575,14 @@ retry_arpeggio:;
             }
         }
     }
+}
+
+void MIDIplay::Generate(int card,
+                        void (*AddSamples_m32)(unsigned long, int32_t *),
+                        void (*AddSamples_s32)(unsigned long, int32_t *),
+                        unsigned long samples)
+{
+    opl.cards[card]->Generate(AddSamples_m32, AddSamples_s32, samples);
 }
 
 unsigned MIDIplay::ChooseDevice(const std::string &name)
