@@ -25,6 +25,7 @@ private:
     std::vector<unsigned char> regBD;
 
 public:
+    ~OPL3();
     std::vector<char> four_op_category; // 1 = quad-master, 2 = quad-slave, 0 = regular
                                         // 3 = percussion BassDrum
                                         // 4 = percussion Snare

@@ -119,6 +119,18 @@ static const adldata& GetAdlIns(unsigned short insno)
 
 
 
+OPL3::~OPL3()
+{
+#ifndef __DJGPP__
+    for(unsigned card=0; card<cards.size(); ++card)
+    {
+        delete cards[card];
+        cards[card] = nullptr;
+    }
+    cards.clear();
+#endif
+}
+
 void OPL3::Poke(unsigned card, unsigned index, unsigned value)
 {
 #ifdef __DJGPP__
