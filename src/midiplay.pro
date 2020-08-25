@@ -23,6 +23,7 @@ TARGET = adlmidi
 SOURCES += \
     adldata.cc \
     adlinput.cc \
+    adlplay.cc \
     adlui.cc \
     dbopl.cpp \
     midiplay.cc
@@ -31,11 +32,11 @@ HEADERS += \
     adldata.hh \
     adlpriv.hh \
     dbopl.h \
-    fraction \
     puzzlegame.inc \
     6x9.inc \
     8x16.inc \
     9x15.inc \
     ../include/adlcpp.h \
     ../include/adlinput.h \
-    ../include/adlui.h
+    ../include/adlui.h \
+    ../include/fraction.hpp
