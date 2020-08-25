@@ -652,7 +652,7 @@ static void TidyupAndExit(int)
     UI.Color(7);
     std::fflush(stderr);
     signal(SIGINT, SIG_DFL);
-    raise(SIGINT);
+    QuitFlag = true;
 }
 
 #ifdef __WIN32__
