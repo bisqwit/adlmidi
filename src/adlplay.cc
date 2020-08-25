@@ -6,12 +6,16 @@
 # include <dos.h>
 #endif
 
+#ifndef __DJGPP__
 #include "dbopl.h"
+#endif
+
 #include "adldata.hh"
 #include "../include/adlplay.h"
 #include "../include/adlcpp.h"
 #include "../include/adlui.h"
 #include "../include/adlinput.h"
+#include "adlpriv.hh"
 
 
 extern ADL_UserInterface UI;
@@ -102,7 +106,7 @@ static const char PercussionMap[256] =
 static std::vector<adlinsdata> dynamic_metainstruments; // Replaces adlins[] when CMF file
 static std::vector<adldata>    dynamic_instruments;     // Replaces adl[]    when CMF file
 static const unsigned DynamicInstrumentTag = 0x8000u, DynamicMetaInstrumentTag = 0x4000000u;
-const adlinsdata& GetAdlMetaIns(unsigned n)
+static const adlinsdata& GetAdlMetaIns(unsigned n)
 {
     return (n & DynamicMetaInstrumentTag)
         ? dynamic_metainstruments[n & ~DynamicMetaInstrumentTag]
@@ -123,7 +127,7 @@ static const adldata& GetAdlIns(unsigned short insno)
 
 
 
-OPL3::~OPL3()
+ADLMIDI_EXPORT OPL3::~OPL3()
 {
 #ifndef __DJGPP__
     for(unsigned card=0; card<cards.size(); ++card)
@@ -135,7 +139,7 @@ OPL3::~OPL3()
 #endif
 }
 
-void OPL3::Poke(unsigned card, unsigned index, unsigned value)
+ADLMIDI_EXPORT void OPL3::Poke(unsigned card, unsigned index, unsigned value)
 {
 #ifdef __DJGPP__
     unsigned o = index >> 8;
@@ -149,7 +153,7 @@ void OPL3::Poke(unsigned card, unsigned index, unsigned value)
 #endif
 }
 
-void OPL3::NoteOff(unsigned c)
+ADLMIDI_EXPORT void OPL3::NoteOff(unsigned c)
 {
     unsigned card = c/23, cc = c%23;
     if(cc >= 18)
@@ -161,7 +165,7 @@ void OPL3::NoteOff(unsigned c)
     Poke(card, 0xB0 + Channels[cc], pit[c] & 0xDF);
 }
 
-void OPL3::NoteOn(unsigned c, double hertz) // Hertz range: 0..131071
+ADLMIDI_EXPORT void OPL3::NoteOn(unsigned c, double hertz) // Hertz range: 0..131071
 {
     unsigned card = c/23, cc = c%23;
     unsigned x = 0x2000;
@@ -185,7 +189,7 @@ void OPL3::NoteOn(unsigned c, double hertz) // Hertz range: 0..131071
     }
 }
 
-void OPL3::Touch_Real(unsigned c, unsigned volume)
+ADLMIDI_EXPORT void OPL3::Touch_Real(unsigned c, unsigned volume)
 {
     if(volume > 63) volume = 63;
     unsigned card = c/23, cc = c%23;
@@ -258,7 +262,7 @@ void OPL3::Touch_Real(unsigned c, unsigned volume)
     //   63 + chanvol * (instrvol / 63.0 - 1)
 }
 
-void OPL3::Touch(unsigned c, unsigned volume) // Volume maxes at 127*127*127
+ADLMIDI_EXPORT void OPL3::Touch(unsigned c, unsigned volume) // Volume maxes at 127*127*127
 {
     // Produce a value in 0-63 range
     if(LogarithmicVolumes)
@@ -275,7 +279,7 @@ void OPL3::Touch(unsigned c, unsigned volume) // Volume maxes at 127*127*127
     }
 }
 
-void OPL3::Patch(unsigned c, unsigned i)
+ADLMIDI_EXPORT void OPL3::Patch(unsigned c, unsigned i)
 {
     unsigned card = c/23, cc = c%23;
     static const unsigned char data[4] = {0x20,0x60,0x80,0xE0};
@@ -293,19 +297,19 @@ void OPL3::Patch(unsigned c, unsigned i)
     }
 }
 
-void OPL3::Pan(unsigned c, unsigned value)
+ADLMIDI_EXPORT void OPL3::Pan(unsigned c, unsigned value)
 {
     unsigned card = c/23, cc = c%23;
     if(Channels[cc] != 0xFFF)
         Poke(card, 0xC0 + Channels[cc], GetAdlIns(ins[c]).feedconn | value);
 }
 
-void OPL3::Silence() // Silence all OPL channels.
+ADLMIDI_EXPORT void OPL3::Silence() // Silence all OPL channels.
 {
     for(unsigned c=0; c<NumChannels; ++c) { NoteOff(c); Touch_Real(c,0); }
 }
 
-void OPL3::Reset()
+ADLMIDI_EXPORT void OPL3::Reset()
 {
 #ifndef __DJGPP__
     for(unsigned card=0; card<cards.size(); ++card)
@@ -421,9 +425,9 @@ void OPL3::Reset()
 
 
 
-MIDIplay::AdlChannel::AdlChannel(): users(), koff_time_until_neglible(0) { }
+ADLMIDI_EXPORT MIDIplay::AdlChannel::AdlChannel(): users(), koff_time_until_neglible(0) { }
 
-void MIDIplay::AdlChannel::AddAge(long ms)
+ADLMIDI_EXPORT void MIDIplay::AdlChannel::AddAge(long ms)
 {
     if(users.empty())
         koff_time_until_neglible =
@@ -440,7 +444,7 @@ void MIDIplay::AdlChannel::AddAge(long ms)
     }
 }
 
-MIDIplay::MIDIchannel::MIDIchannel()
+ADLMIDI_EXPORT MIDIplay::MIDIchannel::MIDIchannel()
     : portamento(0),
       bank_lsb(0), bank_msb(0), patch(0),
       volume(100),expression(100),
@@ -451,17 +455,17 @@ MIDIplay::MIDIchannel::MIDIchannel()
       lastlrpn(0),lastmrpn(0),nrpn(false),
       activenotes() { }
 
-MIDIplay::Position::TrackInfo::TrackInfo(): ptr(0), delay(0), status(0) { }
+ADLMIDI_EXPORT MIDIplay::Position::TrackInfo::TrackInfo(): ptr(0), delay(0), status(0) { }
 
-MIDIplay::Position::Position(): began(false), wait(0.0), track() { }
+ADLMIDI_EXPORT MIDIplay::Position::Position(): began(false), wait(0.0), track() { }
 
-bool MIDIplay::AdlChannel::Location::operator==(const MIDIplay::AdlChannel::Location &b) const
+ADLMIDI_EXPORT bool MIDIplay::AdlChannel::Location::operator==(const MIDIplay::AdlChannel::Location &b) const
 { return MidCh==b.MidCh && note==b.note; }
 
-bool MIDIplay::AdlChannel::Location::operator<(const MIDIplay::AdlChannel::Location &b) const
+ADLMIDI_EXPORT bool MIDIplay::AdlChannel::Location::operator<(const MIDIplay::AdlChannel::Location &b) const
 { return MidCh<b.MidCh || (MidCh==b.MidCh&& note<b.note); }
 
-unsigned long MIDIplay::ReadBEint(const void *buffer, unsigned nbytes)
+ADLMIDI_EXPORT unsigned long MIDIplay::ReadBEint(const void *buffer, unsigned nbytes)
 {
     unsigned long result=0;
     const unsigned char* data = (const unsigned char*) buffer;
@@ -470,7 +474,7 @@ unsigned long MIDIplay::ReadBEint(const void *buffer, unsigned nbytes)
     return result;
 }
 
-unsigned long MIDIplay::ReadLEint(const void *buffer, unsigned nbytes)
+ADLMIDI_EXPORT unsigned long MIDIplay::ReadLEint(const void *buffer, unsigned nbytes)
 {
     unsigned long result=0;
     const unsigned char* data = (const unsigned char*) buffer;
@@ -479,7 +483,7 @@ unsigned long MIDIplay::ReadLEint(const void *buffer, unsigned nbytes)
     return result;
 }
 
-unsigned long MIDIplay::ReadVarLen(unsigned tk)
+ADLMIDI_EXPORT unsigned long MIDIplay::ReadVarLen(unsigned tk)
 {
     unsigned long result = 0;
     for(;;)
@@ -491,7 +495,7 @@ unsigned long MIDIplay::ReadVarLen(unsigned tk)
     return result;
 }
 
-bool MIDIplay::LoadMIDI(const std::string &filename)
+ADLMIDI_EXPORT bool MIDIplay::LoadMIDI(const std::string &filename)
 {
     std::FILE* fp = std::fopen(filename.c_str(), "rb");
     if(!fp) { std::fprintf(stderr, "\n"); std::perror(filename.c_str()); return false; }
@@ -736,7 +740,7 @@ not_imf:
     return true;
 }
 
-double MIDIplay::Tick(double s, double granularity)
+ADLMIDI_EXPORT double MIDIplay::Tick(double s, double granularity)
 {
     if(CurrentPosition.began) CurrentPosition.wait -= s;
     while(CurrentPosition.wait <= granularity * 0.5)
@@ -753,7 +757,7 @@ double MIDIplay::Tick(double s, double granularity)
     return CurrentPosition.wait;
 }
 
-void MIDIplay::NoteUpdate(unsigned MidCh, MIDIplay::MIDIchannel::activenoteiterator i, unsigned props_mask, int select_adlchn)
+ADLMIDI_EXPORT void MIDIplay::NoteUpdate(unsigned MidCh, MIDIplay::MIDIchannel::activenoteiterator i, unsigned props_mask, int select_adlchn)
 {
     MIDIchannel::NoteInfo& info = i->second;
     const int tone    = info.tone;
@@ -861,7 +865,7 @@ void MIDIplay::NoteUpdate(unsigned MidCh, MIDIplay::MIDIchannel::activenoteitera
         Ch[MidCh].activenotes.erase(i);
 }
 
-void MIDIplay::ProcessEvents()
+ADLMIDI_EXPORT void MIDIplay::ProcessEvents()
 {
     loopEnd = false;
     const size_t TrackCount = TrackData.size();
@@ -925,7 +929,7 @@ void MIDIplay::ProcessEvents()
     }
 }
 
-void MIDIplay::HandleEvent(size_t tk)
+ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
 {
     unsigned char byte = TrackData[tk][CurrentPosition.track[tk].ptr++];
     if(byte == 0xF7 || byte == 0xF0) // Ignore SysEx
@@ -1270,7 +1274,7 @@ void MIDIplay::HandleEvent(size_t tk)
     }
 }
 
-long MIDIplay::CalculateAdlChannelGoodness(unsigned c, unsigned ins, unsigned) const
+ADLMIDI_EXPORT long MIDIplay::CalculateAdlChannelGoodness(unsigned c, unsigned ins, unsigned) const
 {
     long s = -ch[c].koff_time_until_neglible;
 
@@ -1338,7 +1342,7 @@ long MIDIplay::CalculateAdlChannelGoodness(unsigned c, unsigned ins, unsigned) c
     return s;
 }
 
-void MIDIplay::PrepareAdlChannelForNewNote(int c, int ins)
+ADLMIDI_EXPORT void MIDIplay::PrepareAdlChannelForNewNote(int c, int ins)
 {
     if(ch[c].users.empty()) return; // Nothing to do
     //bool doing_arpeggio = false;
@@ -1382,6 +1386,7 @@ void MIDIplay::PrepareAdlChannelForNewNote(int c, int ins)
         opl.NoteOff(c);
 }
 
+ADLMIDI_EXPORT
 void MIDIplay::KillOrEvacuate(unsigned from_channel,
                               AdlChannel::users_t::iterator j,
                               MIDIplay::MIDIchannel::activenoteiterator i)
@@ -1441,7 +1446,7 @@ void MIDIplay::KillOrEvacuate(unsigned from_channel,
                from_channel);
 }
 
-void MIDIplay::KillSustainingNotes(int MidCh, int this_adlchn)
+ADLMIDI_EXPORT void MIDIplay::KillSustainingNotes(int MidCh, int this_adlchn)
 {
     unsigned first=0, last=opl.NumChannels;
     if(this_adlchn >= 0) { first=this_adlchn; last=first+1; }
@@ -1468,7 +1473,7 @@ void MIDIplay::KillSustainingNotes(int MidCh, int this_adlchn)
     }
 }
 
-void MIDIplay::SetRPN(unsigned MidCh, unsigned value, bool MSB)
+ADLMIDI_EXPORT void MIDIplay::SetRPN(unsigned MidCh, unsigned value, bool MSB)
 {
     bool nrpn = Ch[MidCh].nrpn;
     unsigned addr = Ch[MidCh].lastmrpn*0x100 + Ch[MidCh].lastlrpn;
@@ -1499,7 +1504,7 @@ void MIDIplay::SetRPN(unsigned MidCh, unsigned value, bool MSB)
     }
 }
 
-void MIDIplay::UpdatePortamento(unsigned MidCh)
+ADLMIDI_EXPORT void MIDIplay::UpdatePortamento(unsigned MidCh)
 {
     // mt = 2^(portamento/2048) * (1.0 / 5000.0)
     /*
@@ -1509,7 +1514,7 @@ void MIDIplay::UpdatePortamento(unsigned MidCh)
     UI.PrintLn("Portamento %u: %u (unimplemented)", MidCh, Ch[MidCh].portamento);
 }
 
-void MIDIplay::NoteUpdate_All(unsigned MidCh, unsigned props_mask)
+ADLMIDI_EXPORT void MIDIplay::NoteUpdate_All(unsigned MidCh, unsigned props_mask)
 {
     for(MIDIchannel::activenoteiterator
         i = Ch[MidCh].activenotes.begin();
@@ -1521,7 +1526,7 @@ void MIDIplay::NoteUpdate_All(unsigned MidCh, unsigned props_mask)
     }
 }
 
-void MIDIplay::NoteOff(unsigned MidCh, int note)
+ADLMIDI_EXPORT void MIDIplay::NoteOff(unsigned MidCh, int note)
 {
     MIDIchannel::activenoteiterator
             i = Ch[MidCh].activenotes.find(note);
@@ -1531,7 +1536,7 @@ void MIDIplay::NoteOff(unsigned MidCh, int note)
     }
 }
 
-void MIDIplay::UpdateArpeggio(double) // amount = amount of time passed
+ADLMIDI_EXPORT void MIDIplay::UpdateArpeggio(double) // amount = amount of time passed
 {
     // If there is an adlib channel that has multiple notes
     // simulated on the same channel, arpeggio them.
@@ -1593,7 +1598,7 @@ retry_arpeggio:;
     }
 }
 
-void MIDIplay::Generate(int card,
+ADLMIDI_EXPORT void MIDIplay::Generate(int card,
                         void (*AddSamples_m32)(unsigned long, int32_t *),
                         void (*AddSamples_s32)(unsigned long, int32_t *),
                         unsigned long samples)
@@ -1601,7 +1606,7 @@ void MIDIplay::Generate(int card,
     opl.cards[card]->Generate(AddSamples_m32, AddSamples_s32, samples);
 }
 
-unsigned MIDIplay::ChooseDevice(const std::string &name)
+ADLMIDI_EXPORT unsigned MIDIplay::ChooseDevice(const std::string &name)
 {
     std::map<std::string, unsigned>::iterator i = devices.find(name);
     if(i != devices.end()) return i->second;
@@ -1615,17 +1620,17 @@ unsigned MIDIplay::ChooseDevice(const std::string &name)
 
 
 
-Tester::Tester(OPL3 &o) : opl(o)
+ADLMIDI_EXPORT Tester::Tester(OPL3 &o) : opl(o)
 {
     cur_gm   = 0;
     ins_idx  = 0;
 }
 
-Tester::~Tester()
+ADLMIDI_EXPORT Tester::~Tester()
 {
 }
 
-void Tester::FindAdlList()
+ADLMIDI_EXPORT void Tester::FindAdlList()
 {
     const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
 
@@ -1638,7 +1643,7 @@ void Tester::FindAdlList()
     opl.Silence();
 }
 
-void Tester::DoNote(int note)
+ADLMIDI_EXPORT void Tester::DoNote(int note)
 {
     if(adl_ins_list.empty()) FindAdlList();
     const unsigned meta = adl_ins_list[ins_idx];
@@ -1681,13 +1686,13 @@ void Tester::DoNote(int note)
     }
 }
 
-void Tester::NextGM(int offset)
+ADLMIDI_EXPORT void Tester::NextGM(int offset)
 {
     cur_gm = (cur_gm + 256 + offset) & 0xFF;
     FindAdlList();
 }
 
-void Tester::NextAdl(int offset)
+ADLMIDI_EXPORT void Tester::NextAdl(int offset)
 {
     if(adl_ins_list.empty()) FindAdlList();
     const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
@@ -1729,7 +1734,7 @@ void Tester::NextAdl(int offset)
     }
 }
 
-void Tester::HandleInputChar(char ch)
+ADLMIDI_EXPORT void Tester::HandleInputChar(char ch)
 {
     static const char notes[] = "zsxdcvgbhnjmq2w3er5t6y7ui9o0p";
     //                           c'd'ef'g'a'bC'D'EF'G'A'Bc'd'e
@@ -1749,7 +1754,7 @@ void Tester::HandleInputChar(char ch)
         if(p && *p) DoNote( (p - notes) - 12 );
     }   }
 
-double Tester::Tick(double, double)
+ADLMIDI_EXPORT double Tester::Tick(double, double)
 {
     HandleInputChar( Input.PeekInput() );
     //return eat_delay;

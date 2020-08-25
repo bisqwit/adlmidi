@@ -39,4 +39,5 @@ HEADERS += \
     ../include/adlcpp.h \
     ../include/adlinput.h \
     ../include/adlui.h \
+    ../include/adlplay.h \
     ../include/fraction.hpp

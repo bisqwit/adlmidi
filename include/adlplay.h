@@ -6,12 +6,16 @@
 
 #include "fraction.hpp"
 
+#include "adlcpp.h"
+
+#ifndef __DJGPP__
 namespace DBOPL
 {
 struct Handler;
 }
+#endif
 
-struct OPL3
+struct ADLMIDI_DECLSPEC OPL3
 {
     unsigned NumChannels;
 
@@ -47,7 +51,7 @@ public:
 
 
 
-class MIDIplay
+class ADLMIDI_DECLSPEC MIDIplay
 {
     // Information about each track
     struct Position
@@ -221,7 +225,7 @@ public:
 
 
 
-class Tester
+class ADLMIDI_DECLSPEC Tester
 {
     unsigned cur_gm;
     unsigned ins_idx;
