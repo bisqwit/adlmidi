@@ -2,6 +2,10 @@
 #include <cstring>
 #include <set>
 
+#ifdef __DJGPP__
+# include <dos.h>
+#endif
+
 #include "dbopl.h"
 #include "adldata.hh"
 #include "../include/adlplay.h"
