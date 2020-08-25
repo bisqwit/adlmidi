@@ -46,13 +46,7 @@ static const unsigned NewTimerFreq = 209;
 
 #include <signal.h>
 
-#include "../include/fraction.hpp"
-
-#ifndef __DJGPP__
-#include "dbopl.h"
-
 #include "adldata.hh"
-#endif
 
 unsigned AdlBank    = 0;
 unsigned NumFourOps = 7;
