@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <set>
+#include <cmath>
 
 #ifdef __DJGPP__
 # include <dos.h>
@@ -11,15 +12,12 @@
 #endif
 
 #include "adldata.hh"
-#include "../include/adlplay.h"
-#include "../include/adlcpp.h"
-#include "../include/adlui.h"
-#include "../include/adlinput.h"
+#include "adlplay.h"
+#include "adlcpp.h"
+#include "adlui.h"
+#include "adlinput.h"
 #include "adlpriv.hh"
 
-
-extern ADL_UserInterface UI;
-extern ADL_Input Input;
 
 
 static const unsigned short Operators[23*2] =

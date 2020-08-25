@@ -12,7 +12,7 @@
 # include <windows.h>
 #endif
 
-#include "../include/adlinput.h"
+#include "adlinput.h"
 #include "adlpriv.hh"
 
 ADLMIDI_EXPORT char ADL_Input::PeekInput()

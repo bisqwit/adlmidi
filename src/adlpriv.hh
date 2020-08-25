@@ -1,8 +1,8 @@
 #ifndef ADLPRIV_HH
 #define ADLPRIV_HH
 
-#include "../include/adlinput.h"
-#include "../include/adlui.h"
+#include "adlinput.h"
+#include "adlui.h"
 
 // Setup compiler defines useful for exporting required public API symbols in gme.cpp
 #ifndef ADLMIDI_EXPORT

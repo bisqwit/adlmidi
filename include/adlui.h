@@ -4,7 +4,9 @@
 #include <stdarg.h>
 #include <cstdio>
 
+#ifndef ADLCPP_H
 #include "adlcpp.h"
+#endif
 
 class ADLMIDI_DECLSPEC ADL_UserInterface
 {

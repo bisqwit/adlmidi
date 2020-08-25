@@ -19,10 +19,10 @@
 
 #include <assert.h>
 
-#include "../include/adlcpp.h"
-#include "../include/adlinput.h"
-#include "../include/adlui.h"
-#include "../include/adlplay.h"
+#include "adlcpp.h"
+#include "adlinput.h"
+#include "adlui.h"
+#include "adlplay.h"
 
 
 #ifdef __DJGPP__

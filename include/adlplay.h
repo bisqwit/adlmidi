@@ -6,7 +6,9 @@
 
 #include "fraction.hpp"
 
+#ifndef ADLCPP_H
 #include "adlcpp.h"
+#endif
 
 #ifndef __DJGPP__
 namespace DBOPL

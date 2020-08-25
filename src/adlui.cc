@@ -1,4 +1,4 @@
-#include "../include/adlui.h"
+#include "adlui.h"
 #include "adlpriv.hh"
 
 #include <cstdio>
