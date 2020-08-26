@@ -24,6 +24,9 @@ static const unsigned MaxCards = 1;
 static const unsigned OPLBase = 0x388;
 #endif
 
+class ADL_UserInterface;
+class ADL_Input;
+
 extern unsigned AdlBank;
 extern unsigned NumFourOps;
 extern unsigned NumCards;

@@ -51,6 +51,9 @@ static const unsigned NewTimerFreq = 209;
 #include "adlcpp.h"
 #include "adlui.h"
 
+ADL_Input Input;
+ADL_UserInterface UI;
+
 #ifndef __DJGPP__
 struct Reverb /* This reverb implementation is based on Freeverb impl. in Sox */
 {
@@ -922,6 +925,7 @@ int main(int argc, char** argv)
     }
 
     MIDIplay player;
+    player.SetUI(&UI);
     player.ChooseDevice("");
 
     UI.Color(7);
@@ -964,7 +968,9 @@ int main(int argc, char** argv)
 
 #endif /* djgpp */
 
-    Tester InstrumentTester(player.opl);
+    Tester InstrumentTester(player.opl, &Input, &UI);
+
+    UI.SetTetrisInput(&Input);
 
     UI.TetrisLaunched = true;
     for(double delay=0; !QuitFlag; )

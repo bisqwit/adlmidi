@@ -82,6 +82,9 @@ static void GuessInitialWindowHeight()
 ADLMIDI_EXPORT ADL_UserInterface::ADL_UserInterface(): x(0), y(0), color(-1), txtline(0),
     maxy(0), cursor_visible(true)
 {
+#ifdef SUPPORT_PUZZLE_GAME
+    ADLMIDI_PuzzleGame::UI = this;
+#endif
     GuessInitialWindowHeight();
 #ifdef __WIN32__
     handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -112,6 +115,13 @@ ADLMIDI_EXPORT ADL_UserInterface::ADL_UserInterface(): x(0), y(0), color(-1), tx
     std::setvbuf(stderr, stderr_buffer, _IOFBF, sizeof(stderr_buffer));
     RawPrn("\r"); // Ensure cursor is at the x=0 we imagine it being
     Print(0, 7, true, "Hit Ctrl-C to quit");
+}
+
+ADL_UserInterface::~ADL_UserInterface()
+{
+#ifdef SUPPORT_PUZZLE_GAME
+    ADLMIDI_PuzzleGame::UI = nullptr;
+#endif
 }
 
 ADLMIDI_EXPORT void ADL_UserInterface::HideCursor()
@@ -498,6 +508,15 @@ ADLMIDI_EXPORT int ADL_UserInterface::AllocateColor(int ins)
     }
 }
 
+void ADL_UserInterface::SetTetrisInput(ADL_Input *input)
+{
+#ifdef SUPPORT_PUZZLE_GAME
+    ADLMIDI_PuzzleGame::Input = input;
+#else
+    (void)input;
+#endif
+}
+
 ADLMIDI_EXPORT bool ADL_UserInterface::DoCheckTetris()
 {
 #ifdef SUPPORT_PUZZLE_GAME
@@ -539,11 +558,14 @@ namespace ADLMIDI_PuzzleGame
         if(attr != 1) attr = valid_attrs[attr % sizeof(valid_attrs)];
 
         //bool diff = UI.background[x][y] != UI.slots[x][y];
-        UI.backgroundcolor[x][y] = attr;
-        UI.background[x][y]      = ch;
-        UI.GotoXY(x,y);
-        UI.Color(attr);
-        UI.PutC(ch);
+        if(UI)
+        {
+            UI->backgroundcolor[x][y] = attr;
+            UI->background[x][y]      = ch;
+            UI->GotoXY(x,y);
+            UI->Color(attr);
+            UI->PutC(ch);
+        }
         //UI.Draw(x,y, attr, ch);
     }
 }

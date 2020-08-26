@@ -26,12 +26,18 @@ struct ADLMIDI_DECLSPEC OPL3
 #endif
 
 private:
+    ADL_UserInterface *UI;
+
     std::vector<unsigned short> ins; // index to adl[], cached, needed by Touch()
     std::vector<unsigned char> pit;  // value poked to B0, cached, needed by NoteOff)(
     std::vector<unsigned char> regBD;
 
 public:
+    OPL3();
     ~OPL3();
+
+    void SetUI(ADL_UserInterface *ui);
+
     std::vector<char> four_op_category; // 1 = quad-master, 2 = quad-slave, 0 = regular
                                         // 3 = percussion BassDrum
                                         // 4 = percussion Snare
@@ -55,6 +61,8 @@ public:
 
 class ADLMIDI_DECLSPEC MIDIplay
 {
+    ADL_UserInterface *UI;
+
     // Information about each track
     struct Position
     {
@@ -144,6 +152,8 @@ class ADLMIDI_DECLSPEC MIDIplay
 
     std::vector< std::vector<unsigned char> > TrackData;
 public:
+    MIDIplay();
+    void SetUI(ADL_UserInterface *ui);
     fraction<long> InvDeltaTicks, Tempo;
     bool loopStart, loopEnd;
     OPL3 opl;
@@ -233,9 +243,13 @@ class ADLMIDI_DECLSPEC Tester
     unsigned ins_idx;
     std::vector<unsigned> adl_ins_list;
     OPL3& opl;
+    ADL_Input *Input;
+    ADL_UserInterface * UI;
 public:
-    Tester(OPL3& o);
+    Tester(OPL3& o, ADL_Input *input = nullptr, ADL_UserInterface *ui = nullptr);
     ~Tester();
+
+    void setInput(ADL_Input *input);
 
     // Find list of adlib instruments that supposedly implement this GM
     void FindAdlList();

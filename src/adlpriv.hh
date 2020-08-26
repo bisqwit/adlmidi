@@ -15,7 +15,4 @@
 #   endif
 #endif
 
-extern ADL_Input Input;
-extern ADL_UserInterface UI;
-
 #endif // ADLPRIV_HH

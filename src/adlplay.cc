@@ -40,9 +40,6 @@ bool WriteVideoFile = false;
 bool ScaleModulators = false;
 bool WritingToTTY;
 
-ADLMIDI_EXPORT ADL_Input Input;
-ADLMIDI_EXPORT ADL_UserInterface UI;
-
 
 static const unsigned short Operators[23*2] =
     {// Channels 0-2
@@ -149,7 +146,12 @@ static const adldata& GetAdlIns(unsigned short insno)
 
 
 
-ADLMIDI_EXPORT OPL3::~OPL3()
+ADLMIDI_EXPORT OPL3::OPL3() :
+    NumChannels(0),
+    UI(nullptr)
+{}
+
+OPL3::~OPL3()
 {
 #ifndef __DJGPP__
     for(unsigned card=0; card<cards.size(); ++card)
@@ -159,6 +161,11 @@ ADLMIDI_EXPORT OPL3::~OPL3()
     }
     cards.clear();
 #endif
+}
+
+void OPL3::SetUI(ADL_UserInterface *ui)
+{
+    UI = ui;
 }
 
 ADLMIDI_EXPORT void OPL3::Poke(unsigned card, unsigned index, unsigned value)
@@ -404,15 +411,15 @@ ADLMIDI_EXPORT void OPL3::Reset()
     /**/
     if (WritingToTTY)
     {
-        UI.PrintLn("Channels used as:");
+        if(UI) UI->PrintLn("Channels used as:");
         std::string s;
         for(size_t a=0; a<four_op_category.size(); ++a)
         {
             s += ' ';
             s += std::to_string(four_op_category[a]);
-            if(a%23 == 22) { UI.PrintLn("%s", s.c_str()); s.clear(); }
+            if(a%23 == 22) { if(UI) UI->PrintLn("%s", s.c_str()); s.clear(); }
         }
-        if(!s.empty()) { UI.PrintLn("%s", s.c_str()); }
+        if(!s.empty()) { if(UI) UI->PrintLn("%s", s.c_str()); }
     }
     /**/
     /*
@@ -487,7 +494,17 @@ ADLMIDI_EXPORT bool MIDIplay::AdlChannel::Location::operator==(const MIDIplay::A
 ADLMIDI_EXPORT bool MIDIplay::AdlChannel::Location::operator<(const MIDIplay::AdlChannel::Location &b) const
 { return MidCh<b.MidCh || (MidCh==b.MidCh&& note<b.note); }
 
-ADLMIDI_EXPORT unsigned long MIDIplay::ReadBEint(const void *buffer, unsigned nbytes)
+ADLMIDI_EXPORT MIDIplay::MIDIplay() : UI(nullptr)
+{
+}
+
+void MIDIplay::SetUI(ADL_UserInterface *ui)
+{
+    UI = ui;
+    opl.SetUI(ui);
+}
+
+unsigned long MIDIplay::ReadBEint(const void *buffer, unsigned nbytes)
 {
     unsigned long result=0;
     const unsigned char* data = (const unsigned char*) buffer;
@@ -823,7 +840,7 @@ ADLMIDI_EXPORT void MIDIplay::NoteUpdate(unsigned MidCh, MIDIplay::MIDIchannel::
                 AdlChannel::users_t::iterator k = ch[c].users.find(my_loc);
                 if(k != ch[c].users.end())
                     ch[c].users.erase(k);
-                UI.IllustrateNote(c, tone, midiins, 0, 0.0);
+                if(UI) UI->IllustrateNote(c, tone, midiins, 0, 0.0);
 
                 if(ch[c].users.empty())
                 {
@@ -838,7 +855,7 @@ ADLMIDI_EXPORT void MIDIplay::NoteUpdate(unsigned MidCh, MIDIplay::MIDIchannel::
                 //          Also will avoid overwriting it very soon.
                 AdlChannel::LocationData& d = ch[c].users[my_loc];
                 d.sustained = true; // note: not erased!
-                UI.IllustrateNote(c, tone, midiins, -1, 0.0);
+                if(UI) UI->IllustrateNote(c, tone, midiins, -1, 0.0);
             }
             info.phys.erase(j);
             continue;
@@ -879,7 +896,7 @@ ADLMIDI_EXPORT void MIDIplay::NoteUpdate(unsigned MidCh, MIDIplay::MIDIchannel::
                 if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
                     bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
                 opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend + phase)));
-                UI.IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
+                if(UI) UI->IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
             }
         }
     }
@@ -959,7 +976,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
         unsigned length = ReadVarLen(tk);
         //std::string data( length?(const char*) &TrackData[tk][CurrentPosition.track[tk].ptr]:0, length );
         CurrentPosition.track[tk].ptr += length;
-        UI.PrintLn("SysEx %02X: %u bytes", byte, length/*, data.c_str()*/);
+        if(UI) UI->PrintLn("SysEx %02X: %u bytes", byte, length/*, data.c_str()*/);
         return;
     }
     if(byte == 0xFF)
@@ -975,7 +992,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
         if(evtype == 6 && data == "loopEnd"  ) loopEnd   = true;
         if(evtype == 9) current_device[tk] = ChooseDevice(data);
         if(evtype >= 1 && evtype <= 6)
-            UI.PrintLn("Meta %d: %s", evtype, data.c_str());
+            if(UI) UI->PrintLn("Meta %d: %s", evtype, data.c_str());
 
         if(evtype == 0xE3) // Special non-spec ADLMIDI special for IMF playback: Direct poke to AdLib
         {
@@ -1045,7 +1062,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
                     i = bank_warnings.lower_bound(bankid);
             if(i == bank_warnings.end() || *i != bankid)
             {
-                UI.PrintLn("[%u]Bank %u undefined, patch=%c%u",
+                if(UI) UI->PrintLn("[%u]Bank %u undefined, patch=%c%u",
                            MidCh,
                            Ch[MidCh].bank_msb,
                            (midiins&128)?'P':'M', midiins&127);
@@ -1059,7 +1076,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
                     i = bank_warnings.lower_bound(bankid);
             if(i == bank_warnings.end() || *i != bankid)
             {
-                UI.PrintLn("[%u]Bank lsb %u undefined",
+                if(UI) UI->PrintLn("[%u]Bank lsb %u undefined",
                            MidCh,
                            Ch[MidCh].bank_lsb);
                 bank_warnings.insert(i, bankid);
@@ -1090,7 +1107,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
         static std::set<unsigned char> missing_warnings;
         if(!missing_warnings.count(midiins) && (ains.flags & adlinsdata::Flag_NoSound))
         {
-            UI.PrintLn("[%i]Playing missing instrument %i", MidCh, midiins);
+            if(UI) UI->PrintLn("[%i]Playing missing instrument %i", MidCh, midiins);
             missing_warnings.insert(midiins);
         }
 
@@ -1147,7 +1164,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
 
             if(c < 0)
             {
-                //UI.PrintLn("ignored unplaceable note");
+                //if(UI) UI->PrintLn("ignored unplaceable note");
                 continue; // Could not play this note. Ignore it.
             }
             PrepareAdlChannelForNewNote(c, i[ccount]);
@@ -1158,7 +1175,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
             // The note could not be played, at all.
             break;
         }
-        //UI.PrintLn("i1=%d:%d, i2=%d:%d", i[0],adlchannel[0], i[1],adlchannel[1]);
+        //if(UI) UI->PrintLn("i1=%d:%d, i2=%d:%d", i[0],adlchannel[0], i[1],adlchannel[1]);
 
         // Allocate active note for MIDI channel
         auto ir = Ch[MidCh].activenotes.insert(std::make_pair(note, MIDIchannel::NoteInfo()));
@@ -1197,7 +1214,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
         switch(ctrlno)
         {
         case 1: // Adjust vibrato
-            //UI.PrintLn("%u:vibrato %d", MidCh,value);
+            //if(UI) UI->PrintLn("%u:vibrato %d", MidCh,value);
             Ch[MidCh].vibrato = value; break;
         case 0: // Set bank msb (GM bank)
             Ch[MidCh].bank_msb = value;
@@ -1269,7 +1286,7 @@ ADLMIDI_EXPORT void MIDIplay::HandleEvent(size_t tk)
 
         case 103: cmf_percussion_mode = value; break; // CMF (ctrl 0x67) rhythm mode
         default:
-            UI.PrintLn("Ctrl %d <- %d (ch %u)", ctrlno, value, MidCh);
+            if(UI) UI->PrintLn("Ctrl %d <- %d (ch %u)", ctrlno, value, MidCh);
         }
         break;
     }
@@ -1434,11 +1451,11 @@ void MIDIplay::KillOrEvacuate(unsigned from_channel,
             if(m->second.ins != j->second.ins) continue;
 
             // the note can be moved here!
-            UI.IllustrateNote(
+            if(UI) UI->IllustrateNote(
                         from_channel,
                         i->second.tone,
                         i->second.midiins, 0, 0.0);
-            UI.IllustrateNote(
+            if(UI) UI->IllustrateNote(
                         c,
                         i->second.tone,
                         i->second.midiins,
@@ -1485,7 +1502,7 @@ ADLMIDI_EXPORT void MIDIplay::KillSustainingNotes(int MidCh, int this_adlchn)
                     && j->second.sustained)
             {
                 int midiins = '?';
-                UI.IllustrateNote(c, j->first.note, midiins, 0, 0.0);
+                if(UI) UI->IllustrateNote(c, j->first.note, midiins, 0, 0.0);
                 ch[c].users.erase(j);
             }
         }
@@ -1521,8 +1538,8 @@ ADLMIDI_EXPORT void MIDIplay::SetRPN(unsigned MidCh, unsigned value, bool MSB)
                 value ? long(0.2092 * std::exp(0.0795 * value)) : 0.0;
         break;
 
-    default: UI.PrintLn("%s %04X <- %d (%cSB) (ch %u)",
-                        "NRPN"+!nrpn, addr, value, "LM"[MSB], MidCh);
+    default: if(UI) UI->PrintLn("%s %04X <- %d (%cSB) (ch %u)",
+                                "NRPN"+!nrpn, addr, value, "LM"[MSB], MidCh);
     }
 }
 
@@ -1533,7 +1550,7 @@ ADLMIDI_EXPORT void MIDIplay::UpdatePortamento(unsigned MidCh)
         double mt = std::exp(0.00033845077 * Ch[MidCh].portamento);
         NoteUpdate_All(MidCh, Upd_Pitch);
         */
-    UI.PrintLn("Portamento %u: %u (unimplemented)", MidCh, Ch[MidCh].portamento);
+    if(UI) UI->PrintLn("Portamento %u: %u (unimplemented)", MidCh, Ch[MidCh].portamento);
 }
 
 ADLMIDI_EXPORT void MIDIplay::NoteUpdate_All(unsigned MidCh, unsigned props_mask)
@@ -1584,13 +1601,13 @@ ADLMIDI_EXPORT void MIDIplay::UpdateArpeggio(double) // amount = amount of time 
     {
 retry_arpeggio:;
         size_t n_users = ch[c].users.size();
-        /*if(true)
+        /*if(true && UI)
             {
-                UI.GotoXY(64,c+1); UI.Color(2);
+                UI->GotoXY(64,c+1); UI->Color(2);
                 std::fprintf(stderr, "%7ld/%7ld,%3u\r",
                     ch[c].keyoff,
                     (unsigned) n_users);
-                UI.x = 0;
+                UI->x = 0;
             }*/
         if(n_users > 1)
         {
@@ -1642,7 +1659,8 @@ ADLMIDI_EXPORT unsigned MIDIplay::ChooseDevice(const std::string &name)
 
 
 
-ADLMIDI_EXPORT Tester::Tester(OPL3 &o) : opl(o)
+ADLMIDI_EXPORT Tester::Tester(OPL3 &o, ADL_Input *input, ADL_UserInterface *ui) :
+    opl(o), Input(input), UI(ui)
 {
     cur_gm   = 0;
     ins_idx  = 0;
@@ -1650,6 +1668,11 @@ ADLMIDI_EXPORT Tester::Tester(OPL3 &o) : opl(o)
 
 ADLMIDI_EXPORT Tester::~Tester()
 {
+}
+
+void Tester::setInput(ADL_Input *input)
+{
+    Input = input;
 }
 
 ADLMIDI_EXPORT void Tester::FindAdlList()
@@ -1720,12 +1743,12 @@ ADLMIDI_EXPORT void Tester::NextAdl(int offset)
     const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
     ins_idx = (ins_idx + adl_ins_list.size() + offset) % adl_ins_list.size();
 
-    UI.Color(15); std::fflush(stderr);
+    if(UI) UI->Color(15); std::fflush(stderr);
     std::printf("SELECTED G%c%d\t%s\n",
                 cur_gm<128?'M':'P', cur_gm<128?cur_gm+1:cur_gm-128,
                 "<-> select GM, ^v select ins, qwe play note");
     std::fflush(stdout);
-    UI.Color(7); std::fflush(stderr);
+    if(UI) UI->Color(7); std::fflush(stderr);
     for(unsigned a=0; a<adl_ins_list.size(); ++a)
     {
         const unsigned i = adl_ins_list[a];
@@ -1778,7 +1801,9 @@ ADLMIDI_EXPORT void Tester::HandleInputChar(char ch)
 
 ADLMIDI_EXPORT double Tester::Tick(double, double)
 {
-    HandleInputChar( Input.PeekInput() );
+    if(!Input)
+        return -1.0;
+    HandleInputChar( Input->PeekInput() );
     //return eat_delay;
     return 0.1;
 }

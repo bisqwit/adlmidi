@@ -20,6 +20,9 @@
 #define ccrReturn(z) do { ccrC.ccrL.p=__LINE__; return(z); case __LINE__:; } while(0)
 #define ccrFinish(z) } ccrC.ccrL.p=0; return(z)
 
+class ADL_Input;
+class ADL_UserInterface;
+
 namespace ADLMIDI_PuzzleGame
 {
     // Field & rendering definitions
@@ -28,6 +31,9 @@ namespace ADLMIDI_PuzzleGame
 
     const auto Occ = 0x10000u;
     const auto Empty = 0x12Eu, Border = Occ+0x7DBu, Garbage = Occ+0x6DBu;
+
+    static ADL_Input *Input = nullptr;
+    static ADL_UserInterface *UI = nullptr;
 
     static unsigned long TimerRead()
     {
@@ -50,7 +56,7 @@ namespace ADLMIDI_PuzzleGame
     static bool kbhit()
     {
        if(peeked_input) return true;
-       peeked_input = Input.PeekInput();
+       peeked_input = Input ? Input->PeekInput() : 0;
        return peeked_input != 0;
     }
     static char getch()

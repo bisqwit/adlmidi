@@ -38,6 +38,7 @@ public:
     char stderr_buffer[256];
 public:
     ADL_UserInterface();
+    ~ADL_UserInterface();
     void HideCursor();
     void ShowCursor();
     void VidPut(char c);
@@ -72,6 +73,7 @@ public:
     // Choose a permanent color for given instrument
     int AllocateColor(int ins);
 
+    void SetTetrisInput(ADL_Input *input);
     bool DoCheckTetris();
 
     bool TetrisLaunched = false;
