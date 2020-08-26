@@ -5,6 +5,8 @@ CONFIG += c++11
 
 TARGET = gen_adldata
 
+QMAKE_CXXFLAGS += -Wno-implicit-fallthrough
+
 INCLUDEPATH += $$PWD/../src
 
 SOURCES += \

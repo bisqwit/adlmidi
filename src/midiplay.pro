@@ -8,8 +8,7 @@ CONFIG += link_pkgconfig
 PKGCONFIG += sdl2
 }
 
-QMAKE_CXXFLAGS += -fopenmp -std=c++17
-LIBS += -fopenmp
+QMAKE_CXXFLAGS += -std=c++17
 
 win32:{
     LIBS += -lwinmm
