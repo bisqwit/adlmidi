@@ -3143,7 +3143,7 @@ static int ParseCommandLine(char *cmdline, char **argv)
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
 {
     extern int main(int,char**);
-    char* cmdline = GetCommandLine();
+    char* cmdline = GetCommandLineA();
     int argc = ParseCommandLine(cmdline, NULL);
     char**argv = new char* [argc+1];
     ParseCommandLine(cmdline, argv);
