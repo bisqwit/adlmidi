@@ -8,7 +8,12 @@
 #include <cmath>  // exp, log, ceil
 
 #if !defined(__WIN32__) || defined(__CYGWIN__)
+# include <termios.h>
+# include <fcntl.h>
+# include <sys/ioctl.h>
 # include <csignal>
+#elif defined(__WIN32__)
+# include <windows.h>
 #endif
 
 static const char MIDIsymbols[256+1] =

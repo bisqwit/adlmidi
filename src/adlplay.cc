@@ -18,6 +18,30 @@
 #include "adlinput.h"
 #include "adlpriv.hh"
 
+unsigned AdlBank    = 0;
+unsigned NumFourOps = 7;
+unsigned NumCards   = 2;
+bool HighTremoloMode   = false;
+bool HighVibratoMode   = false;
+bool AdlPercussionMode = false;
+bool LogarithmicVolumes = false;
+bool CartoonersVolumes = false;
+bool QuitFlag = false, FakeDOSshell = false;
+unsigned SkipForward = 0;
+bool DoingInstrumentTesting = false;
+bool QuitWithoutLooping = false;
+bool WritePCMfile = false;
+std::string PCMfilepath = "adlmidi.wav";
+#ifdef SUPPORT_VIDEO_OUTPUT
+std::string VidFilepath = "adlmidi.mkv";
+bool WriteVideoFile = false;
+#endif
+
+bool ScaleModulators = false;
+bool WritingToTTY;
+
+ADLMIDI_EXPORT ADL_Input Input;
+ADLMIDI_EXPORT ADL_UserInterface UI;
 
 
 static const unsigned short Operators[23*2] =

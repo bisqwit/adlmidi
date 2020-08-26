@@ -12,7 +12,7 @@ QMAKE_CXXFLAGS += -fopenmp -std=c++17
 LIBS += -fopenmp
 
 win32:{
-    LIBS += -lwinmm -static-libgcc -static-libstdc++ -static -lpthread
+    LIBS += -lwinmm
 }
 
 INCLUDEPATH += $$PWD/../include/
