@@ -1,13 +1,19 @@
 TEMPLATE = app
 CONFIG -= qt
 CONFIG += console
-CONFIG += c++11
+CONFIG += c++17
 
+!win32:{
 CONFIG += link_pkgconfig
 PKGCONFIG += sdl2
+}
 
-QMAKE_CXXFLAGS += -fopenmp
+QMAKE_CXXFLAGS += -fopenmp -std=c++17
 LIBS += -fopenmp
+
+win32:{
+    LIBS += -lwinmm -static-libgcc -static-libstdc++ -static -lpthread
+}
 
 TARGET = adlmidi
 
