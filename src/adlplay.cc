@@ -1645,6 +1645,25 @@ ADLMIDI_EXPORT void MIDIplay::Generate(int card,
 {
     opl.cards[card]->Generate(AddSamples_m32, AddSamples_s32, samples);
 }
+
+void MIDIplay::Generate(int card,
+                        std::function<void (unsigned long, int32_t *)> AddSamples_m32,
+                        std::function<void (unsigned long, int32_t *)> AddSamples_s32,
+                        unsigned long samples)
+{
+    auto &chip = opl.cards[card]->chip;
+
+    Bit32s buffer[ 512 * 2 ];
+    if ( GCC_UNLIKELY(samples > 512) )
+        samples = 512;
+    if ( !chip.opl3Active ) {
+        chip.GenerateBlock2( samples, buffer );
+        AddSamples_m32( samples, buffer );
+    } else {
+        chip.GenerateBlock3( samples, buffer );
+        AddSamples_s32( samples, buffer );
+    }
+}
 #endif
 
 ADLMIDI_EXPORT unsigned MIDIplay::ChooseDevice(const std::string &name)
@@ -1809,3 +1828,115 @@ ADLMIDI_EXPORT double Tester::Tick(double, double)
     //return eat_delay;
     return 0.1;
 }
+
+
+#ifndef __DJGPP__
+
+ADLMIDI_EXPORT SimpleMidiPlay::SimpleMidiPlay()
+{
+    player.ChooseDevice("");
+}
+
+ADLMIDI_EXPORT SimpleMidiPlay::~SimpleMidiPlay()
+{}
+
+ADLMIDI_EXPORT void SimpleMidiPlay::SetBankNo(int bankNo)
+{
+    ::AdlBank = bankNo;
+}
+
+ADLMIDI_EXPORT int SimpleMidiPlay::GetBankNo() const
+{
+    return ::AdlBank;
+}
+
+const char * const *SimpleMidiPlay::GetBankNames()
+{
+    return ::banknames;
+}
+
+ADLMIDI_EXPORT int SimpleMidiPlay::MaxBankNo()
+{
+    const unsigned NumBanks = sizeof(::banknames)/sizeof(*::banknames);
+    return NumBanks;
+}
+
+ADLMIDI_EXPORT void SimpleMidiPlay::SetCardsNum(int cardsNum)
+{
+    ::NumCards = cardsNum;
+    if(midiLoaded)
+        player.opl.Reset();
+}
+
+ADLMIDI_EXPORT int SimpleMidiPlay::GetCardsNum() const
+{
+    return ::NumCards;
+}
+
+ADLMIDI_EXPORT void SimpleMidiPlay::Set4OpNum(int fourOpNum)
+{
+    NumFourOps = fourOpNum;
+    if(midiLoaded)
+        player.opl.Reset();
+}
+
+ADLMIDI_EXPORT int SimpleMidiPlay::Get4OpNum() const
+{
+    return  ::NumFourOps;
+}
+
+ADLMIDI_EXPORT bool SimpleMidiPlay::LoadMidi(const std::string &path)
+{
+    bool ret = player.LoadMIDI(path);
+    midiLoaded = ret;
+    return ret;
+}
+
+ADLMIDI_EXPORT void SimpleMidiPlay::Play(short *output, long samples)
+{
+    short *target = output;
+
+    std::memset(output, 0, samples * 2 * sizeof(short));
+
+    while(samples > 0)
+    {
+        double delay_left = samples / PCM_RATE;
+        double eat_delay = delay < maxdelay ? delay : maxdelay;
+        if(eat_delay > delay_left)
+            eat_delay = delay_left;
+        delay -= eat_delay;
+
+        carry += PCM_RATE * eat_delay;
+        const unsigned long n_samples = (unsigned) carry;
+        carry -= n_samples;
+
+
+        if(SkipForward > 0)
+            SkipForward -= 1;
+        else
+        {
+            if(n_samples > 0)
+            {
+                auto mix = [target](unsigned long count, int32_t *samples) -> void
+                {
+                    for(unsigned long a=0; a<count*2; ++a)
+                        target[a] += (short)samples[a];
+                };
+
+                /* Mix together the audio from different cards */
+                for(unsigned card = 0; card < NumCards; ++card)
+                {
+                    player.Generate(card,
+                                    0,
+                                    mix,
+                                    n_samples);
+                }
+            }
+        }
+
+        samples -= n_samples;
+        target += n_samples * 2;
+    }
+}
+
+#endif
