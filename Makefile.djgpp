@@ -19,6 +19,7 @@ MIDIPLAY_LINK_LIB=$(ADLMIDI_STATICLIBNAME)
 
 CPPFLAGS += -Wno-unused-result -Wno-implicit-fallthrough
 LDLIBS   +=
+LDLIBS_PLAY = $(LDLIBS)
 
 CPPFLAGS += -I/usr/local/djgpp/i586-pc-msdosdjgpp/sys-include
 

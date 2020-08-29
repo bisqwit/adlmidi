@@ -115,10 +115,10 @@ CPPFLAGS_SO += $(CPPFLAGS) -DADLMIDI_BUILD -fPIC
 all: adlmidi $(ADLMIDI_LIBNAME) $(ADLMIDI_STATICLIBNAME) gen_adldata dumpmiles dumpbank
 
 adlmidi: obj/midiplay.o $(MIDIPLAY_LINK_LIB)
-	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS) -Wl,-rpath .
+	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS_PLAY) -Wl,-rpath .
 
 $(ADLMIDI_LIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
-	if [ "$(NOSHARE)" = "" ]; then $(CXXLINK) -shared $^  $(DEBUG) -o $@ $(ADLMIDI_IMPLIB); fi
+	if [ ! "$(NOSHARE)" = "1" ]; then $(CXXLINK) -shared $^  $(DEBUG) -o $@ $(ADLMIDI_IMPLIB); fi
 
 $(ADLMIDI_STATICLIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
 	$(AR) rcs $@ $^
@@ -160,16 +160,11 @@ obj/dumpbank.o: utils/dumpbank.cc
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
 clean:
-	if [ -f adlmidi ]; then $(RM) adlmidi; fi
-	if [ -f adlmidi.exe ]; then $(RM) adlmidi.exe; fi
-	if [ -f dumpbank ]; then $(RM) dumpbank; fi
-	if [ -f dumpbank.exe ]; then $(RM) dumpbank.exe; fi
-	if [ -f dumpmiles ]; then $(RM) dumpmiles; fi
-	if [ -f dumpmiles.exe ]; then $(RM) dumpmiles.exe; fi
-	if [ -f gen_adldata ]; then $(RM) gen_adldata; fi
-	if [ -f gen_adldata.exe ]; then $(RM) gen_adldata.exe; fi
-	if [ -f $(ADLMIDI_LIBNAME) ]; then $(RM) $(ADLMIDI_LIBNAME); fi
-	if [ -f $(ADLMIDI_STATICLIBNAME) ]; then $(RM) $(ADLMIDI_STATICLIBNAME); fi
+	for f in adlmidi dumpbank gen_adldata dumpmiles \
+	 adlmidi.exe dumpbank.exe dumpmiles.exe gen_adldata.exe \
+	 libadlcpp.dll.a $(ADLMIDI_LIBNAME) $(ADLMIDI_STATICLIBNAME); do \
+	 if [ -f $$f ]; then $(RM) $$f; fi; \
+	done
 	for f in obj/*.o; do $(RM) $$f; done
 
 include depfun.mak

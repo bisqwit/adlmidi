@@ -20,7 +20,8 @@ MIDIPLAY_LINK_LIB=$(ADLMIDI_LIBNAME)
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
 CPPFLAGS += $(shell pkg-config --cflags sdl2) -Wno-unused-result -Wno-implicit-fallthrough
-LDLIBS   += $(shell pkg-config --libs sdl2) -L. -ladlcpp -no-pie
+LDLIBS   += $(shell pkg-config --libs sdl2) -no-pie
+LDLIBS_PLAY = $(LDLIBS) -L. -ladlcpp
 #CPPFLAGS += $(SDL)
 
 #LDLIBS += -lwinmm
