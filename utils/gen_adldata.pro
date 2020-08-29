@@ -11,7 +11,8 @@ INCLUDEPATH += $$PWD/../src
 
 SOURCES += \
     gen_adldata.cc \
-    ../src/dbopl.cpp
+    dbopl.cpp
 
 HEADERS += \
-    $$PWD/../src/dbopl.h
+    $$PWD/dbopl.h
+

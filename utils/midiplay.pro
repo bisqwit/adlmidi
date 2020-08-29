@@ -14,7 +14,7 @@ win32:{
     LIBS += -lwinmm
 }
 
-INCLUDEPATH += $$PWD/../include/
+INCLUDEPATH += $$PWD/../include/ $$PWD/../src/
 
 DEFINES += SUPPORT_VIDEO_OUTPUT SUPPORT_PUZZLE_GAME
 

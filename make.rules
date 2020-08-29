@@ -5,21 +5,22 @@ NOGZIPARCHIVES=1
 
 ARCHFILES=\
 	include/adlcpp.h include/adlglob.h \
-	src/midiplay.cc \
 	src/adlpriv.hh \
 	src/adlinput.cc include/adlinput.h \
 	src/adlui.cc include/adlui.h \
 	src/adlplay.cc include/adlplay.h \
-	src/dbopl.cpp src/dbopl.h \
 	src/nukedopl3.c src/nukedopl3.h \
 	src/adldata.cc src/adldata.hh \
 	include/fraction.hpp \
 	src/puzzlegame.inc \
 	src/9x15.inc \
 	\
+	utils/midiplay.cc \
+	\
 	utils/dumpbank.cc \
 	utils/dumpmiles.cc \
 	utils/gen_adldata.cc \
+	utils/dbopl.cpp utils/dbopl.h \
 	\
 	doc/midiplay.bas \
 	progdesc.php \
@@ -125,10 +126,10 @@ $(ADLMIDI_LIBNAME): obj/nukedopl3.o obj/adldata.o obj/adlinput.o obj/adlui.o obj
 $(ADLMIDI_STATICLIBNAME): obj/nukedopl3.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
 	$(AR) rcs $@ $^
 
-obj/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@
+obj/midiplay.o: utils/midiplay.cc src/adldata.hh
+	$(CXX) -Isrc $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@
 
-obj/dbopl.o: src/dbopl.cpp src/dbopl.h
+obj/dbopl.o: utils/dbopl.cpp utils/dbopl.h
 	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@
 
 obj/nukedopl3.o: src/nukedopl3.c src/nukedopl3.h
@@ -149,7 +150,7 @@ obj/adlplay.o: src/adlplay.cc include/adlplay.h
 gen_adldata: obj/gen_adldata.o obj/dbopl.o
 	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
-obj/gen_adldata.o: utils/gen_adldata.cc src/dbopl.h
+obj/gen_adldata.o: utils/gen_adldata.cc utils/dbopl.h
 	$(CXX) $(CPPFLAGS) -I./src $<  $(DEBUG)  -c -o $@
 
 dumpmiles: obj/dumpmiles.o
