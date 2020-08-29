@@ -3,17 +3,22 @@
 
 CXX     = g++
 CXXLINK = $(CXX)
+RM      = rm
+AR      = ar
 
 #DEBUG = -O0 -fno-inline -D_GLIBCXX_DEBUG -g -fstack-protector-all -fdata-sections -fsanitize=address
 
 DEBUG=-Ofast -g -fopenmp -march=native
 
+ADLMIDI_LIBNAME         = libadlcpp.so
+ADLMIDI_STATICLIBNAME   = libadlcpp.a
+
 #DEBUG += -fno-tree-vectorize
 
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
 
-CPPFLAGS += $(shell pkg-config --cflags sdl2)
-LDLIBS   += $(shell pkg-config --libs sdl2)
+CPPFLAGS += $(shell pkg-config --cflags sdl2) -Wno-unused-result -Wno-implicit-fallthrough
+LDLIBS   += $(shell pkg-config --libs sdl2) -L. -ladlcpp -no-pie
 #CPPFLAGS += $(SDL)
 
 #LDLIBS += -lwinmm

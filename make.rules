@@ -112,13 +112,16 @@ CPPFLAGS += -I./include/ -DSUPPORT_VIDEO_OUTPUT -DSUPPORT_PUZZLE_GAME
 
 CPPFLAGS_SO += $(CPPFLAGS) -DADLMIDI_BUILD -fPIC
 
-all: adlmidi libadlcpp.so gen_adldata dumpmiles dumpbank
+all: adlmidi $(ADLMIDI_LIBNAME) $(ADLMIDI_STATICLIBNAME) gen_adldata dumpmiles dumpbank
 
-adlmidi: obj/midiplay.o libadlcpp.so
+adlmidi: obj/midiplay.o $(ADLMIDI_LIBNAME)
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS) -Wl,-rpath .
 
-libadlcpp.so: obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
-	$(CXXLINK) -shared $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS)
+$(ADLMIDI_LIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
+	$(CXXLINK) -shared $^  $(DEBUG) -o $@
+
+$(ADLMIDI_STATICLIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
+	$(AR) rcs $@ $^
 
 obj/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@

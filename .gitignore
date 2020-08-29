@@ -8,3 +8,6 @@ gen_adldata
 *.user*
 build-*/
 /lib
+*.so
+*.dll
+*.a
