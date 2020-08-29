@@ -216,7 +216,7 @@ uninstall${DEPFUN_INSTALL} deinstall${DEPFUN_INSTALL}:
 	  rm -f ${MANDIR}/man"`echo "$$s"|sed 's/.*\.//'`"/"$$s";fi;\
 	done; \
 
-.PHONY: pak dep depend archpak omabin \
+.PHONY: pak dep depend archpak omabin clean \
 	install${DEPFUN_INSTALL} \
 	deinstall${DEPFUN_INSTALL} \
 	uninstall${DEPFUN_INSTALL}

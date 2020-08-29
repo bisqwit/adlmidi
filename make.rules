@@ -159,4 +159,10 @@ dumpbank: obj/dumpbank.o
 obj/dumpbank.o: utils/dumpbank.cc
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
+clean:
+	for f in obj/*.o; do $(RM) $$f; done
+	if [ -f adlmidi ]; then $(RM) adlmidi; fi
+	if [ -f gen_adldata ]; then $(RM) gen_adldata; fi
+	if [ -f $(ADLMIDI_LIBNAME) ]; then $(RM) $(ADLMIDI_LIBNAME); fi
+
 include depfun.mak
