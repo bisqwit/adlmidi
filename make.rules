@@ -11,6 +11,7 @@ ARCHFILES=\
 	src/adlui.cc include/adlui.h \
 	src/adlplay.cc include/adlplay.h \
 	src/dbopl.cpp src/dbopl.h \
+	src/nukedopl3.c src/nukedopl3.h \
 	src/adldata.cc src/adldata.hh \
 	include/fraction.hpp \
 	src/puzzlegame.inc \
@@ -111,16 +112,17 @@ INSTALLPROGS=adlmidi
 CPPFLAGS += -I./include/ -DSUPPORT_VIDEO_OUTPUT -DSUPPORT_PUZZLE_GAME
 
 CPPFLAGS_SO += $(CPPFLAGS) -DADLMIDI_BUILD -fPIC
+CFLAGS_SO += $(CFLAGS) -DADLMIDI_BUILD -fPIC
 
 all: adlmidi $(ADLMIDI_LIBNAME) $(ADLMIDI_STATICLIBNAME) gen_adldata dumpmiles dumpbank
 
 adlmidi: obj/midiplay.o $(MIDIPLAY_LINK_LIB)
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS_PLAY) -Wl,-rpath .
 
-$(ADLMIDI_LIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
+$(ADLMIDI_LIBNAME): obj/nukedopl3.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
 	if [ ! "$(NOSHARE)" = "1" ]; then $(CXXLINK) -shared $^  $(DEBUG) -o $@ $(ADLMIDI_IMPLIB); fi
 
-$(ADLMIDI_STATICLIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
+$(ADLMIDI_STATICLIBNAME): obj/nukedopl3.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
 	$(AR) rcs $@ $^
 
 obj/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh
@@ -128,6 +130,9 @@ obj/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh
 
 obj/dbopl.o: src/dbopl.cpp src/dbopl.h
 	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@
+
+obj/nukedopl3.o: src/nukedopl3.c src/nukedopl3.h
+	$(CC) $(CFLAGS_SO) $<  $(DEBUG)  -c -o $@
 
 obj/adldata.o: src/adldata.cc src/adldata.hh
 	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@

@@ -976,6 +976,9 @@ int main(int argc, char** argv)
 
 #endif /* djgpp */
 
+    std::vector<int> sample_buf;
+    sample_buf.resize(MaxSamplesAtTime * 2);
+
     Tester InstrumentTester(player.opl, &Input, &UI);
 
     UI.SetTetrisInput(&Input);
@@ -996,31 +999,13 @@ int main(int argc, char** argv)
             SkipForward -= 1;
         else
         {
-            if(NumCards == 1)
+            if(n_samples > 0)
             {
-                player.Generate(0, 0, SendStereoAudio, n_samples);
-            }
-            else if(n_samples > 0)
-            {
+                std::memset(sample_buf.data(), 0, n_samples * 2 * sizeof(int));
                 /* Mix together the audio from different cards */
-                static std::vector<int> sample_buf;
-                sample_buf.clear();
-                sample_buf.resize(n_samples*2);
-                struct Mix
-                {
-                    static void AddStereoAudio(unsigned long count, int* samples)
-                    {
-                        for(unsigned long a=0; a<count*2; ++a)
-                            sample_buf[a] += samples[a];
-                    }
-                };
                 for(unsigned card = 0; card < NumCards; ++card)
-                {
-                    player.Generate(card,
-                        0,
-                        Mix::AddStereoAudio,
-                        n_samples);
-                }
+                    player.Generate(card, sample_buf.data(), n_samples);
+
                 /* Process it */
                 SendStereoAudio(n_samples, &sample_buf[0]);
             }

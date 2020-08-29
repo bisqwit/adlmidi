@@ -23,12 +23,12 @@ SOURCES += \
     adlinput.cc \
     adlplay.cc \
     adlui.cc \
-    dbopl.cpp
+    nukedopl3.c
 
 HEADERS += \
     adldata.hh \
     adlpriv.hh \
-    dbopl.h \
+    nukedopl3.h \
     puzzlegame.inc \
     6x9.inc \
     8x16.inc \
@@ -39,4 +39,3 @@ HEADERS += \
     ../include/adlui.h \
     ../include/adlplay.h \
     ../include/fraction.hpp
-

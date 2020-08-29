@@ -8,7 +8,7 @@
 #endif
 
 #ifndef __DJGPP__
-#include "dbopl.h"
+#include "nukedopl3.h"
 #endif
 
 #include "adldata.hh"
@@ -179,7 +179,7 @@ ADLMIDI_EXPORT void OPL3::Poke(unsigned card, unsigned index, unsigned value)
     outportb(port+1, value);
     for(unsigned c=0; c<35; ++c) inportb(port);
 #else
-    cards[card]->WriteReg(index, value);
+    OPL3_WriteRegBuffered(cards[card], index, value);
 #endif
 }
 
@@ -350,7 +350,8 @@ ADLMIDI_EXPORT void OPL3::Reset()
     cards.resize(NumCards);
     for(unsigned card=0; card<cards.size(); ++card)
     {
-        cards[card] = new DBOPL::Handler;
+        cards[card] = new opl3_chip;
+        std::memset(cards[card], 0, sizeof(opl3_chip));
     }
 #endif
     NumChannels = NumCards * 23;
@@ -373,7 +374,7 @@ ADLMIDI_EXPORT void OPL3::Reset()
     for(unsigned card=0; card<NumCards; ++card)
     {
 #ifndef __DJGPP__
-        cards[card]->Init(PcmRate);
+        OPL3_Reset(cards[card], PcmRate);
 #endif
         for(unsigned a=0; a< 18; ++a) Poke(card, 0xB0+Channels[a], 0x00);
         for(unsigned a=0; a< sizeof(data)/sizeof(*data); a+=2)
@@ -901,7 +902,7 @@ ADLMIDI_EXPORT void MIDIplay::NoteUpdate(unsigned MidCh, MIDIplay::MIDIchannel::
 
                 if(Ch[MidCh].vibrato && d.vibdelay >= Ch[MidCh].vibdelay)
                     bend += Ch[MidCh].vibrato * Ch[MidCh].vibdepth * std::sin(Ch[MidCh].vibpos);
-                opl.NoteOn(c, 172.00093 * std::exp(0.057762265 * (tone + bend + phase)));
+                opl.NoteOn(c, 172.4387 * std::exp(0.057762265 * (tone + bend + phase)));
                 if(UI) UI->IllustrateNote(c, tone, midiins, vol, Ch[MidCh].bend);
             }
         }
@@ -1644,30 +1645,27 @@ retry_arpeggio:;
 }
 
 #ifndef __DJGPP__
+
+#define OPL3_MIN(A, B)          (((A) > (B)) ? (B) : (A))
+#define OPL3_MAX(A, B)          (((A) < (B)) ? (B) : (A))
+#define OPL3_CLAMP(V, MIN, MAX) OPL3_MAX(OPL3_MIN(V, MAX), MIN)
+
 ADLMIDI_EXPORT void MIDIplay::Generate(int card,
-                        void (*AddSamples_m32)(unsigned long, int32_t *),
-                        void (*AddSamples_s32)(unsigned long, int32_t *),
+                        int32_t *output,
                         unsigned long samples)
 {
-    opl.cards[card]->Generate(AddSamples_m32, AddSamples_s32, samples);
-}
+    Bit32u i;
+    Bit16s sample[2];
+    Bit32s mix[2];
 
-void MIDIplay::Generate(int card,
-                        std::function<void (unsigned long, int32_t *)> AddSamples_m32,
-                        std::function<void (unsigned long, int32_t *)> AddSamples_s32,
-                        unsigned long samples)
-{
-    auto &chip = opl.cards[card]->chip;
-
-    Bit32s buffer[ 512 * 2 ];
-    if ( GCC_UNLIKELY(samples > 512) )
-        samples = 512;
-    if ( !chip.opl3Active ) {
-        chip.GenerateBlock2( samples, buffer );
-        AddSamples_m32( samples, buffer );
-    } else {
-        chip.GenerateBlock3( samples, buffer );
-        AddSamples_s32( samples, buffer );
+    for(i = 0; i < samples; i++)
+    {
+        OPL3_GenerateResampled(opl.cards[card], sample);
+        mix[0] = output[0] + sample[0];
+        mix[1] = output[1] + sample[1];
+        output[0] = OPL3_CLAMP(mix[0], INT16_MIN, INT16_MAX);
+        output[1] = OPL3_CLAMP(mix[1], INT16_MIN, INT16_MAX);
+        output += 2;
     }
 }
 #endif
@@ -1738,7 +1736,7 @@ ADLMIDI_EXPORT void Tester::DoNote(int note)
         else
             tone -= ains.tone-128;
     }
-    double hertz = 172.00093 * std::exp(0.057762265 * (tone + 0.0));
+    double hertz = 172.4387 * std::exp(0.057762265 * (tone + 0.0));
     int i[2] = { ains.adlno1, ains.adlno2 };
     int adlchannel[2] = { 0, 3 };
     if(i[0] == i[1])
@@ -1851,6 +1849,7 @@ struct AdlSimpleMidiPlay_private
     unsigned long PCM_RATE = 48000;
     double mindelay = 1 / (double)PCM_RATE;
     double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
+    int MidBuffer[MaxSamplesAtTime * 2];
     double delay = 0;
     double carry = 0.0;
     bool midiLoaded = false;
@@ -2003,20 +2002,14 @@ ADLMIDI_EXPORT long AdlSimpleMidiPlay::Play(short *output, long frames)
         {
             if(n_samples > 0)
             {
-                auto mix = [target](unsigned long count, int32_t *samples) -> void
-                {
-                    for(unsigned long a=0; a<count*2; ++a)
-                        target[a] += (short)samples[a];
-                };
+                std::memset(p->MidBuffer, 0, sizeof(int) * n_samples * 2);
 
                 /* Mix together the audio from different cards */
                 for(unsigned card = 0; card < NumCards; ++card)
-                {
-                    p->player.Generate(card,
-                                    0,
-                                    mix,
-                                    n_samples);
-                }
+                    p->player.Generate(card, p->MidBuffer, n_samples);
+
+                for(long a=0; a<n_samples*2; ++a)
+                    target[a] += (short)p->MidBuffer[a];
             }
         }
 

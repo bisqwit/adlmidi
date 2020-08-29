@@ -17,10 +17,7 @@ class ADL_Input;
 
 #ifndef __DJGPP__
 #include <functional>
-namespace DBOPL
-{
-struct Handler;
-}
+typedef struct _opl3_chip opl3_chip;
 #endif
 
 struct ADLMIDI_DECLSPEC OPL3
@@ -29,7 +26,7 @@ struct ADLMIDI_DECLSPEC OPL3
     unsigned long PcmRate;
 
 #ifndef __DJGPP__
-    std::vector<DBOPL::Handler*> cards;
+    std::vector<opl3_chip*> cards;
 #endif
 
 private:
@@ -240,12 +237,7 @@ public:
     void SetPcmRate(unsigned long rate);
 
     void Generate(int card,
-                  void(*AddSamples_m32)(unsigned long,int32_t*),
-                  void(*AddSamples_s32)(unsigned long,int32_t*),
-                  unsigned long samples);
-    void Generate(int card,
-                  std::function<void(unsigned long,int32_t*)> AddSamples_m32,
-                  std::function<void(unsigned long,int32_t*)> AddSamples_s32,
+                  int32_t *output,
                   unsigned long samples);
 #endif
 };

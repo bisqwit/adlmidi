@@ -1,6 +1,7 @@
 #CXX=i686-w64-mingw32-g++ -m64
 #CXX=x86_64-w64-mingw32-g++ -m64 -static-libgcc -static-libstdc++
 
+CC      = gcc
 CXX     = g++
 CXXLINK = $(CXX)
 RM      = rm
@@ -27,6 +28,7 @@ LDLIBS_PLAY = $(LDLIBS) -L. -ladlcpp
 #LDLIBS += -lwinmm
 
 CPPFLAGS += -std=c++17 -pedantic -Wall -Wextra
+CFLAGS += -Wall -Wextra
 
 include make.rules
 
