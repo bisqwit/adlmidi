@@ -229,10 +229,12 @@ private:
 public:
     unsigned ChooseDevice(const std::string& name);
 
+#ifndef __DJGPP__
     void Generate(int card,
                   void(*AddSamples_m32)(unsigned long,int32_t*),
                   void(*AddSamples_s32)(unsigned long,int32_t*),
                   unsigned long samples);
+#endif
 };
 
 

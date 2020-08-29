@@ -118,7 +118,7 @@ adlmidi: obj/midiplay.o $(MIDIPLAY_LINK_LIB)
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS) -Wl,-rpath .
 
 $(ADLMIDI_LIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
-	$(CXXLINK) -shared $^  $(DEBUG) -o $@ $(ADLMIDI_IMPLIB)
+	if [ "$(NOSHARE)" = "" ]; then $(CXXLINK) -shared $^  $(DEBUG) -o $@ $(ADLMIDI_IMPLIB); fi
 
 $(ADLMIDI_STATICLIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
 	$(AR) rcs $@ $^
@@ -160,9 +160,12 @@ obj/dumpbank.o: utils/dumpbank.cc
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
 
 clean:
-	for f in obj/*.o; do $(RM) $$f; done
 	if [ -f adlmidi ]; then $(RM) adlmidi; fi
+	if [ -f adlmidi.exe ]; then $(RM) adlmidi.exe; fi
 	if [ -f gen_adldata ]; then $(RM) gen_adldata; fi
+	if [ -f gen_adldata.exe ]; then $(RM) gen_adldata.exe; fi
 	if [ -f $(ADLMIDI_LIBNAME) ]; then $(RM) $(ADLMIDI_LIBNAME); fi
+	if [ -f $(ADLMIDI_STATICLIBNAME) ]; then $(RM) $(ADLMIDI_STATICLIBNAME); fi
+	for f in obj/*.o; do $(RM) $$f; done
 
 include depfun.mak

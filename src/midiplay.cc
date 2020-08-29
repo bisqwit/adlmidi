@@ -694,7 +694,9 @@ int main(int argc, char** argv)
     // The lag between visual content and audio content equals
     // the sum of these two buffers.
 
+#ifndef __DJGPP__
     WritingToTTY = isatty(STDOUT_FILENO);
+#endif
     if (WritingToTTY)
     {
         UI.Print(0, 15,true,

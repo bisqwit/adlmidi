@@ -38,7 +38,7 @@ bool WriteVideoFile = false;
 #endif
 
 bool ScaleModulators = false;
-bool WritingToTTY;
+bool WritingToTTY = true;
 
 
 static const unsigned short Operators[23*2] =
@@ -1637,6 +1637,7 @@ retry_arpeggio:;
     }
 }
 
+#ifndef __DJGPP__
 ADLMIDI_EXPORT void MIDIplay::Generate(int card,
                         void (*AddSamples_m32)(unsigned long, int32_t *),
                         void (*AddSamples_s32)(unsigned long, int32_t *),
@@ -1644,6 +1645,7 @@ ADLMIDI_EXPORT void MIDIplay::Generate(int card,
 {
     opl.cards[card]->Generate(AddSamples_m32, AddSamples_s32, samples);
 }
+#endif
 
 ADLMIDI_EXPORT unsigned MIDIplay::ChooseDevice(const std::string &name)
 {
@@ -1743,12 +1745,12 @@ ADLMIDI_EXPORT void Tester::NextAdl(int offset)
     const unsigned NumBanks = sizeof(banknames)/sizeof(*banknames);
     ins_idx = (ins_idx + adl_ins_list.size() + offset) % adl_ins_list.size();
 
-    if(UI) UI->Color(15); std::fflush(stderr);
+    if(UI) { UI->Color(15); std::fflush(stderr); }
     std::printf("SELECTED G%c%d\t%s\n",
                 cur_gm<128?'M':'P', cur_gm<128?cur_gm+1:cur_gm-128,
                 "<-> select GM, ^v select ins, qwe play note");
     std::fflush(stdout);
-    if(UI) UI->Color(7); std::fflush(stderr);
+    if(UI) { UI->Color(7); std::fflush(stderr); }
     for(unsigned a=0; a<adl_ins_list.size(); ++a)
     {
         const unsigned i = adl_ins_list[a];

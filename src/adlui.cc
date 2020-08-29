@@ -16,6 +16,13 @@
 # include <windows.h>
 #endif
 
+#ifdef __DJGPP__
+# include <conio.h>
+# include <csignal>
+# include <signal.h>
+# define RawPrn cprintf
+#endif
+
 static const char MIDIsymbols[256+1] =
 "PPPPPPhcckmvmxbd"  // Ins  0-15
 "oooooahoGGGGGGGG"  // Ins 16-31
@@ -103,7 +110,8 @@ ADLMIDI_EXPORT ADL_UserInterface::ADL_UserInterface(): x(0), y(0), color(-1), tx
         //SetConsoleScreenBufferSize(handle,size);
     }
 #endif
-#if (!defined(__WIN32__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
+
+#if (!defined(__WIN32__) && !defined(__DJGPP__) || defined(__CYGWIN__)) && defined(TIOCGWINSZ)
     std::signal(SIGWINCH, SigWinchHandler);
 #endif
 #ifdef __DJGPP__
@@ -264,9 +272,7 @@ ADLMIDI_EXPORT void ADL_UserInterface::PutC(char c)
 }
 
 
-#ifdef __DJGPP__
-    #define RawPrn cprintf
-#else
+#ifndef __DJGPP__
 void ADL_UserInterface::RawPrn(const char *fmt, ...)
 {
     // Note: should essentially match PutC, except without updates to x
