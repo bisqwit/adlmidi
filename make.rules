@@ -162,6 +162,10 @@ obj/dumpbank.o: utils/dumpbank.cc
 clean:
 	if [ -f adlmidi ]; then $(RM) adlmidi; fi
 	if [ -f adlmidi.exe ]; then $(RM) adlmidi.exe; fi
+	if [ -f dumpbank ]; then $(RM) dumpbank; fi
+	if [ -f dumpbank.exe ]; then $(RM) dumpbank.exe; fi
+	if [ -f dumpmiles ]; then $(RM) dumpmiles; fi
+	if [ -f dumpmiles.exe ]; then $(RM) dumpmiles.exe; fi
 	if [ -f gen_adldata ]; then $(RM) gen_adldata; fi
 	if [ -f gen_adldata.exe ]; then $(RM) gen_adldata.exe; fi
 	if [ -f $(ADLMIDI_LIBNAME) ]; then $(RM) $(ADLMIDI_LIBNAME); fi
