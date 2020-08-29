@@ -34,6 +34,7 @@ HEADERS += \
     8x16.inc \
     9x15.inc \
     ../include/adlcpp.h \
+    ../include/adlglob.h \
     ../include/adlinput.h \
     ../include/adlui.h \
     ../include/adlplay.h \

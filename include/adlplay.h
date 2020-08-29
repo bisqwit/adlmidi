@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef ADLPLAY_H
 #define ADLPLAY_H
 
@@ -10,6 +12,9 @@
 #include "adlcpp.h"
 #endif
 
+class ADL_UserInterface;
+class ADL_Input;
+
 #ifndef __DJGPP__
 #include <functional>
 namespace DBOPL
@@ -21,6 +26,7 @@ struct Handler;
 struct ADLMIDI_DECLSPEC OPL3
 {
     unsigned NumChannels;
+    unsigned long PcmRate;
 
 #ifndef __DJGPP__
     std::vector<DBOPL::Handler*> cards;
@@ -231,6 +237,8 @@ public:
     unsigned ChooseDevice(const std::string& name);
 
 #ifndef __DJGPP__
+    void SetPcmRate(unsigned long rate);
+
     void Generate(int card,
                   void(*AddSamples_m32)(unsigned long,int32_t*),
                   void(*AddSamples_s32)(unsigned long,int32_t*),
@@ -266,40 +274,5 @@ public:
     void HandleInputChar(char ch);
     double Tick(double /*eat_delay*/, double /*mindelay*/);
 };
-
-#ifndef __DJGPP__
-
-class ADLMIDI_DECLSPEC SimpleMidiPlay
-{
-    MIDIplay player;
-    const double mindelay = 1 / (double)PCM_RATE;
-    const double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
-    double delay = 0;
-    double carry = 0.0;
-    bool midiLoaded = false;
-
-public:
-    SimpleMidiPlay();
-    ~SimpleMidiPlay();
-    SimpleMidiPlay(const SimpleMidiPlay &) = delete;
-
-    void SetBankNo(int bankNo);
-    int GetBankNo() const;
-    static int MaxBankNo();
-
-    static const char* const* GetBankNames();
-
-    void SetCardsNum(int cardsNum);
-    int GetCardsNum() const;
-
-    void Set4OpNum(int fourOpNum);
-    int Get4OpNum() const;
-
-    bool LoadMidi(const std::string &path);
-
-    void Play(short *output, long samples);
-};
-
-#endif
 
 #endif // ADLPLAY_H

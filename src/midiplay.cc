@@ -51,6 +51,8 @@ static const unsigned NewTimerFreq = 209;
 #include "adlcpp.h"
 #include "adlui.h"
 
+const unsigned long PCM_RATE = 48000;
+
 ADL_Input Input;
 ADL_UserInterface UI;
 
@@ -683,6 +685,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR szCmdLine, int sw)
 
 int main(int argc, char** argv)
 {
+    unsigned SkipForward = 0;
 #endif
     // How long is SDL buffer, in seconds?
     // The smaller the value, the more often AdlAudioCallBack()
@@ -928,6 +931,9 @@ int main(int argc, char** argv)
 
     MIDIplay player;
     player.SetUI(&UI);
+#ifndef __DJGPP__
+    player.SetPcmRate(PCM_RATE);
+#endif
     player.ChooseDevice("");
 
     UI.Color(7);

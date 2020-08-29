@@ -1,4 +1,5 @@
 #include "adlui.h"
+#include "adlglob.h"
 #include "adlpriv.hh"
 
 #include <cstdio>

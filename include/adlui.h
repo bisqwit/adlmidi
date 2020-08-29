@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef ADLUI_H
 #define ADLUI_H
 
@@ -6,6 +8,10 @@
 
 #ifndef ADLCPP_H
 #include "adlcpp.h"
+#endif
+
+#ifndef ADLGLOBAL_H
+#include "adlglob.h"
 #endif
 
 class ADLMIDI_DECLSPEC ADL_UserInterface

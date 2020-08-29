@@ -13,6 +13,7 @@
 
 #include "adldata.hh"
 #include "adlplay.h"
+#include "adlglob.h"
 #include "adlcpp.h"
 #include "adlui.h"
 #include "adlinput.h"
@@ -27,7 +28,6 @@ bool AdlPercussionMode = false;
 bool LogarithmicVolumes = false;
 bool CartoonersVolumes = false;
 bool QuitFlag = false, FakeDOSshell = false;
-unsigned SkipForward = 0;
 bool DoingInstrumentTesting = false;
 bool QuitWithoutLooping = false;
 bool WritePCMfile = false;
@@ -148,6 +148,7 @@ static const adldata& GetAdlIns(unsigned short insno)
 
 ADLMIDI_EXPORT OPL3::OPL3() :
     NumChannels(0),
+    PcmRate(48000),
     UI(nullptr)
 {}
 
@@ -372,7 +373,7 @@ ADLMIDI_EXPORT void OPL3::Reset()
     for(unsigned card=0; card<NumCards; ++card)
     {
 #ifndef __DJGPP__
-        cards[card]->Init(PCM_RATE);
+        cards[card]->Init(PcmRate);
 #endif
         for(unsigned a=0; a< 18; ++a) Poke(card, 0xB0+Channels[a], 0x00);
         for(unsigned a=0; a< sizeof(data)/sizeof(*data); a+=2)
@@ -553,6 +554,9 @@ riffskip:;
     bool is_RSXX = false; // RSXX, such as Cartooners
     std::vector<unsigned char> MUS_instrumentList;
 
+    LogarithmicVolumes = false;
+    CartoonersVolumes = false;
+
     if(std::memcmp(HeaderBuf, "GMF\1", 4) == 0)
     {
         // GMD/MUS files (ScummVM)
@@ -586,6 +590,8 @@ riffskip:;
         std::fread(HeaderBuf, 1, 4, fp);
         unsigned ins_count =  ReadLEint(HeaderBuf+0, 2);//, basictempo = ReadLEint(HeaderBuf+2, 2);
         std::fseek(fp, ins_start, SEEK_SET);
+        dynamic_metainstruments.clear();
+        dynamic_instruments.clear();
         //std::printf("%u instruments\n", ins_count);
         for(unsigned i=0; i<ins_count; ++i)
         {
@@ -1676,6 +1682,13 @@ ADLMIDI_EXPORT unsigned MIDIplay::ChooseDevice(const std::string &name)
     return n;
 }
 
+#ifndef __DJGPP__
+void MIDIplay::SetPcmRate(unsigned long rate)
+{
+    opl.PcmRate = rate;
+}
+#endif
+
 
 
 
@@ -1832,87 +1845,160 @@ ADLMIDI_EXPORT double Tester::Tick(double, double)
 
 #ifndef __DJGPP__
 
-ADLMIDI_EXPORT SimpleMidiPlay::SimpleMidiPlay()
+struct AdlSimpleMidiPlay_private
 {
-    player.ChooseDevice("");
+    MIDIplay player;
+    unsigned long PCM_RATE = 48000;
+    double mindelay = 1 / (double)PCM_RATE;
+    double maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
+    double delay = 0;
+    double carry = 0.0;
+    bool midiLoaded = false;
+    unsigned SkipForward = 0;
+
+    void updateRate();
+    void compute4ops();
+};
+
+
+void AdlSimpleMidiPlay_private::updateRate()
+{
+    mindelay = 1 / (double)PCM_RATE;
+    maxdelay = MaxSamplesAtTime / (double)PCM_RATE;
 }
 
-ADLMIDI_EXPORT SimpleMidiPlay::~SimpleMidiPlay()
-{}
+void AdlSimpleMidiPlay_private::compute4ops()
+{
+    unsigned n_fourop[2] = {0,0}, n_total[2] = {0,0};
 
-ADLMIDI_EXPORT void SimpleMidiPlay::SetBankNo(int bankNo)
+    for(unsigned a=0; a<256; ++a)
+    {
+        unsigned insno = ::banks[::AdlBank][a];
+        if(insno == 198) continue;
+        ++n_total[a/128];
+        if(::adlins[insno].adlno1 != ::adlins[insno].adlno2)
+            ++n_fourop[a/128];
+    }
+
+    ::NumFourOps =
+        (n_fourop[0] >= n_total[0]*7/8) ? ::NumCards * 6
+      : (n_fourop[0] < n_total[0]*1/8) ? 0 : (::NumCards==1 ? 1 : ::NumCards*4);
+}
+
+AdlSimpleMidiPlay::AdlSimpleMidiPlay()
+{
+    p = new AdlSimpleMidiPlay_private;
+    p->SkipForward = 0;
+    p->player.ChooseDevice("");
+    p->compute4ops();
+}
+
+ADLMIDI_EXPORT AdlSimpleMidiPlay::~AdlSimpleMidiPlay()
+{
+    delete p;
+}
+
+void AdlSimpleMidiPlay::SetSampleRate(int rate)
+{
+    p->PCM_RATE = rate;
+    p->updateRate();
+    p->player.SetPcmRate(rate);
+}
+
+ADLMIDI_EXPORT void AdlSimpleMidiPlay::SetBankNo(int bankNo)
 {
     ::AdlBank = bankNo;
+    p->compute4ops();
 }
 
-ADLMIDI_EXPORT int SimpleMidiPlay::GetBankNo() const
+ADLMIDI_EXPORT int AdlSimpleMidiPlay::GetBankNo() const
 {
     return ::AdlBank;
 }
 
-const char * const *SimpleMidiPlay::GetBankNames()
+const char * const *AdlSimpleMidiPlay::GetBankNames()
 {
     return ::banknames;
 }
 
-ADLMIDI_EXPORT int SimpleMidiPlay::MaxBankNo()
+ADLMIDI_EXPORT int AdlSimpleMidiPlay::MaxBankNo()
 {
     const unsigned NumBanks = sizeof(::banknames)/sizeof(*::banknames);
     return NumBanks;
 }
 
-ADLMIDI_EXPORT void SimpleMidiPlay::SetCardsNum(int cardsNum)
+ADLMIDI_EXPORT void AdlSimpleMidiPlay::SetCardsNum(int cardsNum)
 {
+    if(cardsNum < 1 || cardsNum > (int)::MaxCards)
+        return;
+
     ::NumCards = cardsNum;
-    if(midiLoaded)
-        player.opl.Reset();
+    if(p->midiLoaded)
+        p->player.opl.Reset();
 }
 
-ADLMIDI_EXPORT int SimpleMidiPlay::GetCardsNum() const
+ADLMIDI_EXPORT int AdlSimpleMidiPlay::GetCardsNum() const
 {
     return ::NumCards;
 }
 
-ADLMIDI_EXPORT void SimpleMidiPlay::Set4OpNum(int fourOpNum)
+ADLMIDI_EXPORT void AdlSimpleMidiPlay::Set4OpNum(int fourOpNum)
 {
-    NumFourOps = fourOpNum;
-    if(midiLoaded)
-        player.opl.Reset();
+    ::NumFourOps = fourOpNum;
+    if(p->midiLoaded)
+        p->player.opl.Reset();
 }
 
-ADLMIDI_EXPORT int SimpleMidiPlay::Get4OpNum() const
+ADLMIDI_EXPORT int AdlSimpleMidiPlay::Get4OpNum() const
 {
     return  ::NumFourOps;
 }
 
-ADLMIDI_EXPORT bool SimpleMidiPlay::LoadMidi(const std::string &path)
+ADLMIDI_EXPORT bool AdlSimpleMidiPlay::LoadMidi(const std::string &path)
 {
-    bool ret = player.LoadMIDI(path);
-    midiLoaded = ret;
+    QuitFlag = 0;
+    p->carry = 0.0;
+    p->delay = 0.0;
+    p->SkipForward = 0;
+    bool ret = p->player.LoadMIDI(path);
+    p->midiLoaded = ret;
     return ret;
 }
 
-ADLMIDI_EXPORT void SimpleMidiPlay::Play(short *output, long samples)
+void AdlSimpleMidiPlay::SetLoopEnabled(bool en)
+{
+    QuitWithoutLooping = !en;
+}
+
+ADLMIDI_EXPORT long AdlSimpleMidiPlay::Play(short *output, long frames)
 {
     short *target = output;
 
-    std::memset(output, 0, samples * 2 * sizeof(short));
+    std::memset(output, 0, frames * 2 * sizeof(short));
 
-    while(samples > 0)
+    int written = 0;
+
+    if(QuitFlag)
+        return 0;
+
+    while(frames > 0 && !QuitFlag)
     {
-        double delay_left = samples / PCM_RATE;
-        double eat_delay = delay < maxdelay ? delay : maxdelay;
-        if(eat_delay > delay_left)
-            eat_delay = delay_left;
-        delay -= eat_delay;
+        double left_delay = (double)frames / p->PCM_RATE;
+        double eat_delay = p->delay < p->maxdelay ? p->delay : p->maxdelay;
 
-        carry += PCM_RATE * eat_delay;
-        const unsigned long n_samples = (unsigned) carry;
-        carry -= n_samples;
+        if(eat_delay > left_delay)
+            eat_delay = left_delay;
 
+        p->carry += p->PCM_RATE * eat_delay;
+        long n_samples = (unsigned)p->carry;
 
-        if(SkipForward > 0)
-            SkipForward -= 1;
+        if(n_samples > frames)
+            n_samples = frames;
+
+        p->carry -= n_samples;
+
+        if(p->SkipForward > 0)
+            p->SkipForward -= 1;
         else
         {
             if(n_samples > 0)
@@ -1926,7 +2012,7 @@ ADLMIDI_EXPORT void SimpleMidiPlay::Play(short *output, long samples)
                 /* Mix together the audio from different cards */
                 for(unsigned card = 0; card < NumCards; ++card)
                 {
-                    player.Generate(card,
+                    p->player.Generate(card,
                                     0,
                                     mix,
                                     n_samples);
@@ -1934,9 +2020,14 @@ ADLMIDI_EXPORT void SimpleMidiPlay::Play(short *output, long samples)
             }
         }
 
-        samples -= n_samples;
+        frames -= n_samples;
         target += n_samples * 2;
+        written += n_samples * 2;
+
+        p->delay = p->player.Tick(eat_delay, p->mindelay);
     }
+
+    return written;
 }
 
 #endif

@@ -4,7 +4,7 @@ ARCHDIR=archives/
 NOGZIPARCHIVES=1
 
 ARCHFILES=\
-	include/adlcpp.h \
+	include/adlcpp.h include/adlglob.h \
 	src/midiplay.cc \
 	src/adlpriv.hh \
 	src/adlinput.cc include/adlinput.h \
