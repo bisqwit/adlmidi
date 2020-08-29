@@ -114,11 +114,11 @@ CPPFLAGS_SO += $(CPPFLAGS) -DADLMIDI_BUILD -fPIC
 
 all: adlmidi $(ADLMIDI_LIBNAME) $(ADLMIDI_STATICLIBNAME) gen_adldata dumpmiles dumpbank
 
-adlmidi: obj/midiplay.o $(ADLMIDI_LIBNAME)
+adlmidi: obj/midiplay.o $(MIDIPLAY_LINK_LIB)
 	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS) -Wl,-rpath .
 
 $(ADLMIDI_LIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
-	$(CXXLINK) -shared $^  $(DEBUG) -o $@
+	$(CXXLINK) -shared $^  $(DEBUG) -o $@ $(ADLMIDI_IMPLIB)
 
 $(ADLMIDI_STATICLIBNAME): obj/dbopl.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
 	$(AR) rcs $@ $^

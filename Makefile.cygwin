@@ -14,13 +14,15 @@ DEBUG=-O3 -g -fexpensive-optimizations -ffast-math
 ADLMIDI_LIBNAME        = libadlcpp.dll
 ADLMIDI_STATICLIBNAME  = libadlcpp-static.a
 
+MIDIPLAY_LINK_LIB=$(ADLMIDI_LIBNAME)
+
 CPPFLAGS += $(SDL)
 
 CPPFLAGS += -ansi -Wall -W
 
 CXX += -mwin32 -mconsole -mno-cygwin
 CPPFLAGS += -I/usr/include/mingw -mno-cygwin -I/usr/include/w32api
-LDLIBS += -L. -ladlcpp -L/usr/local/lib -L/usr/lib/w32api -lwinmm
+LDLIBS += -L/usr/local/lib -L/usr/lib/w32api -lwinmm
 
 # ^For cygwin. For anything else, remove this line.
 

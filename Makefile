@@ -13,6 +13,8 @@ DEBUG=-Ofast -g -fopenmp -march=native
 ADLMIDI_LIBNAME         = libadlcpp.so
 ADLMIDI_STATICLIBNAME   = libadlcpp.a
 
+MIDIPLAY_LINK_LIB=$(ADLMIDI_LIBNAME)
+
 #DEBUG += -fno-tree-vectorize
 
 # -march=pentium -mno-sse -mno-sse2 -mno-sse3 -mmmx
