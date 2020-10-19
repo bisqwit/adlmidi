@@ -4,16 +4,23 @@ ARCHDIR=archives/
 NOGZIPARCHIVES=1
 
 ARCHFILES=\
-	src/midiplay.cc \
-	src/dbopl.cpp src/dbopl.h \
+	include/adlcpp.h include/adlglob.h \
+	src/adlpriv.hh \
+	src/adlinput.cc include/adlinput.h \
+	src/adlui.cc include/adlui.h \
+	src/adlplay.cc include/adlplay.h \
+	src/nukedopl3.c src/nukedopl3.h \
 	src/adldata.cc src/adldata.hh \
-	src/fraction \
+	include/fraction.hpp \
 	src/puzzlegame.inc \
 	src/9x15.inc \
+	\
+	utils/midiplay.cc \
 	\
 	utils/dumpbank.cc \
 	utils/dumpmiles.cc \
 	utils/gen_adldata.cc \
+	utils/dbopl.cpp utils/dbopl.h \
 	\
 	doc/midiplay.bas \
 	progdesc.php \
@@ -103,24 +110,47 @@ ARCHFILES=\
 
 INSTALLPROGS=adlmidi
 
-all: adlmidi gen_adldata dumpmiles dumpbank
+CPPFLAGS += -I./include/ -DSUPPORT_VIDEO_OUTPUT -DSUPPORT_PUZZLE_GAME
 
-adlmidi: obj/midiplay.o obj/dbopl.o obj/adldata.o
-	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS)
+CPPFLAGS_SO += $(CPPFLAGS) -DADLMIDI_BUILD -fPIC
+CFLAGS_SO += $(CFLAGS) -DADLMIDI_BUILD -fPIC
 
-obj/midiplay.o: src/midiplay.cc src/dbopl.h src/adldata.hh
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@
+all: adlmidi $(ADLMIDI_LIBNAME) $(ADLMIDI_STATICLIBNAME) gen_adldata dumpmiles dumpbank
 
-obj/dbopl.o: src/dbopl.cpp src/dbopl.h
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
+adlmidi: obj/midiplay.o $(MIDIPLAY_LINK_LIB)
+	$(CXXLINK)  $^  $(DEBUG) $(SDL) -o $@ $(LDLIBS_PLAY) -Wl,-rpath .
+
+$(ADLMIDI_LIBNAME): obj/nukedopl3.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
+	if [ ! "$(NOSHARE)" = "1" ]; then $(CXXLINK) -shared $^  $(DEBUG) -o $@ $(ADLMIDI_IMPLIB); fi
+
+$(ADLMIDI_STATICLIBNAME): obj/nukedopl3.o obj/adldata.o obj/adlinput.o obj/adlui.o obj/adlplay.o
+	$(AR) rcs $@ $^
+
+obj/midiplay.o: utils/midiplay.cc src/adldata.hh
+	$(CXX) -Isrc $(CPPFLAGS) $<  $(DEBUG) $(SDL) -c -o $@
+
+obj/dbopl.o: utils/dbopl.cpp utils/dbopl.h
+	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@
+
+obj/nukedopl3.o: src/nukedopl3.c src/nukedopl3.h
+	$(CC) $(CFLAGS_SO) $<  $(DEBUG)  -c -o $@
 
 obj/adldata.o: src/adldata.cc src/adldata.hh
-	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
+	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@
+
+obj/adlinput.o: src/adlinput.cc include/adlinput.h
+	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@
+
+obj/adlui.o: src/adlui.cc include/adlui.h
+	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@
+
+obj/adlplay.o: src/adlplay.cc include/adlplay.h
+	$(CXX) $(CPPFLAGS_SO) $<  $(DEBUG)  -c -o $@
 
 gen_adldata: obj/gen_adldata.o obj/dbopl.o
 	$(CXXLINK)  $^  $(DEBUG)  -o $@  $(LDLIBS)
 
-obj/gen_adldata.o: utils/gen_adldata.cc src/dbopl.h
+obj/gen_adldata.o: utils/gen_adldata.cc utils/dbopl.h
 	$(CXX) $(CPPFLAGS) -I./src $<  $(DEBUG)  -c -o $@
 
 dumpmiles: obj/dumpmiles.o
@@ -134,5 +164,13 @@ dumpbank: obj/dumpbank.o
 
 obj/dumpbank.o: utils/dumpbank.cc
 	$(CXX) $(CPPFLAGS) $<  $(DEBUG)  -c -o $@
+
+clean:
+	for f in adlmidi dumpbank gen_adldata dumpmiles \
+	 adlmidi.exe dumpbank.exe dumpmiles.exe gen_adldata.exe \
+	 libadlcpp.dll.a $(ADLMIDI_LIBNAME) $(ADLMIDI_STATICLIBNAME); do \
+	 if [ -f $$f ]; then $(RM) $$f; fi; \
+	done
+	for f in obj/*.o; do $(RM) $$f; done
 
 include depfun.mak

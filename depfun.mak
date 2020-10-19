@@ -20,6 +20,12 @@
 #  ${INSTALLPROGS}  - Programs to be installed (space delimited)
 #  ${BINDIR}        - Directory for installed programs (without /)
 #                     Example: /usr/local/bin
+#  ${INSTALLLIBS}   - Libraries to be installed (space delimited)
+#  ${LIBDIR}        - Directory for installed libraries (without /)
+#                     Example: /usr/local/lib
+#  ${INSTALLINCLUDES}- Headers to be installed (space delimited)
+#  ${INCLUDEDIR}    - Directory for installed includes (without /)
+#                     Example: /usr/local/include
 #  ${INSTALL}       - Installer program, example: install
 #  ${DEPDIRS}       - Optional dependency dirs to account in .depend
 #
@@ -93,7 +99,7 @@ git_test_release: ${ARCHFILES}
 	git commit --allow-empty -a -m 'Test release ${VERSION} (dev)' # commit in dev branch
 	git rev-parse HEAD > .git/PUSHED_HEAD
 	git checkout release || git checkout -b release
-	 # 
+	 #
 	 # Backup the HEAD in release branch
 	 #
 	 git rev-parse release > .git/RELEASE_HEAD
@@ -151,7 +157,7 @@ UNUSED_archpak: ${ARCHFILES} ;
 	rm -rf .paktmp.txt ${ARCHNAME}
 	@make arch_finish_pak
 
-arch_finish_pak:	
+arch_finish_pak:
 	- if [ "${NOBZIP2ARCHIVES}" = "" ]; then bzip2 -9 >${ARCHDIR}${ARCHNAME}.tar.bz2 < ${ARCHDIR}${ARCHNAME}.tar; fi
 	if [ "${NOGZIPARCHIVES}" = "" ]; then gzip -f9 ${ARCHDIR}${ARCHNAME}.tar; wine /usr/local/bin/DeflOpt.exe ${ARCHDIR}${ARCHNAME}.tar.gz ; fi
 	rm -f ${ARCHDIR}${ARCHNAME}.tar
@@ -175,23 +181,42 @@ UNUSED_omabin${DEPFUN_OMABIN}: archpak
 install${DEPFUN_INSTALL}: ${INSTALLPROGS}
 	- if [ ! "${BINDIR}" = "" ]; then mkdir --parents $(BINDIR) 2>/dev/null; mkdir $(BINDIR) 2>/dev/null; \
 	   for s in ${INSTALLPROGS} ""; do if [ ! "$$s" = "" ]; then \
-	     ${INSTALL} -c -s -o bin -g bin -m 755 "$$s" ${BINDIR}/"$$s";fi;\
+	     ${INSTALL} -c -s -o ${USER} -g ${USER} -m 755 "$$s" ${BINDIR}/"$$s";fi;\
 	   done; \
 	  fi; \
 	  if [ ! "${MANDIR}" = "" ]; then mkdir --parents $(MANDIR) 2>/dev/null; mkdir $(MANDIR) 2>/dev/null; \
 	   for s in ${INSTALLMANS} ""; do if [ ! "$$s" = "" ]; then \
 	     ${INSTALL} -m 644 "$$s" ${MANDIR}/man"`echo "$$s"|sed 's/.*\.//'`"/"$$s";fi;\
 	   done; \
+	  fi; \
+	  if [ ! "${LIBDIR}" = "" ]; then mkdir --parents $(LIBDIR) 2>/dev/null; mkdir $(LIBDIR) 2>/dev/null; \
+	   for s in ${INSTALLLIBS} ""; do if [ ! "$$s" = "" ]; then \
+	     ${INSTALL} -c -s -o ${USER} -g ${USER} -m 755 "$$s" ${LIBDIR}/"$$s";fi;\
+	   done; \
+	  fi; \
+	  if [ ! "${INCLUDEDIR}" = "" ]; then mkdir --parents $(INCLUDEDIR)/adlcpp 2>/dev/null; mkdir $(INCLUDEDIR)/adlcpp 2>/dev/null; \
+	   cd include;\
+	   for s in ${INSTALLINCLUDES} ""; do if [ ! "$$s" = "" ]; then \
+	     ${INSTALL} -m 644 "$$s" ${INCLUDEDIR}/adlcpp/"$$s";fi;\
+	   done; \
+	   cd ..;\
 	  fi
-	
+
 uninstall${DEPFUN_INSTALL} deinstall${DEPFUN_INSTALL}:
-	for s in ${INSTALLPROGS}; do rm -f ${BINDIR}/"$$s";done
+	for s in ${INSTALLPROGS}; do rm -f ${BINDIR}/"$$s";done; \
+	cd include;\
+	for s in ${INSTALLINCLUDES} ""; do if [ ! "$$s" = "" ]; then \
+	  rm -f $(INCLUDEDIR)/adlcpp/$$s; \
+	fi; \
+	done; \
+	rmdir $(INCLUDEDIR)/adlcpp; \
+	cd ..
 	- for s in ${INSTALLLIBS}; do rm -f ${LIBDIR}/"$$s";done
 	for s in ${INSTALLMANS} ""; do if [ ! "$$s" = "" ]; then \
 	  rm -f ${MANDIR}/man"`echo "$$s"|sed 's/.*\.//'`"/"$$s";fi;\
 	done; \
 
-.PHONY: pak dep depend archpak omabin \
+.PHONY: pak dep depend archpak omabin clean \
 	install${DEPFUN_INSTALL} \
 	deinstall${DEPFUN_INSTALL} \
 	uninstall${DEPFUN_INSTALL}
