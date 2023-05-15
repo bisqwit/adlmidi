@@ -6,4 +6,9 @@ gen_adldata
 .depend
 /tmp
 *.user*
-
+build-*/
+/lib
+*.so
+*.dll
+*.a
+*.exe

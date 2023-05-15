@@ -5,11 +5,14 @@ CONFIG += c++11
 
 TARGET = gen_adldata
 
+QMAKE_CXXFLAGS += -Wno-implicit-fallthrough
+
 INCLUDEPATH += $$PWD/../src
 
 SOURCES += \
     gen_adldata.cc \
-    ../src/dbopl.cpp
+    dbopl.cpp
 
 HEADERS += \
-    $$PWD/../src/dbopl.h
+    $$PWD/dbopl.h
+

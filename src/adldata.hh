@@ -1,4 +1,4 @@
-#ifdef __WIN32__
+#if defined(__WIN32__) && !defined(ADLMIDI_BUILD)
 # include <cctype>
 # define WIN32_LEAN_AND_MEAN
 # include <windows.h>
@@ -10,7 +10,9 @@ typedef unsigned char Uint8;
 typedef unsigned short Uint16;
 typedef unsigned Uint32;
 #else
-# include <SDL.h>
+
+# if !defined(ADLMIDI_BUILD)
+#  include <SDL.h>
 class MutexType
 {
     SDL_mutex* mut;
@@ -20,6 +22,13 @@ public:
     void Lock() { SDL_mutexP(mut); }
     void Unlock() { SDL_mutexV(mut); }
 };
+# else
+#  include <cstdint>
+typedef uint8_t Uint8;
+typedef uint16_t Uint16;
+typedef uint32_t Uint32;
+# endif
+
 #endif
 
 extern const struct adldata
