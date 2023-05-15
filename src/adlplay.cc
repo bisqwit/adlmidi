@@ -1654,9 +1654,9 @@ ADLMIDI_EXPORT void MIDIplay::Generate(int card,
                         int32_t *output,
                         unsigned long samples)
 {
-    Bit32u i;
-    Bit16s sample[2];
-    Bit32s mix[2];
+    uint32_t i;
+    int16_t sample[2];
+    int32_t mix[2];
 
     for(i = 0; i < samples; i++)
     {
