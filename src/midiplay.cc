@@ -2519,18 +2519,21 @@ static void ParseReverb(std::string_view specs)
         if(!term.empty())
         {
             std::size_t eq = specs.find('=');
-            std::size_t key_end     = (eq == specs.npos) ? specs.size() : eq;
-            std::size_t value_begin = (eq == specs.npos) ? specs.size() : (eq+1);
+            std::size_t key_end     = (eq == specs.npos || eq >= term.size()) ? term.size() : eq;
+            std::size_t value_begin = (eq == specs.npos || eq >= term.size()) ? term.size() : (eq+1);
             std::string_view key(&term[0], key_end);
             std::string_view value(&term[value_begin], term.size()-value_begin);
-            float floatvalue = std::strtof(&value[0], nullptr); // FIXME: Requires specs to be nul-terminated
-            //if(!value.empty())
-            //    std::from_chars(&value[0], &value[value.size()], floatvalue); // Not implemented in GCC
+            float floatvalue = 0;
+            if(!value.empty())
+            {
+                floatvalue = std::strtof(&value[0], nullptr); // FIXME: Requires specs to be nul-terminated
+                //std::from_chars(&value[0], &value[value.size()], floatvalue); // Not implemented in GCC
+            }
 
             // Create a hash of the key
             //Good: start=0xF4939CE1DDA3,mul=0xE519FDFD45F8,add=0x9770000,perm=0x67EE6A00, mod=17,shift=32   distance = 7854  min=0 max=16
             std::uint_fast64_t a=0xF4939CE1DDA3, b=0x67EE6A00, c=0x9770000, d=0xE519FDFD45F8, result=a + d*key.size();
-            unsigned mod=17, shift=32;
+            constexpr unsigned mod=17, shift=32;
             for(unsigned char ch: key)
             {
                 result += ch;
