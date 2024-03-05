@@ -2522,11 +2522,12 @@ static void ParseReverb(std::string_view specs)
             std::size_t key_end     = (eq == specs.npos || eq >= term.size()) ? term.size() : eq;
             std::size_t value_begin = (eq == specs.npos || eq >= term.size()) ? term.size() : (eq+1);
             std::string_view key(&term[0], key_end);
-            std::string_view value(&term[value_begin], term.size()-value_begin);
             float floatvalue = 0;
-            if(!value.empty())
+            if(value_begin < term.size())
             {
-                floatvalue = std::strtof(&value[0], nullptr); // FIXME: Requires specs to be nul-terminated
+                // Note: strtof requires nul-termination. Thus we use std::string instead of std::string_view
+                std::string value(&term[value_begin], term.size()-value_begin);
+                floatvalue = std::strtof(&value[0], nullptr);
                 //std::from_chars(&value[0], &value[value.size()], floatvalue); // Not implemented in GCC
             }
 
