@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <cstdio>
+#include <cstdint>
 #include <vector> // vector
 #include <deque>  // deque
 #include <cmath>  // exp, log, ceil
