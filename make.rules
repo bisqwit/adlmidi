@@ -4,8 +4,9 @@ ARCHDIR=archives/
 NOGZIPARCHIVES=1
 
 ARCHFILES=\
+	include/adlcpp.h \
 	src/midiplay.cc \
-	src/dbopl.cpp src/dbopl.h \
+	src/dbopl.cpp src/dbopl.h src/adlpriv.hh \
 	src/adldata.cc src/adldata.hh \
 	src/fraction \
 	src/puzzlegame.inc \
@@ -102,6 +103,8 @@ ARCHFILES=\
 	obj/.keep
 
 INSTALLPROGS=adlmidi
+
+CPPFLAGS += -I./include/
 
 all: adlmidi gen_adldata dumpmiles dumpbank
 

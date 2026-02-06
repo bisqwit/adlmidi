@@ -6,4 +6,4 @@ gen_adldata
 .depend
 /tmp
 *.user*
-
+build-*/
